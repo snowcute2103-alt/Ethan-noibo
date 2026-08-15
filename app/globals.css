@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy: #16305c;
+  --navy-deep: #0f2244;
+  --blue: #1e7fe0;
+  --yellow: #f4b41a;
+}
+
+body {
+  color: #1a2433;
+  background: #f5f9ff;
+}
