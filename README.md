@@ -32,16 +32,17 @@ npm run dev
 
 ## Deploy lên Vercel + subdomain
 
-1. Import repo này vào Vercel (New Project → chọn repo).
-2. Trong Vercel → Project → Settings → Environment Variables: khai báo **toàn bộ** biến trong `.env.example` (SESSION_SECRET + 13 mật khẩu tài khoản) cho môi trường Production. Đổi mật khẩu khác với bản dev/local trước khi phát cho nhân viên.
-3. Deploy.
-4. Vercel → Project → Settings → Domains → thêm `noibo.ethanecom.com`. Vercel sẽ cho 1 giá trị CNAME (thường là `cname.vercel-dns.com`).
-5. Ở nơi quản lý DNS của `ethanecom.com` (hiện site chính chạy Caddy — DNS thường quản lý riêng ở registrar/nhà cung cấp DNS, không phải trong Caddyfile), thêm record:
-   ```
-   CNAME   noibo   cname.vercel-dns.com
-   ```
-6. Đợi DNS propagate (vài phút → vài giờ), Vercel tự cấp SSL.
-7. Trên site chính (Ethan-main), nút "NỘI BỘ" đã trỏ sẵn tới `https://noibo.ethanecom.com` (xem `assets/js/contact-popup.js` và `assets/js/shared.js`, tìm `INTERNAL_PORTAL_URL` / `noibo.ethanecom.com`) — không cần sửa gì thêm nếu dùng đúng subdomain này.
+**Đã làm xong (2026-08-15):**
+- Project `snow5/ethan-noibo` đã tạo trên Vercel, connect GitHub repo này (auto-deploy mỗi lần push `main`).
+- 14 biến môi trường Production (SESSION_SECRET + 13 mật khẩu, giá trị **khác** với bản dev local) đã set qua Vercel CLI — xem `vercel env ls production`. Giá trị gốc lưu ở `.env.production.local` (gitignored, chỉ trên máy này) — đổi mật khẩu qua Vercel dashboard nếu cần luân chuyển sau này.
+- Deploy production đầu tiên: **https://ethan-noibo.vercel.app** — đã test login/logout/phân quyền, chạy đúng.
+- Domain `noibo.ethanecom.com` đã add vào project.
+
+**Còn thiếu — cần làm ở nơi quản lý DNS của `ethanecom.com`** (không phải trong Caddyfile của site chính, DNS quản lý riêng ở registrar):
+```
+A   noibo   76.76.21.21
+```
+Kiểm tra lại bằng `vercel domains inspect noibo.ethanecom.com` — khi nào hết cảnh báo "not configured properly" là xong, Vercel tự cấp SSL. Trên site chính (Ethan-main), nút "NỘI BỘ" đã trỏ sẵn tới `https://noibo.ethanecom.com` (xem `INTERNAL_PORTAL_URL` trong `assets/js/contact-popup.js` và `assets/js/shared.js`) — không cần sửa gì thêm.
 
 ## Bảo mật / vận hành
 
