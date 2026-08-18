@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { Fragment, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -8,12 +8,34 @@ import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, departmentLabel, tierLabel } from '@/lib/roles';
 import { updateUserAction, unlockUserAction } from '@/app/dashboard/admin/actions';
 
+function formatDate(value: string | null): string {
+  if (!value) return '—';
+  const [y, m, d] = value.split('-');
+  if (!y || !m || !d) return value;
+  return `${d}/${m}/${y}`;
+}
+
+const DETAIL_FIELDS: Array<{ label: string; get: (u: UserRow) => string }> = [
+  { label: 'Mã nhân viên', get: (u) => u.employeeCode ?? '—' },
+  { label: 'Chức danh', get: (u) => u.jobTitle ?? '—' },
+  { label: 'Vị trí công việc', get: (u) => u.positionTitle ?? '—' },
+  { label: 'Team', get: (u) => u.teamLabel ?? '—' },
+  { label: 'Giới tính', get: (u) => u.gender ?? '—' },
+  { label: 'Ngày sinh', get: (u) => formatDate(u.birthDate) },
+  { label: 'Ngày vào làm', get: (u) => formatDate(u.startDate) },
+  { label: 'Văn phòng', get: (u) => u.office ?? '—' },
+  { label: 'Lịch làm việc', get: (u) => u.workSchedule ?? '—' },
+  { label: 'Email cá nhân', get: (u) => u.personalEmail ?? '—' },
+  { label: 'Điện thoại', get: (u) => u.phone ?? '—' },
+];
+
 export default function UserTable({ users }: { users: UserRow[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -95,58 +117,89 @@ export default function UserTable({ users }: { users: UserRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((u) => (
-              <tr key={u.id} className="odd:bg-white even:bg-surface-2/60">
-                <td className="border-b border-navy/10 px-4 py-3">
-                  {u.avatarUrl ? (
-                    <Image
-                      src={u.avatarUrl}
-                      alt={u.fullName}
-                      width={32}
-                      height={32}
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-surface-2" />
+            {filtered.map((u) => {
+              const isExpanded = expandedId === u.id;
+              return (
+                <Fragment key={u.id}>
+                  <tr className="odd:bg-white even:bg-surface-2/60">
+                    <td className="border-b border-navy/10 px-2 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(isExpanded ? null : u.id)}
+                        aria-label={isExpanded ? 'Thu gọn' : 'Xem chi tiết'}
+                        className="flex h-6 w-6 items-center justify-center text-muted transition hover:text-blue"
+                      >
+                        {isExpanded ? '▾' : '▸'}
+                      </button>
+                    </td>
+                    <td className="border-b border-navy/10 px-4 py-3">
+                      {u.avatarUrl ? (
+                        <Image
+                          src={u.avatarUrl}
+                          alt={u.fullName}
+                          width={32}
+                          height={32}
+                          className="h-8 w-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-surface-2" />
+                      )}
+                    </td>
+                    <td className="border-b border-navy/10 px-4 py-3 text-ink">{u.fullName}</td>
+                    <td className="border-b border-navy/10 px-4 py-3 text-ink">{u.username}</td>
+                    <td className="border-b border-navy/10 px-4 py-3 text-ink">{departmentLabel(u.department)}</td>
+                    <td className="border-b border-navy/10 px-4 py-3 text-ink">{tierLabel(u.tier)}</td>
+                    <td className="border-b border-navy/10 px-4 py-3">
+                      <span className={u.isActive ? 'text-blue' : 'text-muted'}>
+                        {u.isActive ? 'Hoạt động' : 'Đã vô hiệu hoá'}
+                      </span>
+                    </td>
+                    <td className="border-b border-navy/10 px-4 py-3">
+                      <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide">
+                        <Link href={`/dashboard/admin/users/${u.id}`} className="text-blue hover:underline">
+                          Sửa
+                        </Link>
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => handleToggleActive(u)}
+                          className="text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          {u.isActive ? 'Vô hiệu hoá' : 'Kích hoạt lại'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => handleUnlock(u.username)}
+                          className="text-muted hover:underline disabled:opacity-50"
+                        >
+                          Mở khoá
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr className="bg-navy/5">
+                      <td colSpan={8} className="border-b border-navy/10 px-6 py-4">
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+                          {DETAIL_FIELDS.map((field) => (
+                            <div key={field.label} className="flex flex-col gap-0.5">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                                {field.label}
+                              </span>
+                              <span className="text-sm text-ink">{field.get(u)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </td>
-                <td className="border-b border-navy/10 px-4 py-3 text-ink">{u.fullName}</td>
-                <td className="border-b border-navy/10 px-4 py-3 text-ink">{u.username}</td>
-                <td className="border-b border-navy/10 px-4 py-3 text-ink">{departmentLabel(u.department)}</td>
-                <td className="border-b border-navy/10 px-4 py-3 text-ink">{tierLabel(u.tier)}</td>
-                <td className="border-b border-navy/10 px-4 py-3">
-                  <span className={u.isActive ? 'text-blue' : 'text-muted'}>
-                    {u.isActive ? 'Hoạt động' : 'Đã vô hiệu hoá'}
-                  </span>
-                </td>
-                <td className="border-b border-navy/10 px-4 py-3">
-                  <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide">
-                    <Link href={`/dashboard/admin/users/${u.id}`} className="text-blue hover:underline">
-                      Sửa
-                    </Link>
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => handleToggleActive(u)}
-                      className="text-red-600 hover:underline disabled:opacity-50"
-                    >
-                      {u.isActive ? 'Vô hiệu hoá' : 'Kích hoạt lại'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => handleUnlock(u.username)}
-                      className="text-muted hover:underline disabled:opacity-50"
-                    >
-                      Mở khoá
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                </Fragment>
+              );
+            })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted">
                   Không tìm thấy user nào khớp.
                 </td>
               </tr>
