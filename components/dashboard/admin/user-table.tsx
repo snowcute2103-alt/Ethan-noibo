@@ -127,7 +127,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
                         type="button"
                         onClick={() => setExpandedId(isExpanded ? null : u.id)}
                         aria-label={isExpanded ? 'Thu gọn' : 'Xem chi tiết'}
-                        className="flex h-6 w-6 items-center justify-center text-muted transition hover:text-blue"
+                        className="flex h-6 w-6 items-center justify-center text-base font-bold text-navy transition hover:text-blue"
                       >
                         {isExpanded ? '▾' : '▸'}
                       </button>
