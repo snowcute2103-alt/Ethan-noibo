@@ -30,6 +30,17 @@ npm run dev
 
 `.env.local` không được commit (đã gitignore). `SESSION_SECRET` là chuỗi ngẫu nhiên ≥32 ký tự dùng để ký session JWT.
 
+## Database
+
+Postgres qua tích hợp Neon (Vercel Storage/Marketplace), project `ethan-noibo`, chỉ gắn môi trường **Production** (không gắn Preview — tránh code chưa review đụng dữ liệu nhân sự thật). Biến kết nối chính: `DATABASE_URL` (Vercel còn tạo thêm biến có prefix `STORAGE_URL_...` do lịch sử tích hợp — `lib/db.ts` đọc `DATABASE_URL` trước, `STORAGE_URL_DATABASE_URL`/`POSTGRES_URL` là dự phòng).
+
+```bash
+npx vercel env pull .env.local --yes --environment=production   # lấy DATABASE_URL thật (biến này đánh dấu Sensitive nên chỉ pull được, không xem lại được qua dashboard/CLI — cần giá trị mới thì lấy ở trang Neon: Storage → database → nút "Show secret")
+npm run db:migrate                                                # tạo/cập nhật schema, chạy lại an toàn (idempotent)
+```
+
+Schema: `db/schema.sql` (4 bảng — `users`, `rule_permissions`, `admin_audit_log`, `login_attempts`). `login_attempts` không tự dọn — định kỳ (vd hàng tháng) chạy tay `DELETE FROM login_attempts WHERE created_at < now() - interval '30 days'`.
+
 ## Deploy lên Vercel + subdomain
 
 **Đã làm xong (2026-08-15):**
@@ -37,7 +48,7 @@ npm run dev
 - 14 biến môi trường Production (SESSION_SECRET + 13 mật khẩu, giá trị **khác** với bản dev local) đã set qua Vercel CLI — xem `vercel env ls production`. Giá trị gốc lưu ở `.env.production.local` (gitignored, chỉ trên máy này) — đổi mật khẩu qua Vercel dashboard nếu cần luân chuyển sau này.
 - Deploy production đầu tiên: **https://ethan-noibo.vercel.app** — đã test login/logout/phân quyền, chạy đúng.
 - Domain `noibo.ethanecom.com` đã add vào project.
-
+ 
 **Còn thiếu — cần làm ở nơi quản lý DNS của `ethanecom.com`** (không phải trong Caddyfile của site chính, DNS quản lý riêng ở registrar):
 ```
 A   noibo   76.76.21.21

@@ -69,7 +69,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 bg-navy py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-yellow hover:text-navy disabled:opacity-60"
+        className="mt-2 cursor-pointer bg-navy py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-gold hover:text-navy disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? 'Đang đăng nhập…' : 'Đăng nhập'}
       </button>

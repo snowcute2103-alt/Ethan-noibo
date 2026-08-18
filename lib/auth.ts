@@ -1,16 +1,22 @@
 import 'server-only';
 import { SignJWT, jwtVerify } from 'jose';
-import { timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import type { Department, Tier } from './roles';
+import { getSessionCheck } from './users';
 
 export const SESSION_COOKIE = 'noibo_session';
-const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12 giờ
 
 export interface SessionPayload {
+  userId: number;
   username: string;
   department: Department;
   tier: Tier;
+  sessionVersion: number;
+}
+
+/** BGĐ (tier full) có phiên ngắn hơn hẳn — bảo mật cao hơn cho tài khoản quản trị. */
+export function sessionTtlFor(tier: Tier): number {
+  return tier === 'full' ? 2 * 60 * 60 : 12 * 60 * 60;
 }
 
 function secretKey(): Uint8Array {
@@ -21,19 +27,11 @@ function secretKey(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-/** So sánh mật khẩu theo thời gian cố định, tránh timing attack. */
-export function passwordMatches(input: string, expected: string): boolean {
-  const a = Buffer.from(input);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
-export async function createSessionToken(payload: SessionPayload): Promise<string> {
+export async function createSessionToken(payload: SessionPayload, ttlSeconds: number): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .setExpirationTime(`${ttlSeconds}s`)
     .sign(secretKey());
 }
 
@@ -41,14 +39,18 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
   try {
     const { payload } = await jwtVerify(token, secretKey());
     if (
+      typeof payload.userId === 'number' &&
       typeof payload.username === 'string' &&
       typeof payload.department === 'string' &&
-      typeof payload.tier === 'string'
+      typeof payload.tier === 'string' &&
+      typeof payload.sessionVersion === 'number'
     ) {
       return {
+        userId: payload.userId,
         username: payload.username,
         department: payload.department as Department,
         tier: payload.tier as Tier,
+        sessionVersion: payload.sessionVersion,
       };
     }
     return null;
@@ -57,12 +59,23 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
   }
 }
 
-/** Đọc session hiện tại từ cookie — dùng trong Server Components / route handlers. */
+/**
+ * Đọc session hiện tại từ cookie — dùng trong Server Components / route handlers.
+ * Ngoài verify chữ ký JWT, còn đối chiếu session_version/is_active hiện tại
+ * trong DB — cho phép thu hồi phiên ngay khi bị deactivate/đổi mật khẩu/đổi
+ * quyền, thay vì phải chờ hết hạn JWT (proxy.ts vẫn chỉ verify chữ ký, nhẹ,
+ * không tra DB — xem lib/README hoặc phase-03 trong plan).
+ */
 export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
-}
+  const payload = await verifySessionToken(token);
+  if (!payload) return null;
 
-export const SESSION_MAX_AGE = SESSION_TTL_SECONDS;
+  const check = await getSessionCheck(payload.userId);
+  if (!check || !check.isActive || check.sessionVersion !== payload.sessionVersion) {
+    return null;
+  }
+  return payload;
+}

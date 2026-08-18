@@ -1,27 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findAccount } from '@/lib/users';
-import { passwordMatches, createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/auth';
+import { findUserByUsername, isRateLimited, recordLoginAttempt } from '@/lib/users';
+import { verifyPassword, DUMMY_HASH } from '@/lib/password';
+import { createSessionToken, sessionTtlFor, SESSION_COOKIE } from '@/lib/auth';
+
+function clientIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  return forwarded?.split(',')[0]?.trim() || 'unknown';
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const username = typeof body?.username === 'string' ? body.username.trim().toLowerCase() : '';
   const password = typeof body?.password === 'string' ? body.password : '';
+  const ip = clientIp(req);
 
-  const account = findAccount(username);
-  const expected = account ? process.env[account.passwordEnvVar] : undefined;
+  const rateLimit = await isRateLimited(username, ip);
+  if (rateLimit.limited) {
+    return NextResponse.json(
+      { error: `Đăng nhập sai quá nhiều lần. Thử lại sau ${Math.ceil(rateLimit.retryAfterSeconds / 60)} phút.` },
+      { status: 429 }
+    );
+  }
 
-  // Luôn chạy so sánh (dù account không tồn tại) để tránh lộ thông tin qua thời gian phản hồi.
-  const ok = !!account && !!expected && passwordMatches(password, expected);
+  const user = await findUserByUsername(username);
 
-  if (!ok) {
+  // Luôn chạy verifyPassword (kể cả khi user không tồn tại, dùng DUMMY_HASH) để
+  // tránh lộ thông tin "tài khoản có tồn tại hay không" qua thời gian phản hồi.
+  const passwordOk = user ? await verifyPassword(password, user.passwordHash) : await verifyPassword(password, DUMMY_HASH);
+  const ok = !!user && passwordOk;
+
+  await recordLoginAttempt(username, ip, ok);
+
+  if (!ok || !user) {
     return NextResponse.json({ error: 'Tài khoản hoặc mật khẩu không đúng.' }, { status: 401 });
   }
 
-  const token = await createSessionToken({
-    username: account!.username,
-    department: account!.department,
-    tier: account!.tier,
-  });
+  const ttl = sessionTtlFor(user.tier);
+  const token = await createSessionToken(
+    {
+      userId: user.id,
+      username: user.username,
+      department: user.department,
+      tier: user.tier,
+      sessionVersion: user.sessionVersion,
+    },
+    ttl
+  );
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE, token, {
@@ -29,7 +53,7 @@ export async function POST(req: NextRequest) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: SESSION_MAX_AGE,
+    maxAge: ttl,
   });
   return res;
 }

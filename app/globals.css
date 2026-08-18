@@ -3,13 +3,117 @@
 @tailwind utilities;
 
 :root {
-  --navy: #16305c;
-  --navy-deep: #0f2244;
-  --blue: #1e7fe0;
-  --yellow: #f4b41a;
+  --navy: #1a2745;
+  --navy-deep: #101a30;
+  --blue: #0052cc;
+  --gold: #f5a623;
+  --cyan: #00d2ff;
 }
 
 body {
-  color: #1a2433;
-  background: #f5f9ff;
+  color: #333333;
+  background: #f4f7f9;
+}
+
+::selection {
+  background: var(--gold);
+  color: var(--navy);
+}
+
+@keyframes fade-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-fade-up {
+    animation: fade-up-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes money-fall {
+  0% {
+    transform: translateY(-8vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(108vh) rotate(25deg);
+    opacity: 0;
+  }
+}
+
+.animate-money-fall {
+  animation-name: money-fall;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1);
+  animation-fill-mode: forwards;
+}
+
+@keyframes holo-drift {
+  0%,
+  100% {
+    background-position:
+      20% 20%,
+      50% 50%;
+  }
+  50% {
+    background-position:
+      80% 80%,
+      50% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-holo-drift {
+    animation: holo-drift 7s ease-in-out infinite;
+  }
+}
+
+@keyframes firework-particle {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  65% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-firework-particle {
+    animation: firework-particle 950ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-twinkle {
+    animation: twinkle 3.6s ease-in-out infinite;
+  }
 }
