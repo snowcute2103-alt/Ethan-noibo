@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, type Department, type Tier } from '@/lib/roles';
-import { createUserAction, updateUserAction, resetPasswordAction } from '@/app/dashboard/admin/actions';
+import { createUserAction, updateUserAction, resetPasswordAction, uploadAvatarAction } from '@/app/dashboard/admin/actions';
 
 const inputClass = 'border border-[#e0e7f3] bg-[#fafbff] px-4 py-3 text-sm outline-none focus:border-blue';
 const labelClass = 'text-sm font-semibold text-ink';
@@ -31,8 +32,28 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
   const [office, setOffice] = useState(user?.office ?? '');
   const [startDate, setStartDate] = useState(user?.startDate ?? '');
   const [workSchedule, setWorkSchedule] = useState(user?.workSchedule ?? '');
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allowedTiers = DEPARTMENTS.find((d) => d.id === department)?.tiers ?? [];
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setAvatarError(null);
+    setIsUploadingAvatar(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    uploadAvatarAction(user.id, formData)
+      .then((result) => setAvatarUrl(result.avatarUrl))
+      .catch((err) => setAvatarError(err instanceof Error ? err.message : 'Có lỗi xảy ra.'))
+      .finally(() => {
+        setIsUploadingAvatar(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      });
+  }
 
   function handleDepartmentChange(next: Department) {
     setDepartment(next);
@@ -201,6 +222,40 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
           <input value={phone ?? ''} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
         </div>
       </div>
+
+      {mode === 'edit' && (
+        <div className="mt-2 border-t border-navy/15 pt-5">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted">Ảnh đại diện</p>
+          <div className="flex items-center gap-5">
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={fullName}
+                width={72}
+                height={72}
+                className="h-[72px] w-[72px] rounded-full border border-navy/15 object-cover"
+              />
+            ) : (
+              <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-navy/15 bg-surface-2 text-xs text-muted">
+                Chưa có
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={isUploadingAvatar}
+                onChange={handleAvatarChange}
+                className="text-sm text-ink file:mr-3 file:border-0 file:bg-navy file:px-4 file:py-2 file:text-xs file:font-semibold file:uppercase file:tracking-wide file:text-white hover:file:bg-gold hover:file:text-navy"
+              />
+              <span className="text-xs text-muted">JPEG, PNG hoặc WebP, tối đa 5MB.</span>
+              {isUploadingAvatar && <span className="text-xs text-blue">Đang tải lên…</span>}
+              {avatarError && <span className="text-xs text-red-600">{avatarError}</span>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-2 border-t border-navy/15 pt-5">
         <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted">Thông tin nhân sự</p>

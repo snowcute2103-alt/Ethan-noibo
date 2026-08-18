@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, departmentLabel, tierLabel } from '@/lib/roles';
@@ -84,6 +85,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
         <table className="w-full min-w-[720px] border-collapse text-left text-sm">
           <thead>
             <tr className="bg-navy text-cyan">
+              <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide"></th>
               <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">Họ tên</th>
               <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">Username</th>
               <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">Khối</th>
@@ -95,6 +97,19 @@ export default function UserTable({ users }: { users: UserRow[] }) {
           <tbody>
             {filtered.map((u) => (
               <tr key={u.id} className="odd:bg-white even:bg-surface-2/60">
+                <td className="border-b border-navy/10 px-4 py-3">
+                  {u.avatarUrl ? (
+                    <Image
+                      src={u.avatarUrl}
+                      alt={u.fullName}
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-surface-2" />
+                  )}
+                </td>
                 <td className="border-b border-navy/10 px-4 py-3 text-ink">{u.fullName}</td>
                 <td className="border-b border-navy/10 px-4 py-3 text-ink">{u.username}</td>
                 <td className="border-b border-navy/10 px-4 py-3 text-ink">{departmentLabel(u.department)}</td>
@@ -131,7 +146,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted">
                   Không tìm thấy user nào khớp.
                 </td>
               </tr>

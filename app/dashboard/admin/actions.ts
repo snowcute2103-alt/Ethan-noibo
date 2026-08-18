@@ -1,5 +1,6 @@
 'use server';
 
+import { put, del } from '@vercel/blob';
 import { getSession } from '@/lib/auth';
 import {
   createUser,
@@ -17,6 +18,13 @@ import { grantPermission, revokePermission } from '@/lib/rule-permissions';
 import { logAdminAction } from '@/lib/audit';
 import { DEPARTMENTS } from '@/lib/roles';
 import type { Department, Tier } from '@/lib/roles';
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const AVATAR_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 async function requireAdmin() {
   const session = await getSession();
@@ -102,6 +110,29 @@ export async function updateUserAction(
   });
 
   return { ok: true };
+}
+
+export async function uploadAvatarAction(id: number, formData: FormData): Promise<{ avatarUrl: string }> {
+  const admin = await requireAdmin();
+  const before = await findUserById(id);
+  if (!before) throw new Error('Không tìm thấy user.');
+
+  const file = formData.get('file');
+  if (!(file instanceof File)) throw new Error('Thiếu file ảnh.');
+  const ext = AVATAR_TYPES[file.type];
+  if (!ext) throw new Error('Chỉ nhận ảnh JPEG, PNG hoặc WebP.');
+  if (file.size > AVATAR_MAX_BYTES) throw new Error('Ảnh vượt quá 5MB.');
+
+  const blob = await put(`avatars/${id}-${Date.now()}.${ext}`, file, { access: 'public' });
+
+  if (before.avatarUrl?.includes('.public.blob.vercel-storage.com')) {
+    await del(before.avatarUrl).catch(() => {});
+  }
+
+  await updateUser(id, { avatarUrl: blob.url });
+  await logAdminAction(admin.userId, 'user.update', id, { changedFields: ['avatarUrl'] });
+
+  return { avatarUrl: blob.url };
 }
 
 export async function resetPasswordAction(id: number): Promise<{ password: string }> {
