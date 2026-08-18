@@ -64,9 +64,13 @@ export default function CultureArticles({ articles }: { articles: CultureArticle
         return (
           <article
             key={a.id}
-            className="grid grid-cols-1 gap-16 border-t border-navy/10 py-28 first:border-t-0 first:pt-0 sm:py-32 lg:grid-cols-[1fr_1.4fr] lg:gap-24"
+            id={a.id}
+            className="scroll-mt-10 grid grid-cols-1 gap-16 border-t border-navy/10 py-24 first:border-t-0 first:pt-0 sm:py-28 lg:grid-cols-[1fr_1.4fr] lg:gap-24"
           >
             <div className={`flex flex-col gap-9 ${reversed ? 'lg:order-2' : ''}`}>
+              <span className="font-heading select-none text-6xl font-light leading-none text-navy/15 sm:text-7xl sm:leading-none">
+                {String(i + 1).padStart(2, '0')}
+              </span>
               {image && (
                 <div className="relative h-64 w-full overflow-hidden rounded-2xl sm:h-80">
                   <Image src={image} alt="" fill sizes="(min-width: 1024px) 420px, 100vw" className="object-cover" />

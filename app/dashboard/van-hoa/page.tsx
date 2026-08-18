@@ -14,10 +14,10 @@ export default async function VanHoaPage() {
 
   return (
     <div className="bg-white">
-      <div className="relative flex min-h-[520px] items-end overflow-hidden sm:min-h-[680px]">
+      <div className="relative flex min-h-[480px] items-end overflow-hidden sm:min-h-[620px]">
         <Image src={heroImg} alt="" fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/60 to-navy/10" aria-hidden="true" />
-        <div className="relative mx-auto w-full max-w-[1320px] px-8 py-20 sm:py-28">
+        <div className="relative mx-auto w-full max-w-[1400px] px-8 py-16 sm:py-24">
           <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan">Câu chuyện Ethan</p>
           <h2 className="mt-6 max-w-3xl font-heading text-[clamp(3.25rem,9vw,8rem)] font-medium tracking-wide leading-[1.02] text-white">
             Văn hoá
@@ -29,13 +29,30 @@ export default async function VanHoaPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1320px] px-8 pb-10">
+      <div className="mx-auto max-w-[1400px] px-8 py-20 sm:py-28">
         {articles.length === 0 ? (
-          <p className="my-14 border border-dashed border-[#d5dfef] p-10 text-center text-base text-muted">
+          <p className="border border-dashed border-[#d5dfef] p-10 text-center text-base text-muted">
             Chưa có nội dung văn hoá nào cho khối của bạn.
           </p>
         ) : (
-          <CultureArticles articles={articles} />
+          <div className="grid grid-cols-1 gap-16 lg:grid-cols-[240px_1fr]">
+            <aside className="hidden lg:block">
+              <nav aria-label="Mục lục Văn hoá" className="sticky top-10 flex flex-col gap-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted">Trong bài này</p>
+                {articles.map((a, i) => (
+                  <a
+                    key={a.id}
+                    href={`#${a.id}`}
+                    className="flex items-baseline gap-3 text-sm leading-snug text-ink transition-colors hover:text-blue"
+                  >
+                    <span className="font-heading text-xs text-muted">{String(i + 1).padStart(2, '0')}</span>
+                    {a.title}
+                  </a>
+                ))}
+              </nav>
+            </aside>
+            <CultureArticles articles={articles} />
+          </div>
         )}
       </div>
     </div>
