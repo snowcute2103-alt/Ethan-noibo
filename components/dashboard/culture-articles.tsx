@@ -74,7 +74,7 @@ export default function CultureArticles({ articles }: { articles: CultureArticle
               )}
               <div>
                 <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-blue">{a.kicker}</p>
-                <h3 className="font-heading mt-4 text-4xl font-medium tracking-wide leading-tight text-navy sm:text-5xl">
+                <h3 className="font-heading mt-4 text-4xl font-medium tracking-wide leading-tight text-navy sm:text-5xl sm:leading-tight">
                   {a.title}
                 </h3>
               </div>
@@ -82,7 +82,7 @@ export default function CultureArticles({ articles }: { articles: CultureArticle
             </div>
 
             <div className={`flex flex-col gap-11 ${reversed ? 'lg:order-1' : ''}`}>
-              <p className="font-heading max-w-prose text-2xl font-light leading-snug tracking-wide text-navy/80 sm:text-3xl">
+              <p className="font-heading max-w-prose text-2xl font-light leading-snug tracking-wide text-navy/80 sm:text-3xl sm:leading-snug">
                 &ldquo;{a.intro}&rdquo;
               </p>
               <div className="flex flex-col gap-11">

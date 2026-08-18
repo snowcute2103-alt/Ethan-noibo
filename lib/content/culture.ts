@@ -21,7 +21,7 @@ export const CULTURE_ARTICLES: CultureArticle[] = [
     id: 'tam-nhin-su-menh-gia-tri',
     title: 'Tầm nhìn, sứ mệnh & giá trị cốt lõi',
     kicker: 'Về Ethan',
-    intro: '"Đồng lòng đồng sức, bứt phá gặt thành công" — nền tảng định hướng mọi quyết định hằng ngày của Ethan.',
+    intro: 'Đồng lòng đồng sức, bứt phá gặt thành công — nền tảng định hướng mọi quyết định hằng ngày của Ethan.',
     blocks: [
       {
         heading: 'Tầm nhìn 3–5 năm tới',

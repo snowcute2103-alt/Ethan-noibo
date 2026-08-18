@@ -37,11 +37,11 @@ function Section({ section, index }: { section: SopSection; index: number }) {
   return (
     <section id={section.id} className="scroll-mt-28 border-t-2 border-navy py-20 first:border-t-0 first:pt-0">
       <div className="flex items-start gap-7 sm:gap-10">
-        <span className="font-heading select-none text-6xl font-light leading-none text-navy/15 sm:text-7xl">
+        <span className="font-heading select-none text-6xl font-light leading-none text-navy/15 sm:text-7xl sm:leading-none">
           {String(index + 1).padStart(2, '0')}
         </span>
         <div className="min-w-0 flex-1">
-          <h4 className="font-heading text-2xl font-medium tracking-wide leading-tight text-navy sm:text-3xl">
+          <h4 className="font-heading text-2xl font-medium tracking-wide leading-tight text-navy sm:text-3xl sm:leading-tight">
             {section.title}
           </h4>
           {section.paragraphs?.map((p, i) => (
