@@ -58,8 +58,8 @@ export default function LoginPage() {
         aria-hidden="true"
       />
 
-      <div className="relative grid w-full max-w-[1220px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[540px] lg:grid-cols-2">
-        <div className="relative h-40 sm:h-56 lg:h-auto">
+      <div className="relative grid w-full max-w-[1220px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[480px] lg:grid-cols-2">
+        <div className="relative h-32 sm:h-44 lg:h-auto">
           <Image src={loginImg} alt="" fill sizes="(max-width: 1024px) 100vw, 700px" className="object-cover" priority />
           <div
             className="absolute inset-0 bg-gradient-to-t from-navy-deep via-navy-deep/50 to-navy-deep/10"
@@ -79,22 +79,22 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <MouseGlowPanel className="relative flex flex-col justify-center gap-5 overflow-hidden px-6 py-8 sm:gap-8 sm:px-14 sm:py-16 lg:gap-9 lg:px-16">
+        <MouseGlowPanel className="relative flex flex-col justify-center gap-4 overflow-hidden px-6 py-6 sm:gap-6 sm:px-14 sm:py-10 lg:gap-7 lg:px-16">
           <div className="glow-orb -right-10 -top-10 h-52 w-52 bg-cyan/10" aria-hidden="true" />
 
-          <div className="relative flex flex-col items-center gap-3 sm:items-start sm:gap-5">
+          <div className="relative flex flex-col items-center gap-3 sm:items-start sm:gap-4">
             <div className="relative w-fit sm:-ml-2">
               <div className="glow-orb -left-8 -top-8 h-40 w-40 bg-cyan/25" aria-hidden="true" />
               <Image
                 src={logo}
                 alt="Ethan Ecom"
-                className="relative h-16 w-auto drop-shadow-[0_0_30px_rgba(0,210,255,0.35)] sm:h-28 lg:h-32"
+                className="relative h-16 w-auto drop-shadow-[0_0_30px_rgba(0,210,255,0.35)] sm:h-24 lg:h-28"
                 priority
               />
             </div>
             <h1 className="font-heading text-2xl font-medium uppercase tracking-wide text-white sm:text-4xl lg:text-5xl">Đăng nhập</h1>
           </div>
-          <p className="relative -mt-2 text-sm text-white/75 sm:-mt-6 sm:text-lg">Đăng nhập bằng tài khoản khối/vị trí của bạn</p>
+          <p className="relative -mt-2 text-sm text-white/75 sm:-mt-4 sm:text-lg">Đăng nhập bằng tài khoản khối/vị trí của bạn</p>
 
           <Suspense fallback={null}>
             <LoginForm />
