@@ -9,6 +9,7 @@ import { NOTICES, POLICIES, RULE_DOCUMENTS, CULTURE_ARTICLES, RECOGNITION_LISTS,
 import { docIdsVisibleTo } from '@/lib/rule-permissions';
 import NoticeBanner from '@/components/dashboard/notice-banner';
 import HubCard from '@/components/dashboard/hub-card';
+import Reveal from '@/components/reveal';
 import heroBg from '@/public/images/hub/hero-bg.jpg';
 
 function greetingForHour(hour: number) {
@@ -100,12 +101,14 @@ export default async function DashboardHome() {
       <div className="relative flex min-h-[520px] items-end overflow-hidden sm:min-h-[640px]">
         <Image src={heroBg} alt="" fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/85 to-navy/40" aria-hidden="true" />
+        <div className="glow-orb -right-20 top-10 h-96 w-96 bg-cyan/20" aria-hidden="true" />
+        <div className="glow-orb bottom-0 left-1/3 h-64 w-64 bg-gold/15" aria-hidden="true" />
         <div className="relative mx-auto w-full max-w-[1440px] px-8 py-16 sm:py-24">
           <p className="animate-fade-up font-heading text-sm font-medium uppercase tracking-[0.35em] text-cyan">
             Cổng thông tin nội bộ
           </p>
           <h2
-            className="animate-fade-up font-heading mt-6 max-w-3xl text-[clamp(2.5rem,6vw,5rem)] font-medium tracking-wide leading-[1.05] text-white"
+            className="title-glow animate-fade-up font-heading mt-6 max-w-3xl text-[clamp(2.5rem,6vw,5rem)] font-medium tracking-wide leading-[1.05] text-white"
             style={{ animationDelay: '90ms' }}
           >
             {greeting}, {departmentLabel(session.department)}
@@ -135,9 +138,13 @@ export default async function DashboardHome() {
       </div>
 
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-14 px-8 py-16 sm:gap-20 sm:py-24">
-        {homeNotices.length > 0 && <NoticeBanner notices={homeNotices} />}
+        {homeNotices.length > 0 && (
+          <Reveal>
+            <NoticeBanner notices={homeNotices} />
+          </Reveal>
+        )}
 
-        <div className="flex flex-col gap-8">
+        <Reveal className="flex flex-col gap-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-blue">Điều hướng</p>
@@ -155,7 +162,7 @@ export default async function DashboardHome() {
               <HubCard key={item.href} {...item} featured={i === 0} index={i} />
             ))}
           </div>
-        </div>
+        </Reveal>
       </div>
     </div>
   );

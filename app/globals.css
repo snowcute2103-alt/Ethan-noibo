@@ -117,3 +117,58 @@ body {
     animation: twinkle 3.6s ease-in-out infinite;
   }
 }
+
+/* ---- Editorial glow — dùng chung cho mọi trang, xem plans/reports cho lý do ---- */
+
+.glow-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.card-glow {
+  position: relative;
+  transition:
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 300ms ease;
+}
+
+.card-glow:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 0 0 1px var(--glow-color, rgba(0, 210, 255, 0.35)),
+    0 24px 48px -20px var(--glow-color, rgba(0, 210, 255, 0.35));
+}
+
+.link-glow {
+  position: relative;
+  transition: color 200ms ease;
+}
+
+.link-glow::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 100%;
+  bottom: -3px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyan), var(--gold));
+  transition: right 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.link-glow:hover::after,
+.link-glow[data-active='true']::after {
+  right: 0;
+}
+
+.gradient-divider {
+  height: 1px;
+  border: none;
+  background: linear-gradient(90deg, transparent, rgba(0, 210, 255, 0.5), rgba(245, 166, 35, 0.5), transparent);
+}
+
+.title-glow {
+  text-shadow: 0 0 32px rgba(0, 210, 255, 0.35);
+}

@@ -37,7 +37,10 @@ function Section({ section, index }: { section: SopSection; index: number }) {
   return (
     <section id={section.id} className="scroll-mt-28 border-t-2 border-navy py-20 first:border-t-0 first:pt-0">
       <div className="flex items-start gap-7 sm:gap-10">
-        <span className="font-heading select-none text-6xl font-light leading-none text-navy/15 sm:text-7xl sm:leading-none">
+        <span
+          className="font-heading select-none bg-gradient-to-br from-cyan/40 to-gold/40 bg-clip-text text-6xl font-light leading-none text-transparent sm:text-7xl sm:leading-none"
+          aria-hidden="true"
+        >
           {String(index + 1).padStart(2, '0')}
         </span>
         <div className="min-w-0 flex-1">
@@ -90,9 +93,10 @@ export default function SopDocumentView({ doc }: { doc: RuleDocument }) {
         </div>
       </header>
 
-      <div className="my-20 flex items-start gap-6 border-2 border-navy bg-navy px-8 py-10 text-white sm:px-12 sm:py-12">
-        <ShieldAlert size={32} strokeWidth={2} className="mt-0.5 shrink-0 text-gold-2" aria-hidden="true" />
-        <div>
+      <div className="relative my-20 flex items-start gap-6 overflow-hidden border-2 border-navy bg-navy px-8 py-10 text-white sm:px-12 sm:py-12">
+        <div className="glow-orb -right-10 -top-10 h-48 w-48 bg-gold-2/20" aria-hidden="true" />
+        <ShieldAlert size={32} strokeWidth={2} className="relative mt-0.5 shrink-0 text-gold-2" aria-hidden="true" />
+        <div className="relative">
           <p className="font-heading text-xl font-medium tracking-wide text-white">{doc.goldenRule.title}</p>
           <ul className="mt-5 flex flex-col gap-3">
             {doc.goldenRule.points.map((pt, i) => (

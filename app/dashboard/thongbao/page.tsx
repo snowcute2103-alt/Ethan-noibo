@@ -6,6 +6,7 @@ import { ANNOUNCEMENTS, NOTICES, POLICIES } from '@/lib/content';
 import NoticeBanner from '@/components/dashboard/notice-banner';
 import PolicyCard from '@/components/dashboard/policy-card';
 import AnnouncementList from '@/components/dashboard/announcement-list';
+import Reveal from '@/components/reveal';
 import officePhoto from '@/public/images/thongbao/office.jpg';
 
 export default async function ThongBaoPage() {
@@ -18,19 +19,26 @@ export default async function ThongBaoPage() {
   const isEmpty = notices.length === 0 && policies.length === 0 && announcements.length === 0;
 
   return (
-    <div className="bg-[#FFFCF5]">
-      <div className="mx-auto max-w-[1200px] px-8 py-28 sm:py-36">
+    <div className="relative overflow-hidden bg-[#FFFCF5]">
+      <div className="glow-orb -left-32 top-0 h-96 w-96 bg-gold/20" aria-hidden="true" />
+      <div className="glow-orb -right-24 top-40 h-72 w-72 bg-cyan/10" aria-hidden="true" />
+      <div className="relative mx-auto max-w-[1200px] px-8 py-28 sm:py-36">
         <div className="grid grid-cols-1 items-center gap-12 sm:grid-cols-[1fr_220px]">
           <div>
-            <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-gold">Từ Ban lãnh đạo</p>
-            <h2 className="mt-5 font-heading text-[clamp(2.75rem,7vw,5.5rem)] font-medium tracking-wide leading-[1.05] text-navy">
+            <p className="animate-fade-up font-heading text-sm font-medium uppercase tracking-[0.3em] text-gold">
+              Từ Ban lãnh đạo
+            </p>
+            <h2
+              className="animate-fade-up mt-5 font-heading text-[clamp(2.75rem,7vw,5.5rem)] font-medium tracking-wide leading-[1.05] text-navy"
+              style={{ animationDelay: '80ms' }}
+            >
               Thông báo
             </h2>
-            <p className="mt-5 max-w-lg text-lg leading-relaxed text-muted">
+            <p className="animate-fade-up mt-5 max-w-lg text-lg leading-relaxed text-muted" style={{ animationDelay: '150ms' }}>
               Quy định điều hành và thông báo khẩn — cập nhật mới nhất luôn nằm trên cùng.
             </p>
           </div>
-          <div className="relative hidden aspect-square overflow-hidden rounded-[32px] shadow-[0_16px_40px_-16px_rgba(26,39,69,0.35)] sm:block">
+          <div className="card-glow relative hidden aspect-square overflow-hidden rounded-[32px] shadow-[0_16px_40px_-16px_rgba(26,39,69,0.35)] sm:block">
             <Image src={officePhoto} alt="Văn phòng Ethan Ecom" fill sizes="220px" className="object-cover" />
           </div>
         </div>
@@ -42,17 +50,25 @@ export default async function ThongBaoPage() {
             </p>
           )}
 
-          {notices.length > 0 && <NoticeBanner notices={notices} />}
+          {notices.length > 0 && (
+            <Reveal>
+              <NoticeBanner notices={notices} />
+            </Reveal>
+          )}
 
           {policies.length > 0 && (
-            <div className="flex flex-col gap-14">
+            <Reveal className="flex flex-col gap-14">
               {policies.map((p) => (
                 <PolicyCard key={p.id} policy={p} />
               ))}
-            </div>
+            </Reveal>
           )}
 
-          {announcements.length > 0 && <AnnouncementList announcements={announcements} />}
+          {announcements.length > 0 && (
+            <Reveal>
+              <AnnouncementList announcements={announcements} />
+            </Reveal>
+          )}
         </div>
       </div>
     </div>

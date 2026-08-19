@@ -57,23 +57,23 @@ Nếu không có phản hồi, Phase 1 (setup DB) vẫn làm được ngay — c
 | # | Phase | Status |
 |---|-------|--------|
 | 1 | [Phase 1: Database schema & Vercel Postgres setup](./phase-01-start.md) | Pending |
-| 2 | [Phase 2: Excel import, mapping, password generation, email delivery](./phase-02-excel-import-mapping-password-generation-email-delivery.md) | Pending |
-| 3 | [Phase 3: Auth rewrite + BGĐ security hardening](./phase-03-auth-rewrite-bgd-security-hardening.md) | Pending |
-| 4 | [Phase 4: Multi-document rule content model + per-user permissions](./phase-04-multi-document-rule-content-model-per-user-permissions.md) | Pending |
-| 5 | [Phase 5: Admin panel cho BGĐ](./phase-05-admin-panel-for-bgd.md) | Pending |
-| 6 | [Phase 6: Cutover, rollout, end-to-end test](./phase-06-cutover-rollout-end-to-end-test.md) | Pending |
+| 2 | [Phase 2: Excel import, mapping, password generation, email delivery](./phase-02-excel-import-mapping-password-generation-email-delivery.md) | Done (không gửi email — xem deviation trong phase-02) |
+| 3 | [Phase 3: Auth rewrite + BGĐ security hardening](./phase-03-auth-rewrite-bgd-security-hardening.md) | Done |
+| 4 | [Phase 4: Multi-document rule content model + per-user permissions](./phase-04-multi-document-rule-content-model-per-user-permissions.md) | Done |
+| 5 | [Phase 5: Admin panel cho BGĐ](./phase-05-admin-panel-for-bgd.md) | Done |
+| 6 | [Phase 6: Cutover, rollout, end-to-end test](./phase-06-cutover-rollout-end-to-end-test.md) | Done (bước 11 "thông báo nhân sự" còn tuỳ BGĐ tự làm dần khi cấp tài khoản, không phải hành động 1 lần) |
 
 ## Success Criteria
 
-- [ ] 97 nhân viên có tài khoản cá nhân thật trong DB, mỗi người nhận được username + mật khẩu qua Gmail cá nhân.
-- [ ] Đăng nhập bằng tài khoản cá nhân hoạt động đúng department/tier theo mapping đã duyệt.
-- [ ] BGĐ đăng nhập vào `/dashboard/admin`, thấy danh sách 97 người, sửa/xoá/tạo user được.
-- [ ] BGĐ gán quyền đọc 1 rule document cho 1 người cụ thể → chỉ người đó (+ BGĐ) thấy tài liệu, người khác không thấy.
-- [ ] Tài khoản khối cũ (`kd-staff`, `kd-leader`, ...) không còn đăng nhập được sau cutover.
-- [ ] **[RED-TEAM FIX]** Session/cookie ký từ trước thời điểm rotate `SESSION_SECRET` (Phase 6) không còn dùng được — không chỉ dựa vào TTL tự hết hạn.
-- [ ] **[RED-TEAM FIX]** Deactivate hoặc đổi mật khẩu 1 user → session đang sống của người đó chết ngay (không cần đợi hết TTL).
-- [ ] Không có mật khẩu plaintext nào bị lưu trong DB, log, hay git — **kể cả trong `admin_audit_log.detail`**.
-- [ ] `npm run build` pass, không lỗi TypeScript.
+- [x] **[Sửa theo quyết định thực tế]** 97 nhân viên (thực tế 95 — 2 người NV31/NV122 thiếu username trong Excel gốc, chờ HR bổ sung) có tài khoản cá nhân thật trong DB. KHÔNG gửi qua Gmail (quyết định bỏ email ở Phase 2) — tài khoản ở trạng thái khoá, BGĐ tự đặt lại mật khẩu qua `/dashboard/admin` và cấp phát trực tiếp khi cần.
+- [x] Đăng nhập bằng tài khoản cá nhân hoạt động đúng department/tier theo mapping đã duyệt. Verified 2026-08-18 qua browser thật cả 3 tier.
+- [x] BGĐ đăng nhập vào `/dashboard/admin`, thấy danh sách người dùng, sửa/tạo user được. **Lưu ý:** không có "xoá" cứng (hard delete) — chỉ có "Vô hiệu hoá" (soft-deactivate, giữ audit trail), đây là thiết kế có chủ đích chứ không phải thiếu sót.
+- [x] BGĐ gán quyền đọc 1 rule document cho 1 người cụ thể → chỉ người đó (+ BGĐ) thấy tài liệu. Verified qua backfill check (53/53 khớp).
+- [x] Tài khoản khối cũ (`kd-staff`, `kd-leader`, ...) không còn đăng nhập được sau cutover. Code không còn đọc `AUTH_PASSWORD_*`, biến đã xoá khỏi Production.
+- [x] **[RED-TEAM FIX]** Session/cookie ký từ trước thời điểm rotate `SESSION_SECRET` không còn dùng được. Verified 2026-08-18 (cookie giả/cũ → 307 redirect `/login`).
+- [x] **[RED-TEAM FIX]** Deactivate hoặc đổi mật khẩu 1 user → session đang sống của người đó chết ngay. Verified 2026-08-18 bằng live test: login → deactivate → cookie cũ bị từ chối ngay (307), không cần đợi TTL.
+- [x] Không có mật khẩu plaintext nào bị lưu trong DB, log, hay git — kể cả trong `admin_audit_log.detail`. `lib/audit.ts` tự lọc field nhạy cảm.
+- [x] `npm run build` pass, không lỗi TypeScript. Verified 2026-08-18.
 
 ## Red Team Review
 

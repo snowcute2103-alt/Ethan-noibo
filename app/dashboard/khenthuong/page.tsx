@@ -6,6 +6,7 @@ import { RECOGNITION_LISTS } from '@/lib/content';
 import RecognitionWall from '@/components/dashboard/recognition-wall';
 import MoneyRain from '@/components/dashboard/money-rain';
 import FireworkBurst from '@/components/dashboard/firework-burst';
+import Reveal from '@/components/reveal';
 import teamPhoto from '@/public/images/khenthuong/doingu.jpg';
 
 export default async function KhenThuongPage() {
@@ -63,7 +64,9 @@ export default async function KhenThuongPage() {
             Chưa có danh sách khen thưởng nào cho khối của bạn.
           </p>
         ) : (
-          <RecognitionWall lists={lists} />
+          <Reveal>
+            <RecognitionWall lists={lists} />
+          </Reveal>
         )}
       </div>
     </div>

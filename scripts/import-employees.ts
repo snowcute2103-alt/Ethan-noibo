@@ -24,14 +24,18 @@ interface ExcelRow {
   'Nhân sự': string;
   Mã: string;
   'Tài khoản': string | undefined;
+  'Trạng thái': string | undefined;
   'Chức danh': string | undefined;
   'Ngày bắt đầu': string | undefined;
+  'Ngày chính thức': string | undefined;
   'Văn phòng': string | undefined;
   'Khu vực / Chuyên môn': string;
   'Nhóm chính thức': string | undefined;
+  'Phân loại nhân sự': string | undefined;
   'Giới tính': string | undefined;
   'Vị trí công việc': string | undefined;
   'Loại vị trí': string | undefined;
+  'Chính sách lương': string | undefined;
   'Điện thoại': string | undefined;
   'Địa chỉ email': string | undefined;
   'Ngày sinh': string | undefined;
@@ -54,6 +58,10 @@ interface MappedUser {
   startDate: string | null;
   workSchedule: string | null;
   positionTitle: string | null;
+  employmentStatus: string | null;
+  employmentType: string | null;
+  salaryPolicy: string | null;
+  confirmationDate: string | null;
 }
 
 /** Excel ghi ngày dạng "DD/MM/YYYY" — chuyển sang "YYYY-MM-DD" cho cột DATE. */
@@ -101,6 +109,10 @@ function mapRow(row: ExcelRow): MappedUser {
     startDate: parseVnDate(row['Ngày bắt đầu']),
     workSchedule: row['Lịch làm việc'] ?? null,
     positionTitle: row['Vị trí công việc'] ?? null,
+    employmentStatus: row['Trạng thái'] ?? null,
+    employmentType: row['Phân loại nhân sự'] ?? null,
+    salaryPolicy: row['Chính sách lương'] ?? null,
+    confirmationDate: parseVnDate(row['Ngày chính thức']),
   };
 }
 
@@ -152,9 +164,10 @@ async function importUsers(users: MappedUser[]) {
       await sql.query(
         `INSERT INTO users (
            employee_code, username, full_name, department, tier, team_label, personal_email, phone, password_hash,
-           job_title, gender, birth_date, office, start_date, work_schedule, position_title
+           job_title, gender, birth_date, office, start_date, work_schedule, position_title,
+           employment_status, employment_type, salary_policy, confirmation_date
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
          ON CONFLICT (employee_code) DO UPDATE SET
            username = EXCLUDED.username, full_name = EXCLUDED.full_name,
            department = EXCLUDED.department, tier = EXCLUDED.tier,
@@ -162,6 +175,8 @@ async function importUsers(users: MappedUser[]) {
            phone = EXCLUDED.phone, job_title = EXCLUDED.job_title, gender = EXCLUDED.gender,
            birth_date = EXCLUDED.birth_date, office = EXCLUDED.office, start_date = EXCLUDED.start_date,
            work_schedule = EXCLUDED.work_schedule, position_title = EXCLUDED.position_title,
+           employment_status = EXCLUDED.employment_status, employment_type = EXCLUDED.employment_type,
+           salary_policy = EXCLUDED.salary_policy, confirmation_date = EXCLUDED.confirmation_date,
            updated_at = now()`,
         [
           u.employeeCode,
@@ -180,6 +195,10 @@ async function importUsers(users: MappedUser[]) {
           u.startDate,
           u.workSchedule,
           u.positionTitle,
+          u.employmentStatus,
+          u.employmentType,
+          u.salaryPolicy,
+          u.confirmationDate,
         ]
       );
       ok += 1;

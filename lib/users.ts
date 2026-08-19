@@ -23,6 +23,10 @@ export interface UserRow {
   workSchedule: string | null;
   positionTitle: string | null;
   avatarUrl: string | null;
+  employmentStatus: string | null;
+  employmentType: string | null;
+  salaryPolicy: string | null;
+  confirmationDate: string | null;
 }
 
 /**
@@ -34,7 +38,8 @@ const USER_COLUMNS = `
   id, employee_code, username, full_name, department, tier, team_label,
   personal_email, phone, password_hash, is_active, session_version,
   job_title, gender, birth_date::text AS birth_date, office,
-  start_date::text AS start_date, work_schedule, position_title, avatar_url
+  start_date::text AS start_date, work_schedule, position_title, avatar_url,
+  employment_status, employment_type, salary_policy, confirmation_date::text AS confirmation_date
 `;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,6 +65,10 @@ function mapRow(row: any): UserRow {
     workSchedule: row.work_schedule,
     positionTitle: row.position_title,
     avatarUrl: row.avatar_url,
+    employmentStatus: row.employment_status,
+    employmentType: row.employment_type,
+    salaryPolicy: row.salary_policy,
+    confirmationDate: row.confirmation_date,
   };
 }
 
@@ -169,14 +178,19 @@ export interface CreateUserInput {
   startDate: string | null;
   workSchedule: string | null;
   positionTitle: string | null;
+  employmentStatus: string | null;
+  employmentType: string | null;
+  salaryPolicy: string | null;
+  confirmationDate: string | null;
 }
 
 export async function createUser(input: CreateUserInput): Promise<UserRow> {
   const rows = await sql.query(
     `INSERT INTO users
        (employee_code, username, full_name, department, tier, team_label, personal_email, phone, password_hash,
-        job_title, gender, birth_date, office, start_date, work_schedule, position_title)
-     VALUES ($1, lower(trim($2)), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        job_title, gender, birth_date, office, start_date, work_schedule, position_title,
+        employment_status, employment_type, salary_policy, confirmation_date)
+     VALUES ($1, lower(trim($2)), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
      RETURNING ${USER_COLUMNS}`,
     [
       input.employeeCode,
@@ -195,6 +209,10 @@ export async function createUser(input: CreateUserInput): Promise<UserRow> {
       input.startDate,
       input.workSchedule,
       input.positionTitle,
+      input.employmentStatus,
+      input.employmentType,
+      input.salaryPolicy,
+      input.confirmationDate,
     ]
   );
   return mapRow(rows[0]);
@@ -216,6 +234,10 @@ export interface UpdateUserInput {
   workSchedule?: string | null;
   positionTitle?: string | null;
   avatarUrl?: string | null;
+  employmentStatus?: string | null;
+  employmentType?: string | null;
+  salaryPolicy?: string | null;
+  confirmationDate?: string | null;
 }
 
 export async function updateUser(id: number, input: UpdateUserInput): Promise<UserRow> {
@@ -229,8 +251,9 @@ export async function updateUser(id: number, input: UpdateUserInput): Promise<Us
        personal_email = $5, phone = $6, is_active = $7,
        job_title = $8, gender = $9, birth_date = $10, office = $11,
        start_date = $12, work_schedule = $13, position_title = $14, avatar_url = $15,
+       employment_status = $16, employment_type = $17, salary_policy = $18, confirmation_date = $19,
        updated_at = now()
-     WHERE id = $16
+     WHERE id = $20
      RETURNING ${USER_COLUMNS}`,
     [
       next.fullName,
@@ -248,6 +271,10 @@ export async function updateUser(id: number, input: UpdateUserInput): Promise<Us
       next.workSchedule,
       next.positionTitle,
       next.avatarUrl,
+      next.employmentStatus,
+      next.employmentType,
+      next.salaryPolicy,
+      next.confirmationDate,
       id,
     ]
   );

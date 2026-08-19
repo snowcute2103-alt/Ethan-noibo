@@ -30,14 +30,15 @@ function RuleRow({ rule }: { rule: PolicyRule }) {
 export default function PolicyCard({ policy }: { policy: Policy }) {
   return (
     <article className="overflow-hidden rounded-[28px] border border-[#eef1f8] bg-white shadow-[0_10px_30px_-18px_rgba(26,39,69,0.25)]">
-      <header className="rounded-t-[28px] bg-navy px-9 py-10 sm:px-12 sm:py-11">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <header className="relative overflow-hidden rounded-t-[28px] bg-navy px-9 py-10 sm:px-12 sm:py-11">
+        <div className="glow-orb -right-12 -top-16 h-52 w-52 bg-cyan/20" aria-hidden="true" />
+        <div className="relative flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-heading text-2xl font-medium tracking-wide text-white sm:text-3xl">{policy.title}</h3>
           <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-semibold text-white/70">
             Hiệu lực {policy.effectiveDate}
           </span>
         </div>
-        <p className="mt-4 max-w-xl text-base leading-relaxed text-white/70">{policy.intro}</p>
+        <p className="relative mt-4 max-w-xl text-base leading-relaxed text-white/70">{policy.intro}</p>
       </header>
 
       <div className="flex flex-col gap-11 px-9 py-11 sm:px-12 sm:py-12">

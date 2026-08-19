@@ -32,6 +32,10 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
   const [office, setOffice] = useState(user?.office ?? '');
   const [startDate, setStartDate] = useState(user?.startDate ?? '');
   const [workSchedule, setWorkSchedule] = useState(user?.workSchedule ?? '');
+  const [employmentStatus, setEmploymentStatus] = useState(user?.employmentStatus ?? '');
+  const [employmentType, setEmploymentType] = useState(user?.employmentType ?? '');
+  const [salaryPolicy, setSalaryPolicy] = useState(user?.salaryPolicy ?? '');
+  const [confirmationDate, setConfirmationDate] = useState(user?.confirmationDate ?? '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -83,6 +87,10 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
             office: office || null,
             startDate: startDate || null,
             workSchedule: workSchedule || null,
+            employmentStatus: employmentStatus || null,
+            employmentType: employmentType || null,
+            salaryPolicy: salaryPolicy || null,
+            confirmationDate: confirmationDate || null,
           });
           setGeneratedPassword(result.password);
         } else if (user) {
@@ -101,6 +109,10 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
             office: office || null,
             startDate: startDate || null,
             workSchedule: workSchedule || null,
+            employmentStatus: employmentStatus || null,
+            employmentType: employmentType || null,
+            salaryPolicy: salaryPolicy || null,
+            confirmationDate: confirmationDate || null,
           });
           router.push('/dashboard/admin');
           router.refresh();
@@ -126,8 +138,9 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
 
   if (generatedPassword) {
     return (
-      <div className="flex max-w-lg flex-col gap-5 border-2 border-navy bg-white p-8">
-        <p className="font-heading text-lg font-medium text-navy">Mật khẩu đã được tạo</p>
+      <div className="relative flex max-w-lg flex-col gap-5 overflow-hidden border-2 border-navy bg-white p-8 shadow-[0_0_60px_-20px_rgba(0,210,255,0.35)]">
+        <div className="glow-orb -right-8 -top-8 h-32 w-32 bg-gold/25" aria-hidden="true" />
+        <p className="font-heading relative text-lg font-medium text-navy">Mật khẩu đã được tạo</p>
         <p className="text-sm text-muted">
           Đây là lần DUY NHẤT mật khẩu hiện ra — copy ngay và gửi cho nhân viên qua kênh an toàn. Mật khẩu không được
           lưu lại ở đâu khác.
@@ -303,11 +316,44 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
               className={inputClass}
             />
           </div>
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <div className="flex flex-col gap-1.5">
             <label className={labelClass}>Lịch làm việc</label>
             <input
               value={workSchedule ?? ''}
               onChange={(e) => setWorkSchedule(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Trạng thái</label>
+            <input
+              value={employmentStatus ?? ''}
+              onChange={(e) => setEmploymentStatus(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Phân loại nhân sự</label>
+            <input
+              value={employmentType ?? ''}
+              onChange={(e) => setEmploymentType(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Chính sách lương</label>
+            <input
+              value={salaryPolicy ?? ''}
+              onChange={(e) => setSalaryPolicy(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Ngày chính thức</label>
+            <input
+              type="date"
+              value={confirmationDate ?? ''}
+              onChange={(e) => setConfirmationDate(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -327,7 +373,7 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
         <button
           type="submit"
           disabled={isPending}
-          className="bg-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-gold hover:text-navy disabled:cursor-not-allowed disabled:opacity-60"
+          className="bg-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition-all duration-300 hover:bg-gold hover:text-navy hover:shadow-[0_0_24px_-4px_rgba(245,166,35,0.6)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? 'Đang lưu…' : mode === 'create' ? 'Tạo user' : 'Lưu thay đổi'}
         </button>

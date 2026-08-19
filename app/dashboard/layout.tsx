@@ -18,8 +18,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-surface-2">
-      <header className="bg-navy text-white">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-5 sm:gap-6 sm:px-8 sm:py-7 lg:py-9">
+      <header className="relative overflow-hidden bg-navy text-white">
+        <div
+          className="glow-orb -left-24 -top-32 h-72 w-72 bg-cyan/20"
+          aria-hidden="true"
+        />
+        <div
+          className="glow-orb -right-16 -top-24 h-64 w-64 bg-gold/15"
+          aria-hidden="true"
+        />
+        <div className="relative mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-5 sm:gap-6 sm:px-8 sm:py-7 lg:py-9">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Image src={logo} alt="Ethan Ecom" className="h-10 w-auto shrink-0 sm:h-14 lg:h-16" priority />
             <div className="min-w-0">
@@ -41,13 +49,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <LogoutButton />
           </div>
         </div>
-        <nav aria-label="Điều hướng chính" className="border-t border-white/10 px-5 sm:px-8">
+        <nav aria-label="Điều hướng chính" className="relative border-t border-white/10 px-5 sm:px-8">
           <div className="mx-auto flex max-w-[1440px] gap-7 overflow-x-auto py-4 sm:gap-10 sm:py-5">
             {navItems.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
           </div>
         </nav>
+        <div className="gradient-divider" aria-hidden="true" />
       </header>
       <main>{children}</main>
     </div>

@@ -18,9 +18,11 @@ export default async function RulePage() {
       <div className="relative flex min-h-[420px] items-end overflow-hidden sm:min-h-[560px]">
         <Image src={ruleHero} alt="" fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-navy/70" aria-hidden="true" />
+        <div className="glow-orb -right-20 top-10 h-80 w-80 bg-cyan/25" aria-hidden="true" />
+        <div className="glow-orb bottom-0 left-1/4 h-56 w-56 bg-blue/25" aria-hidden="true" />
         <div className="relative mx-auto w-full max-w-[1440px] px-8 py-20 sm:py-28">
           <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan">Khối vận hành</p>
-          <h1 className="mt-5 font-heading text-[clamp(3rem,8vw,7rem)] font-medium tracking-wide leading-[0.95] text-white">
+          <h1 className="title-glow mt-5 font-heading text-[clamp(3rem,8vw,7rem)] font-medium tracking-wide leading-[0.95] text-white">
             SOP & Quy trình
           </h1>
         </div>
@@ -42,7 +44,7 @@ export default async function RulePage() {
                       <a
                         key={s.id}
                         href={`#${s.id}`}
-                        className="cursor-pointer text-sm leading-snug text-ink transition-colors hover:text-blue"
+                        className="link-glow w-fit cursor-pointer text-sm leading-snug text-ink transition-colors hover:text-blue"
                       >
                         {s.title}
                       </a>
