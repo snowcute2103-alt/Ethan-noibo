@@ -22,7 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-surface-2">
-      <header className="relative overflow-hidden bg-navy text-white">
+      <header className="relative overflow-hidden bg-navy-deep text-white">
         <div
           className="glow-orb -left-24 -top-32 h-72 w-72 bg-cyan/20"
           aria-hidden="true"
@@ -31,9 +31,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           className="glow-orb -right-16 -top-24 h-64 w-64 bg-gold/15"
           aria-hidden="true"
         />
-        <div className="relative mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-5 sm:gap-6 sm:px-8 sm:py-7 lg:py-9">
+        <div className="relative mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-5 py-3 sm:gap-4 sm:px-8 sm:py-4">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <Image src={logo} alt="Ethan Ecom" className="h-10 w-auto shrink-0 sm:h-14 lg:h-16" priority />
+            <Image src={logo} alt="Ethan Ecom" className="h-12 w-auto shrink-0 sm:h-14 lg:h-16" priority />
             <div className="min-w-0">
               <p className="hidden font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan sm:block">
                 Ethan Ecom
@@ -43,6 +43,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </h1>
             </div>
           </div>
+          <nav
+            aria-label="Điều hướng chính"
+            className="order-3 w-full lg:order-none lg:w-auto lg:flex-1"
+          >
+            <div className="flex items-center gap-5 overflow-x-auto border-x border-white/30 px-4 py-2.5 sm:gap-8 sm:px-6 lg:justify-center">
+              {navItems.map((item) => (
+                <NavLink key={item.href} item={item} />
+              ))}
+            </div>
+          </nav>
           <div className="flex items-center gap-4 text-base sm:gap-6">
             <UserMenu
               user={{
@@ -62,13 +72,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
             />
           </div>
         </div>
-        <nav aria-label="Điều hướng chính" className="relative border-t border-white/10 px-5 sm:px-8">
-          <div className="mx-auto flex max-w-[1500px] gap-7 overflow-x-auto py-4 sm:gap-10 sm:py-5">
-            {navItems.map((item) => (
-              <NavLink key={item.href} item={item} />
-            ))}
-          </div>
-        </nav>
         <div className="gradient-divider" aria-hidden="true" />
       </header>
       <main>{children}</main>

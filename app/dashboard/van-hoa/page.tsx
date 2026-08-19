@@ -1,10 +1,9 @@
-import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { canView } from '@/lib/roles';
 import { CULTURE_ARTICLES } from '@/lib/content';
 import CultureArticles from '@/components/dashboard/culture-articles';
-import heroImg from '@/public/images/van-hoa/story-hope.jpg';
+import CultureGalleryHero from '@/components/dashboard/culture-gallery-hero';
 
 export default async function VanHoaPage() {
   const session = await getSession();
@@ -14,22 +13,7 @@ export default async function VanHoaPage() {
 
   return (
     <div className="bg-white">
-      <div className="relative flex min-h-[480px] items-end overflow-hidden sm:min-h-[620px]">
-        <Image src={heroImg} alt="" fill priority sizes="100vw" className="object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/60 to-navy/10" aria-hidden="true" />
-        <div className="glow-orb -right-16 top-16 h-80 w-80 bg-cyan/25" aria-hidden="true" />
-        <div className="glow-orb bottom-10 left-10 h-56 w-56 bg-gold/20" aria-hidden="true" />
-        <div className="relative mx-auto w-full max-w-[1500px] px-8 py-16 sm:py-24">
-          <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan">Câu chuyện Ethan</p>
-          <h2 className="title-glow mt-6 max-w-3xl font-heading text-[clamp(3.25rem,9vw,8rem)] font-medium tracking-wide leading-[1.02] text-white">
-            Văn hoá
-          </h2>
-          <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/80">
-            &ldquo;Đồng lòng đồng sức, bứt phá gặt thành công&rdquo; — tầm nhìn, con người và những câu chuyện làm
-            nên Ethan, dành riêng cho nhân sự nội bộ.
-          </p>
-        </div>
-      </div>
+      <CultureGalleryHero />
 
       <div className="mx-auto max-w-[1500px] px-8 py-20 sm:py-28">
         {articles.length === 0 ? (

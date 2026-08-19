@@ -13,7 +13,7 @@ export default function NavLink({ item }: { item: NavItem }) {
       href={item.href}
       aria-current={active ? 'page' : undefined}
       data-active={active}
-      className={`link-glow relative whitespace-nowrap px-1 pb-2 text-base font-semibold transition-colors ${
+      className={`link-glow relative whitespace-nowrap px-1 pb-2 text-base font-normal uppercase tracking-wide transition-colors ${
         active ? 'text-white' : 'text-white/55 hover:text-white'
       }`}
     >
