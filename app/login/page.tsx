@@ -58,7 +58,7 @@ export default function LoginPage() {
         aria-hidden="true"
       />
 
-      <div className="relative grid w-full max-w-[1220px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[600px] lg:grid-cols-2">
+      <div className="relative grid w-full max-w-[1220px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[540px] lg:grid-cols-2">
         <div className="relative h-40 sm:h-56 lg:h-auto">
           <Image src={loginImg} alt="" fill sizes="(max-width: 1024px) 100vw, 700px" className="object-cover" priority />
           <div
@@ -69,11 +69,11 @@ export default function LoginPage() {
             className="absolute inset-0 bg-gradient-to-r from-navy-deep/70 via-transparent to-transparent"
             aria-hidden="true"
           />
-          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-8 lg:p-14">
-            <p className="font-heading text-sm font-semibold uppercase tracking-wide text-white sm:whitespace-nowrap sm:text-xl lg:text-2xl">
+          <div className="absolute inset-x-0 bottom-0 p-4 pr-6 sm:p-8 sm:pr-10 lg:p-10 lg:pr-12">
+            <p className="font-heading text-sm font-semibold uppercase tracking-wide text-white sm:whitespace-nowrap sm:text-lg lg:text-xl">
               Cổng thông tin nội bộ ETHAN ECOM
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-white/90 sm:whitespace-nowrap sm:text-base lg:text-lg">
+            <p className="mt-1 text-xs leading-relaxed text-white/90 sm:whitespace-nowrap sm:text-sm lg:text-base">
               Nơi đồng lòng, tử tế, trách nhiệm được nuôi dưỡng mỗi ngày.
             </p>
           </div>

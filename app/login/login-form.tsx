@@ -67,7 +67,7 @@ const SOCIAL_BADGES: { name: string; href?: string; icon: ReactNode }[] = [
     name: 'Facebook',
     href: 'https://www.facebook.com/ethanecom3979',
     icon: (
-      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] lg:h-6 lg:w-6" fill="currentColor" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 lg:h-[22px] lg:w-[22px]" fill="currentColor" aria-hidden="true">
         <path d="M13.5 21v-7.5h2.5l.4-3H13.5V8.4c0-.87.24-1.46 1.49-1.46H16.5V4.34C16.2 4.3 15.19 4.2 14 4.2c-2.4 0-4 1.46-4 4.16v2.14H7.5v3H10V21h3.5z" />
       </svg>
     ),
@@ -76,7 +76,7 @@ const SOCIAL_BADGES: { name: string; href?: string; icon: ReactNode }[] = [
     name: 'TikTok',
     href: 'https://www.tiktok.com/@ethanecommerch',
     icon: (
-      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] lg:h-6 lg:w-6" fill="currentColor" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 lg:h-[22px] lg:w-[22px]" fill="currentColor" aria-hidden="true">
         <path d="M16.5 3c.3 2.1 1.7 3.6 3.9 3.8v2.7c-1.4 0-2.7-.4-3.9-1.2v6.7c0 3.3-2.4 5.8-5.9 5.8-3.4 0-5.9-2.5-5.9-5.8s2.5-5.8 5.9-5.8c.4 0 .8 0 1.2.1v2.8a3 3 0 1 0 2 2.8V3h2.7z" />
       </svg>
     ),
@@ -85,7 +85,7 @@ const SOCIAL_BADGES: { name: string; href?: string; icon: ReactNode }[] = [
     name: 'Email hỗ trợ',
     href: 'mailto:support@ethanecom.com',
     icon: (
-      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] lg:h-6 lg:w-6" fill="currentColor" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 lg:h-[22px] lg:w-[22px]" fill="currentColor" aria-hidden="true">
         <path d="M12 3.5c-4.7 0-8.5 3.36-8.5 7.5 0 2.36 1.24 4.47 3.19 5.86-.1.75-.44 1.94-1.29 3.14a.4.4 0 0 0 .43.62c1.5-.4 2.9-1.18 3.68-1.69.78.17 1.6.27 2.49.27 4.7 0 8.5-3.36 8.5-7.5S16.7 3.5 12 3.5z" />
       </svg>
     ),
