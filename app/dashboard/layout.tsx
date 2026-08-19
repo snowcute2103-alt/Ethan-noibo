@@ -31,9 +31,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           className="glow-orb -right-16 -top-24 h-64 w-64 bg-gold/15"
           aria-hidden="true"
         />
-        <div className="relative mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-5 py-3 sm:gap-4 sm:px-8 sm:py-4">
+        <div className="relative mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-5 py-5 sm:gap-4 sm:px-8 sm:py-7">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <Image src={logo} alt="Ethan Ecom" className="h-12 w-auto shrink-0 sm:h-14 lg:h-16" priority />
+            <Image src={logo} alt="Ethan Ecom" className="h-14 w-auto shrink-0 sm:h-16 lg:h-[4.5rem]" priority />
             <div className="min-w-0">
               <p className="hidden font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan sm:block">
                 Ethan Ecom

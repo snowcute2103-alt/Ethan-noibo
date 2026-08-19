@@ -200,7 +200,9 @@ export default function UserTable({ users }: { users: UserRow[] }) {
     return (
       <th
         className={`whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide ${
-          sticky ? 'sticky left-0 top-0 z-20 bg-navy' : 'sticky top-0 z-10 bg-navy'
+          sticky
+            ? 'sticky left-0 top-0 z-20 bg-navy shadow-[6px_0_8px_-6px_rgba(15,23,42,0.45)]'
+            : 'sticky top-0 z-10 bg-navy'
         }`}
       >
         <button
@@ -275,7 +277,9 @@ export default function UserTable({ users }: { users: UserRow[] }) {
               const rowBg = i % 2 === 1 ? 'bg-surface-2' : 'bg-white';
               return (
                 <tr key={u.id} className={rowBg}>
-                  <td className={`sticky left-0 z-10 border-b border-r border-navy/10 px-4 py-3 ${rowBg}`}>
+                  <td
+                    className={`sticky left-0 z-10 border-b border-navy/10 px-4 py-3 shadow-[6px_0_8px_-6px_rgba(15,23,42,0.2)] ${rowBg}`}
+                  >
                     <div className="flex items-center gap-3">
                       <Image
                         // TODO: ảnh tạm — thay bằng avatar thật khi import ảnh nhân sự.

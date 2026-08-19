@@ -82,7 +82,7 @@ export default function CultureGalleryHero() {
           <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan">Câu chuyện Ethan</p>
         </ContainerAnimated>
         <ContainerAnimated>
-          <h2 className="title-glow mt-6 font-heading text-[clamp(3.25rem,9vw,8rem)] font-medium tracking-wide leading-[1.02] text-white">
+          <h2 className="title-glow mt-6 font-heading text-[clamp(2.5rem,6.5vw,5.5rem)] font-light uppercase tracking-wide leading-[1.02] text-white">
             Văn hoá
           </h2>
         </ContainerAnimated>
