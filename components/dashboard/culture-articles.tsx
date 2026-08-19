@@ -1,23 +1,13 @@
 import { Fragment } from 'react';
 import Image, { type StaticImageData } from 'next/image';
 import type { CultureArticle } from '@/lib/content';
+import { CULTURE_ARTICLE_IMAGE } from '@/lib/content/images';
 import VisibilityBadge from '@/components/visibility-badge';
-import visionImg from '@/public/images/van-hoa/connguoi.jpg';
-import founderImg from '@/public/images/van-hoa/hanhtrinh.jpg';
-import orgImg from '@/public/images/van-hoa/office.jpg';
-import cultureImg from '@/public/images/van-hoa/team-building.jpg';
 import dongLongImg from '@/public/images/van-hoa/dong-long.jpg';
 import tuTeImg from '@/public/images/van-hoa/tu-te.jpg';
 import trachNhiemImg from '@/public/images/van-hoa/trachnhiem.jpg';
 import caiTienImg from '@/public/images/van-hoa/caitien.jpg';
 import benBiImg from '@/public/images/van-hoa/benbi.jpg';
-
-const ARTICLE_IMAGES: Record<string, StaticImageData> = {
-  'tam-nhin-su-menh-gia-tri': visionImg,
-  'cau-chuyen-founder': founderImg,
-  'co-cau-to-chuc': orgImg,
-  'van-hoa-gan-ket-dai-ngo': cultureImg,
-};
 
 const VALUE_IMAGES: Record<string, StaticImageData> = {
   'Đồng lòng': dongLongImg,
@@ -61,7 +51,7 @@ export default function CultureArticles({ articles }: { articles: CultureArticle
     <div className="flex flex-col">
       {articles.map((a, i) => {
         const reversed = i % 2 === 1;
-        const image = ARTICLE_IMAGES[a.id];
+        const image = CULTURE_ARTICLE_IMAGE[a.id];
         return (
           <Fragment key={a.id}>
             {i > 0 && <hr className="gradient-divider" aria-hidden="true" />}

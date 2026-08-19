@@ -60,3 +60,20 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_login_attempts_username_ip_time ON login_attempts (username, ip, created_at);
+
+/** Yêu cầu "Quên mật khẩu" do nhân viên tự gửi từ trang login — BGĐ duyệt thủ công
+ *  qua trang admin (không có luồng gửi email/reset link tự động, khớp quyết định
+ *  bảo mật đã chốt ở phase-02: không gửi mật khẩu qua kênh tự động nào). */
+CREATE TABLE IF NOT EXISTS password_reset_requests (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  requested_ip TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_by INTEGER REFERENCES users(id),
+  resolved_at TIMESTAMPTZ,
+  CHECK (status IN ('pending', 'approved', 'dismissed'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_requests_status_time
+  ON password_reset_requests (status, created_at);

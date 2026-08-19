@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, departmentLabel, tierLabel } from '@/lib/roles';
@@ -217,12 +218,20 @@ export default function UserTable({ users }: { users: UserRow[] }) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-3">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên hoặc username…"
-            className="border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue"
-          />
+          <div className="relative">
+            <Search
+              size={16}
+              strokeWidth={2}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+              aria-hidden="true"
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo tên hoặc username…"
+              className="border border-[#e0e7f3] bg-[#fafbff] py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue"
+            />
+          </div>
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}

@@ -1,15 +1,19 @@
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { departmentLabel, tierLabel } from '@/lib/roles';
+import { findUserById } from '@/lib/users';
 import { NAV_ITEMS } from '@/lib/nav';
-import LogoutButton from '@/components/logout-button';
 import NavLink from '@/components/dashboard/nav-link';
+import UserMenu from '@/components/dashboard/user-menu';
 import logo from '@/public/images/brand/logo.png';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect('/login');
+
+  // getSession() đã đối chiếu user active trong DB — user luôn tồn tại ở đây.
+  const user = await findUserById(session.userId);
+  if (!user) redirect('/login');
 
   // Link "Quản trị" chỉ hiện với BGĐ (tier full) — không đưa vào NAV_ITEMS tĩnh
   // vì lib/nav.ts không có session, thêm điều kiện ngay ở đây (layout đã có session sẵn).
@@ -27,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           className="glow-orb -right-16 -top-24 h-64 w-64 bg-gold/15"
           aria-hidden="true"
         />
-        <div className="relative mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-5 sm:gap-6 sm:px-8 sm:py-7 lg:py-9">
+        <div className="relative mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-5 sm:gap-6 sm:px-8 sm:py-7 lg:py-9">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Image src={logo} alt="Ethan Ecom" className="h-10 w-auto shrink-0 sm:h-14 lg:h-16" priority />
             <div className="min-w-0">
@@ -39,18 +43,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-4 sm:gap-6">
-            <div className="hidden text-right text-base sm:block">
-              <p className="font-semibold">{departmentLabel(session.department)}</p>
-              <p className="text-white/60">
-                {tierLabel(session.tier)} · {session.username}
-              </p>
-            </div>
-            <LogoutButton />
+          <div className="flex items-center gap-4 text-base sm:gap-6">
+            <UserMenu
+              user={{
+                fullName: user.fullName,
+                username: user.username,
+                department: user.department,
+                tier: user.tier,
+                employeeCode: user.employeeCode,
+                jobTitle: user.jobTitle,
+                positionTitle: user.positionTitle,
+                teamLabel: user.teamLabel,
+                personalEmail: user.personalEmail,
+                phone: user.phone,
+                office: user.office,
+                avatarUrl: user.avatarUrl,
+              }}
+            />
           </div>
         </div>
         <nav aria-label="Điều hướng chính" className="relative border-t border-white/10 px-5 sm:px-8">
-          <div className="mx-auto flex max-w-[1440px] gap-7 overflow-x-auto py-4 sm:gap-10 sm:py-5">
+          <div className="mx-auto flex max-w-[1500px] gap-7 overflow-x-auto py-4 sm:gap-10 sm:py-5">
             {navItems.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}

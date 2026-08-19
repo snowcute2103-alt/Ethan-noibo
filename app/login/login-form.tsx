@@ -2,6 +2,7 @@
 
 import { useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 
 interface GlowFieldProps {
@@ -152,6 +153,10 @@ export default function LoginForm() {
         }
       />
 
+      <Link href="/quen-mat-khau" className="link-glow -mt-2 w-fit text-sm font-semibold text-white/70 hover:text-cyan">
+        Quên mật khẩu?
+      </Link>
+
       {error && <p className="text-base text-[#FF8A8A]">{error}</p>}
 
       <button
@@ -160,7 +165,7 @@ export default function LoginForm() {
         className="group/button relative mt-1 inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-blue-cta to-cyan px-4 py-3 text-base font-semibold uppercase tracking-wide text-white transition-transform duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 lg:text-lg"
       >
         <span className="relative z-10">{loading ? 'Đang đăng nhập…' : 'Đăng nhập'}</span>
-        <span className="absolute inset-0 flex h-full w-full justify-center [transform:skew(-13deg)_translateX(-150%)] group-hover/button:duration-700 group-hover/button:[transform:skew(-13deg)_translateX(150%)]">
+        <span className="absolute inset-0 flex h-full w-full justify-center transition-transform duration-[2000ms] ease-in-out [transform:skew(-13deg)_translateX(-150%)] group-hover/button:[transform:skew(-13deg)_translateX(150%)]">
           <span className="relative h-full w-8 bg-white/25" />
         </span>
       </button>

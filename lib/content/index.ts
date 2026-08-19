@@ -5,3 +5,4 @@ export * from './policies';
 export * from './sop';
 export * from './culture';
 export * from './recognition';
+export * from './feed';

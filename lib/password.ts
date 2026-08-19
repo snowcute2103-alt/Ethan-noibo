@@ -1,5 +1,6 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
+import type { Tier } from './roles';
 
 // Không import 'server-only' — file này cần dùng được từ script chạy bằng tsx
 // ngoài Next.js runtime (xem lib/db.ts).
@@ -33,4 +34,9 @@ export function generatePassword(length = 12): string {
   return randomBytes(Math.ceil((length * 3) / 4))
     .toString('base64url')
     .slice(0, length);
+}
+
+/** Độ dài mật khẩu tối thiểu — dài hơn hẳn cho tier full (BGĐ), khớp Phase 3. */
+export function passwordLengthFor(tier: Tier): number {
+  return tier === 'full' ? 20 : 12;
 }

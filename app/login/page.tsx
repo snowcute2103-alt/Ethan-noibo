@@ -71,10 +71,10 @@ export default function LoginPage() {
           />
           <div className="absolute inset-x-0 bottom-0 p-4 pr-6 sm:p-8 sm:pr-10 lg:p-10 lg:pr-12">
             <p className="font-heading text-sm font-semibold uppercase tracking-wide text-white sm:whitespace-nowrap sm:text-lg lg:text-xl">
-              Cổng thông tin nội bộ ETHAN ECOM
+              Cổng thông tin nội bộ
             </p>
             <p className="mt-1 text-xs leading-relaxed text-white/90 sm:whitespace-nowrap sm:text-sm lg:text-base">
-              Nơi đồng lòng, tử tế, trách nhiệm được nuôi dưỡng mỗi ngày.
+              Tại Ethan Ecom, nơi mỗi cá nhân là một mảnh ghép quan trọng.
             </p>
           </div>
         </div>

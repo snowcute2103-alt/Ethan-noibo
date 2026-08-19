@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findUserByUsername, isRateLimited, recordLoginAttempt } from '@/lib/users';
 import { verifyPassword, DUMMY_HASH } from '@/lib/password';
 import { createSessionToken, sessionTtlFor, SESSION_COOKIE } from '@/lib/auth';
-
-function clientIp(req: NextRequest): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  return forwarded?.split(',')[0]?.trim() || 'unknown';
-}
+import { clientIp } from '@/lib/request';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);

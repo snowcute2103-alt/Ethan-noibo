@@ -13,9 +13,10 @@ import {
   type CreateUserInput,
   type UpdateUserInput,
 } from '@/lib/users';
-import { hashPassword, generatePassword } from '@/lib/password';
+import { hashPassword, generatePassword, passwordLengthFor } from '@/lib/password';
 import { grantPermission, revokePermission } from '@/lib/rule-permissions';
 import { logAdminAction } from '@/lib/audit';
+import { findResetRequestById, resolveResetRequest } from '@/lib/reset-requests';
 import { DEPARTMENTS } from '@/lib/roles';
 import type { Department, Tier } from '@/lib/roles';
 
@@ -39,11 +40,6 @@ function assertValidTierForDepartment(department: Department, tier: Tier) {
   if (!info || !info.tiers.includes(tier)) {
     throw new Error(`Cấp "${tier}" không hợp lệ cho khối "${department}".`);
   }
-}
-
-/** Độ dài mật khẩu tối thiểu — dài hơn hẳn cho tier full (BGĐ), khớp Phase 3. */
-function passwordLengthFor(tier: Tier): number {
-  return tier === 'full' ? 20 : 12;
 }
 
 export async function createUserAction(
@@ -148,6 +144,38 @@ export async function resetPasswordAction(id: number): Promise<{ password: strin
   await logAdminAction(admin.userId, 'user.reset_password', id, {});
 
   return { password };
+}
+
+/** Duyệt 1 yêu cầu "Quên mật khẩu" từ trang login: sinh mật khẩu mới y hệt
+ *  resetPasswordAction, chỉ khác là đánh dấu luôn yêu cầu đã xử lý. */
+export async function approveResetRequestAction(requestId: number): Promise<{ username: string; password: string }> {
+  const admin = await requireAdmin();
+  const request = await findResetRequestById(requestId);
+  if (!request || request.status !== 'pending') throw new Error('Yêu cầu không tồn tại hoặc đã được xử lý.');
+
+  const user = await findUserById(request.userId);
+  if (!user) throw new Error('Không tìm thấy user.');
+
+  const password = generatePassword(passwordLengthFor(user.tier));
+  const passwordHash = await hashPassword(password);
+  await updatePasswordHash(user.id, passwordHash);
+  await bumpSessionVersion(user.id);
+  await resolveResetRequest(requestId, 'approved', admin.userId);
+
+  await logAdminAction(admin.userId, 'user.reset_password', user.id, { note: `request:${requestId}` });
+
+  return { username: user.username, password };
+}
+
+export async function dismissResetRequestAction(requestId: number): Promise<{ ok: true }> {
+  const admin = await requireAdmin();
+  const request = await findResetRequestById(requestId);
+  if (!request || request.status !== 'pending') throw new Error('Yêu cầu không tồn tại hoặc đã được xử lý.');
+
+  await resolveResetRequest(requestId, 'dismissed', admin.userId);
+  await logAdminAction(admin.userId, 'password_reset.dismiss', request.userId, {});
+
+  return { ok: true };
 }
 
 export async function unlockUserAction(username: string): Promise<{ ok: true }> {

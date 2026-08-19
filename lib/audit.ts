@@ -6,6 +6,7 @@ export type AuditAction =
   | 'user.deactivate'
   | 'user.reset_password'
   | 'user.unlock'
+  | 'password_reset.dismiss'
   | 'permission.grant'
   | 'permission.revoke'
   | 'permission.backfill';

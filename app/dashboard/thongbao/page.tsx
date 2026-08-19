@@ -22,7 +22,7 @@ export default async function ThongBaoPage() {
     <div className="relative overflow-hidden bg-[#FFFCF5]">
       <div className="glow-orb -left-32 top-0 h-96 w-96 bg-gold/20" aria-hidden="true" />
       <div className="glow-orb -right-24 top-40 h-72 w-72 bg-cyan/10" aria-hidden="true" />
-      <div className="relative mx-auto max-w-[1200px] px-8 py-28 sm:py-36">
+      <div className="relative mx-auto max-w-[1500px] px-8 py-28 sm:py-36">
         <div className="grid grid-cols-1 items-center gap-12 sm:grid-cols-[1fr_220px]">
           <div>
             <p className="animate-fade-up font-heading text-sm font-medium uppercase tracking-[0.3em] text-gold">

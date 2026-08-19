@@ -39,7 +39,7 @@ export default async function KhenThuongPage() {
         <circle cx="100" cy="100" r="100" fill="#FFECC2" />
       </svg>
 
-      <div className="relative mx-auto flex max-w-[1360px] flex-col gap-32 px-8 py-28 sm:py-36">
+      <div className="relative mx-auto flex max-w-[1500px] flex-col gap-32 px-8 py-28 sm:py-36">
         <div className="relative grid grid-cols-1 items-center gap-14 overflow-hidden sm:grid-cols-[1fr_260px]">
           <MoneyRain />
           <FireworkBurst />

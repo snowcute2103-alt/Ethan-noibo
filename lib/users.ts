@@ -80,6 +80,25 @@ export async function findUserByUsername(username: string): Promise<UserRow | nu
   return rows[0] ? mapRow(rows[0]) : null;
 }
 
+/** Dùng cho form "Quên mật khẩu" — nhân viên có thể nhập username hoặc email cá nhân. */
+export async function findUserByUsernameOrEmail(identifier: string): Promise<UserRow | null> {
+  const rows = await sql.query(
+    `SELECT ${USER_COLUMNS} FROM users
+     WHERE (lower(username) = lower($1) OR lower(personal_email) = lower($1)) AND is_active = true`,
+    [identifier]
+  );
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
+/** Email cá nhân của các tài khoản BGĐ (tier=full) đang hoạt động — nơi nhận thông
+ *  báo "Quên mật khẩu" tự động (xem app/api/forgot-password/route.ts). */
+export async function listActiveFullTierEmails(): Promise<string[]> {
+  const rows = await sql.query(
+    "SELECT personal_email FROM users WHERE tier = 'full' AND is_active = true AND personal_email IS NOT NULL"
+  );
+  return rows.map((row) => row.personal_email as string).filter(Boolean);
+}
+
 export async function findUserById(id: number): Promise<UserRow | null> {
   const rows = await sql.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id]);
   return rows[0] ? mapRow(rows[0]) : null;
