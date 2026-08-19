@@ -1,19 +1,27 @@
-import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { canView } from '@/lib/roles';
+import { canView, departmentLabel } from '@/lib/roles';
+import { listUsers } from '@/lib/users';
 import { RECOGNITION_LISTS } from '@/lib/content';
 import RecognitionWall from '@/components/dashboard/recognition-wall';
 import MoneyRain from '@/components/dashboard/money-rain';
 import FireworkBurst from '@/components/dashboard/firework-burst';
 import Reveal from '@/components/reveal';
-import teamPhoto from '@/public/images/khenthuong/doingu.jpg';
+import SphereImageGrid, { type ImageData } from '@/components/ui/img-sphere';
 
 export default async function KhenThuongPage() {
   const session = await getSession();
   if (!session) redirect('/login');
 
   const lists = RECOGNITION_LISTS.filter((r) => canView(session, r.visibility));
+  const users = await listUsers();
+  const teamAvatars: ImageData[] = users.map((u) => ({
+    id: String(u.id),
+    src: u.avatarUrl ?? '',
+    alt: u.fullName,
+    title: u.fullName,
+    description: departmentLabel(u.department),
+  }));
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF5F8] via-white to-white">
@@ -40,22 +48,30 @@ export default async function KhenThuongPage() {
       </svg>
 
       <div className="relative mx-auto flex max-w-[1500px] flex-col gap-32 px-8 py-28 sm:py-36">
-        <div className="relative grid grid-cols-1 items-center gap-14 overflow-hidden sm:grid-cols-[1fr_260px]">
+        <div className="relative grid grid-cols-1 items-center gap-14 overflow-visible sm:grid-cols-[1fr_600px]">
           <MoneyRain />
           <FireworkBurst />
           <div className="relative z-10 text-center sm:text-left">
             <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-[#FF6F91]">Wall of fame</p>
-            <h2 className="mt-5 font-heading text-[clamp(3.25rem,9vw,8.5rem)] font-medium tracking-wide leading-[0.95] text-navy">
+            <h2 className="mt-5 font-heading text-[clamp(2.25rem,5.5vw,4.75rem)] font-light uppercase tracking-wide leading-[0.95] text-navy">
               Khen thưởng
             </h2>
             <p className="mx-auto mt-6 max-w-lg text-lg leading-relaxed text-muted sm:mx-0">
               Cảm ơn những đóng góp nổi bật mỗi tháng — tinh thần đồng lòng làm nên Ethan.
             </p>
           </div>
-          <div className="relative z-10 mx-auto hidden rotate-3 rounded-[20px] border-8 border-white bg-white shadow-[0_20px_50px_-16px_rgba(255,111,145,0.45)] sm:block">
-            <div className="relative aspect-[4/5] w-[240px] overflow-hidden rounded-[8px]">
-              <Image src={teamPhoto} alt="Đội ngũ Ethan Ecom" fill sizes="240px" className="object-cover" />
-            </div>
+          <div className="relative z-10 mx-auto hidden sm:block">
+            <SphereImageGrid
+              images={teamAvatars}
+              containerSize={600}
+              sphereRadius={260}
+              baseImageScale={0.16}
+              hoverScale={1.3}
+              dragSensitivity={0.6}
+              momentumDecay={0.96}
+              autoRotate
+              autoRotateSpeed={0.15}
+            />
           </div>
         </div>
 
