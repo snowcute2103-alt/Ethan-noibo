@@ -50,11 +50,15 @@ export default function LoginPage() {
       </div>
 
       <div
-        className="pointer-events-none absolute bottom-0 left-1/2 h-[420px] w-[85%] max-w-[1100px] -translate-x-1/2 translate-y-1/4 rounded-full bg-blue-cta/60 blur-[110px]"
+        className="pointer-events-none absolute bottom-0 left-1/2 h-[420px] w-[85%] max-w-[1100px] -translate-x-1/2 translate-y-1/4 rounded-full bg-blue-cta/35 blur-[110px]"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute bottom-0 left-1/2 h-64 w-2/3 -translate-x-1/2 translate-y-1/3 rounded-full bg-cyan/50 blur-[90px]"
+        className="pointer-events-none absolute bottom-0 left-1/2 h-64 w-2/3 -translate-x-1/2 translate-y-1/3 rounded-full bg-cyan/25 blur-[90px]"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[380px] bg-gradient-to-t from-[#05060a] via-[#05060a]/70 to-transparent"
         aria-hidden="true"
       />
 
