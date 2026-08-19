@@ -73,7 +73,7 @@ export default function LoginPage() {
             <p className="font-heading whitespace-nowrap text-xl font-semibold uppercase tracking-wide text-white sm:text-2xl">
               Cổng thông tin nội bộ ETHAN ECOM
             </p>
-            <p className="mt-4 whitespace-nowrap text-base leading-relaxed text-white/90 lg:text-lg">
+            <p className="mt-1 whitespace-nowrap text-base leading-relaxed text-white/90 lg:text-lg">
               Nơi đồng lòng, tử tế, trách nhiệm được nuôi dưỡng mỗi ngày.
             </p>
           </div>
