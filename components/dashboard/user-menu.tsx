@@ -9,6 +9,7 @@ import type { Department, Tier } from '@/lib/roles';
 import { departmentLabel, tierLabel } from '@/lib/roles';
 import { updateOwnAvatarAction } from '@/app/dashboard/actions';
 import LogoutButton from '@/components/logout-button';
+import avatarPlaceholder from '@/public/images/avatar-placeholder.jpg';
 
 export interface UserMenuInfo {
   fullName: string;
@@ -35,23 +36,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function Avatar({ url, alt, size }: { url: string | null; alt: string; size: number }) {
-  if (url) {
-    return (
-      <Image
-        src={url}
-        alt={alt}
-        width={size}
-        height={size}
-        className="shrink-0 rounded-full border border-white/20 object-cover"
-        style={{ height: size, width: size }}
-      />
-    );
-  }
   return (
-    <div
-      className="shrink-0 rounded-full border border-white/20 bg-white/10"
+    <Image
+      // TODO: ảnh tạm — thay bằng avatar thật khi import ảnh nhân sự.
+      src={url || avatarPlaceholder}
+      alt={alt}
+      width={size}
+      height={size}
+      className="shrink-0 rounded-full border border-white/20 bg-white/10 object-cover"
       style={{ height: size, width: size }}
-      aria-hidden="true"
     />
   );
 }

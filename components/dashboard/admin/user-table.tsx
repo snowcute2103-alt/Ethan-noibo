@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, departmentLabel, tierLabel } from '@/lib/roles';
 import { updateUserAction, unlockUserAction } from '@/app/dashboard/admin/actions';
+import avatarPlaceholder from '@/public/images/avatar-placeholder.jpg';
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
@@ -276,17 +277,14 @@ export default function UserTable({ users }: { users: UserRow[] }) {
                 <tr key={u.id} className={rowBg}>
                   <td className={`sticky left-0 z-10 border-b border-r border-navy/10 px-4 py-3 ${rowBg}`}>
                     <div className="flex items-center gap-3">
-                      {u.avatarUrl ? (
-                        <Image
-                          src={u.avatarUrl}
-                          alt={u.fullName}
-                          width={32}
-                          height={32}
-                          className="h-8 w-8 shrink-0 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-8 w-8 shrink-0 rounded-full bg-surface-2" />
-                      )}
+                      <Image
+                        // TODO: ảnh tạm — thay bằng avatar thật khi import ảnh nhân sự.
+                        src={u.avatarUrl || avatarPlaceholder}
+                        alt={u.fullName}
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 shrink-0 rounded-full bg-surface-2 object-cover"
+                      />
                       <span className="whitespace-nowrap text-ink">{u.fullName}</span>
                     </div>
                   </td>
