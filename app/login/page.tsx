@@ -59,8 +59,8 @@ export default function LoginPage() {
       />
 
       <div className="relative grid w-full max-w-[1400px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[680px] lg:grid-cols-2">
-        <div className="relative hidden lg:block">
-          <Image src={loginImg} alt="" fill sizes="700px" className="object-cover" priority />
+        <div className="relative h-40 sm:h-56 lg:h-auto">
+          <Image src={loginImg} alt="" fill sizes="(max-width: 1024px) 100vw, 700px" className="object-cover" priority />
           <div
             className="absolute inset-0 bg-gradient-to-t from-navy-deep via-navy-deep/50 to-navy-deep/10"
             aria-hidden="true"
@@ -69,27 +69,32 @@ export default function LoginPage() {
             className="absolute inset-0 bg-gradient-to-r from-navy-deep/70 via-transparent to-transparent"
             aria-hidden="true"
           />
-          <div className="absolute inset-x-0 bottom-0 p-14">
-            <p className="font-heading whitespace-nowrap text-xl font-semibold uppercase tracking-wide text-white sm:text-2xl">
+          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-8 lg:p-14">
+            <p className="font-heading text-sm font-semibold uppercase tracking-wide text-white sm:whitespace-nowrap sm:text-xl lg:text-2xl">
               Cổng thông tin nội bộ ETHAN ECOM
             </p>
-            <p className="mt-1 whitespace-nowrap text-base leading-relaxed text-white/90 lg:text-lg">
+            <p className="mt-1 text-xs leading-relaxed text-white/90 sm:whitespace-nowrap sm:text-base lg:text-lg">
               Nơi đồng lòng, tử tế, trách nhiệm được nuôi dưỡng mỗi ngày.
             </p>
           </div>
         </div>
 
-        <MouseGlowPanel className="relative flex flex-col justify-center gap-9 overflow-hidden px-8 py-14 sm:px-14 sm:py-16 lg:px-16">
+        <MouseGlowPanel className="relative flex flex-col justify-center gap-5 overflow-hidden px-6 py-8 sm:gap-8 sm:px-14 sm:py-16 lg:gap-9 lg:px-16">
           <div className="glow-orb -right-10 -top-10 h-52 w-52 bg-cyan/10" aria-hidden="true" />
 
-          <div className="relative flex flex-col gap-5">
-            <div className="relative -ml-2 w-fit">
+          <div className="relative flex flex-col items-center gap-3 sm:items-start sm:gap-5">
+            <div className="relative w-fit sm:-ml-2">
               <div className="glow-orb -left-8 -top-8 h-40 w-40 bg-cyan/25" aria-hidden="true" />
-              <Image src={logo} alt="Ethan Ecom" className="relative h-24 w-auto drop-shadow-[0_0_30px_rgba(0,210,255,0.35)] sm:h-28" priority />
+              <Image
+                src={logo}
+                alt="Ethan Ecom"
+                className="relative h-16 w-auto drop-shadow-[0_0_30px_rgba(0,210,255,0.35)] sm:h-28 lg:h-32"
+                priority
+              />
             </div>
-            <h1 className="font-heading text-4xl font-medium uppercase tracking-wide text-white sm:text-5xl">Đăng nhập</h1>
+            <h1 className="font-heading text-2xl font-medium uppercase tracking-wide text-white sm:text-4xl lg:text-5xl">Đăng nhập</h1>
           </div>
-          <p className="relative text-lg text-white/75">Đăng nhập bằng tài khoản khối/vị trí của bạn</p>
+          <p className="relative -mt-2 text-sm text-white/75 sm:-mt-6 sm:text-lg">Đăng nhập bằng tài khoản khối/vị trí của bạn</p>
 
           <Suspense fallback={null}>
             <LoginForm />
