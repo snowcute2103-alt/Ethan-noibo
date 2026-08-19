@@ -87,12 +87,9 @@ export default function LoginPage() {
               <div className="glow-orb -left-8 -top-8 h-40 w-40 bg-cyan/25" aria-hidden="true" />
               <Image src={logo} alt="Ethan Ecom" className="relative h-24 w-auto drop-shadow-[0_0_30px_rgba(0,210,255,0.35)] sm:h-28" priority />
             </div>
-            <div className="flex flex-col gap-3">
-              <p className="font-heading text-sm font-medium uppercase tracking-[0.35em] text-cyan">Ethan Ecom</p>
-              <h1 className="font-heading text-4xl font-medium uppercase tracking-wide text-white sm:text-5xl">Đăng nhập</h1>
-            </div>
+            <h1 className="font-heading text-4xl font-medium uppercase tracking-wide text-white sm:text-5xl">Đăng nhập</h1>
           </div>
-          <p className="relative text-base text-white/75">Đăng nhập bằng tài khoản khối/vị trí của bạn</p>
+          <p className="relative text-lg text-white/75">Đăng nhập bằng tài khoản khối/vị trí của bạn</p>
 
           <Suspense fallback={null}>
             <LoginForm />
