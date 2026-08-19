@@ -118,6 +118,31 @@ body {
   }
 }
 
+@keyframes star-rise {
+  0% {
+    transform: translateY(0) scale(0.85);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-112vh) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-star-rise {
+    animation-name: star-rise;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+}
+
 /* ---- Editorial glow — dùng chung cho mọi trang, xem plans/reports cho lý do ---- */
 
 .glow-orb {
