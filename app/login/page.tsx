@@ -58,7 +58,7 @@ export default function LoginPage() {
         aria-hidden="true"
       />
 
-      <div className="relative grid w-full max-w-[1400px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[680px] lg:grid-cols-2">
+      <div className="relative grid w-full max-w-[1220px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[600px] lg:grid-cols-2">
         <div className="relative h-40 sm:h-56 lg:h-auto">
           <Image src={loginImg} alt="" fill sizes="(max-width: 1024px) 100vw, 700px" className="object-cover" priority />
           <div
