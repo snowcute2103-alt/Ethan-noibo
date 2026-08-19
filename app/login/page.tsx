@@ -98,7 +98,7 @@ export default function LoginPage() {
             </div>
             <h1 className="font-heading text-2xl font-medium uppercase tracking-wide text-white sm:text-4xl lg:text-5xl">Đăng nhập</h1>
           </div>
-          <p className="relative -mt-2 text-sm text-white/75 sm:-mt-4 sm:text-lg">Đăng nhập bằng tài khoản khối/vị trí của bạn</p>
+          <p className="relative -mt-2 text-sm text-white/75 sm:-mt-4 sm:text-lg">Sử dụng tài khoản được cấp theo khối/ vị trí của bạn</p>
 
           <Suspense fallback={null}>
             <LoginForm />
