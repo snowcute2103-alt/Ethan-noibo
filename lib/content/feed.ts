@@ -1,9 +1,6 @@
 import type { StaticImageData } from 'next/image';
 import { daysSince } from '../date';
 import { CATEGORY_IMAGE, CULTURE_ARTICLE_IMAGE, FALLBACK_IMAGE } from './images';
-import type { Announcement } from './announcements';
-import type { Notice } from './notices';
-import type { Policy } from './policies';
 import type { CultureArticle } from './culture';
 import type { RecognitionList } from './recognition';
 
@@ -20,8 +17,6 @@ export interface FeedItem {
 }
 
 const CATEGORY_ACCENT: Record<string, string> = {
-  'Thông báo': '#F5A623',
-  'Chính sách': '#0052CC',
   'Khen thưởng': '#FF6F91',
   'Văn hoá': '#1A2745',
 };
@@ -45,51 +40,16 @@ function makeItem(
 }
 
 /**
- * Gộp Thông báo/Announcement/Chính sách/Khen thưởng (đều có mốc thời gian) và sắp
- * mới nhất lên đầu; Văn hoá không có ngày (nội dung "evergreen") nên xếp sau cùng,
- * giữ nguyên thứ tự khai báo thay vì gán ngày giả.
+ * Gộp Khen thưởng (có mốc thời gian) và sắp mới nhất lên đầu; Văn hoá không có
+ * ngày (nội dung "evergreen") nên xếp sau cùng, giữ nguyên thứ tự khai báo thay
+ * vì gán ngày giả. Thông báo/Announcement/Chính sách không còn ở đây — đã lên
+ * slideshow riêng đầu trang chủ (xem ThongBaoSection).
  */
 export function buildFeed(input: {
-  notices: Notice[];
-  announcements: Announcement[];
-  policies: Policy[];
   culture: CultureArticle[];
   recognition: RecognitionList[];
 }): FeedItem[] {
   const dated: { item: FeedItem; sortDateStr: string | null }[] = [
-    ...input.notices.map((n) => ({
-      item: makeItem('Thông báo', {
-        key: `notice-${n.id}`,
-        image: CATEGORY_IMAGE['Thông báo'] ?? FALLBACK_IMAGE,
-        title: n.title,
-        excerpt: truncate(n.body, 140),
-        date: n.date,
-        href: '/dashboard/thongbao',
-      }),
-      sortDateStr: n.date,
-    })),
-    ...input.announcements.map((a) => ({
-      item: makeItem('Thông báo', {
-        key: `announcement-${a.id}`,
-        image: CATEGORY_IMAGE['Thông báo'] ?? FALLBACK_IMAGE,
-        title: a.title,
-        excerpt: truncate(a.body, 140),
-        date: a.date,
-        href: '/dashboard/thongbao',
-      }),
-      sortDateStr: a.date,
-    })),
-    ...input.policies.map((p) => ({
-      item: makeItem('Chính sách', {
-        key: `policy-${p.id}`,
-        image: CATEGORY_IMAGE['Chính sách'] ?? FALLBACK_IMAGE,
-        title: p.title,
-        excerpt: truncate(p.intro, 140),
-        date: p.effectiveDate,
-        href: '/dashboard/thongbao',
-      }),
-      sortDateStr: p.effectiveDate,
-    })),
     ...input.recognition.map((r) => ({
       item: makeItem('Khen thưởng', {
         key: `recognition-${r.id}`,

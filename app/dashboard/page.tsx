@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { canView, departmentLabel } from '@/lib/roles';
-import { daysSince } from '@/lib/date';
-import { NOTICES, POLICIES, CULTURE_ARTICLES, RECOGNITION_LISTS, ANNOUNCEMENTS } from '@/lib/content';
+import { CULTURE_ARTICLES, RECOGNITION_LISTS } from '@/lib/content';
 import { buildFeed } from '@/lib/content/feed';
-import NoticeBanner from '@/components/dashboard/notice-banner';
+import ThongBaoSection from '@/components/dashboard/thongbao-section';
 import FeedCard from '@/components/dashboard/feed-card';
 import FeedRow from '@/components/dashboard/feed-row';
 import Reveal from '@/components/reveal';
@@ -29,18 +28,10 @@ export default async function DashboardHome() {
   const session = await getSession();
   if (!session) redirect('/login');
 
-  const allNotices = NOTICES.filter((n) => canView(session, n.visibility));
-  // Trang chủ chỉ nêu thông báo còn "nóng" (trong 1 tuần) — thông báo cũ hơn vẫn xem đầy đủ ở trang Thông báo.
-  const homeNotices = allNotices.filter((n) => {
-    const days = daysSince(n.date);
-    return days === null || days <= 7;
-  });
-  const announcements = ANNOUNCEMENTS.filter((a) => canView(session, a.visibility));
-  const policies = POLICIES.filter((p) => canView(session, p.visibility));
   const culture = CULTURE_ARTICLES.filter((c) => canView(session, c.visibility));
   const recognition = RECOGNITION_LISTS.filter((r) => canView(session, r.visibility));
 
-  const feed = buildFeed({ notices: allNotices, announcements, policies, culture, recognition });
+  const feed = buildFeed({ culture, recognition });
   const [hero, ...rest] = feed;
   const gridItems = rest.slice(0, 4);
   const listItems = rest.slice(4);
@@ -51,18 +42,16 @@ export default async function DashboardHome() {
     <div className="flex flex-col">
       <div className="mx-auto w-full max-w-[1500px] px-8 pt-14 sm:pt-20">
         <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-blue">Cổng thông tin nội bộ</p>
-        <h2 className="font-heading mt-2 text-3xl font-medium tracking-wide text-navy sm:text-4xl">
+        <h2 className="font-heading mt-2 text-3xl font-light uppercase tracking-wide text-navy sm:text-4xl">
           {greeting}, {departmentLabel(session.department)}
         </h2>
         <div className="gradient-divider mt-6 w-24" aria-hidden="true" />
       </div>
 
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-20 px-8 py-12 sm:gap-28 sm:py-16">
-        {homeNotices.length > 0 && (
-          <Reveal>
-            <NoticeBanner notices={homeNotices} />
-          </Reveal>
-        )}
+        <Reveal>
+          <ThongBaoSection session={session} />
+        </Reveal>
 
         {hero && (
           <Reveal>

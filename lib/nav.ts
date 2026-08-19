@@ -7,7 +7,6 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Trang chủ' },
   { href: '/dashboard/rule', label: 'SOP & Quy trình' },
-  { href: '/dashboard/thongbao', label: 'Thông báo' },
   { href: '/dashboard/khenthuong', label: 'Khen thưởng' },
   { href: '/dashboard/van-hoa', label: 'Văn hoá' },
 ];
