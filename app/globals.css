@@ -526,15 +526,9 @@ body {
 }
 
 .rule-laptop-shift {
-  /* Bù tâm thị giác của model 3D: mặt laptop nghiêng làm khối trông thấp hơn
-     tâm hình học, nên kéo toàn scene lên để laptop nằm giữa viewport. */
-  transform: translateY(-12vh);
-}
-
-@media (max-width: 640px) {
-  .rule-laptop-shift {
-    transform: translateY(-8vh);
-  }
+  /* Section cha đã place-items: center; không dịch scene để logo ở
+     trạng thái cuối nằm chính giữa viewport trên mọi kích thước màn hình. */
+  transform: none;
 }
 
 .rule-laptop-zoom {
