@@ -12,6 +12,7 @@ import {
 } from "motion/react"
 
 import { cn } from "@/lib/utils"
+import { useReducedEffects } from "@/lib/use-reduced-effects"
 
 interface ContainerScrollContextValue {
   scrollYProgress: MotionValue<number>
@@ -158,12 +159,15 @@ export const ContainerStagger = React.forwardRef<
   HTMLDivElement,
   HTMLMotionProps<"div">
 >(({ className, viewport, transition, ...props }, ref) => {
+  const reduceEffects = useReducedEffects()
+
   return (
     <motion.div
       className={cn("relative", className)}
       ref={ref}
-      initial="hidden"
-      whileInView={"visible"}
+      initial={reduceEffects ? false : "hidden"}
+      animate={reduceEffects ? "visible" : undefined}
+      whileInView={reduceEffects ? undefined : "visible"}
       viewport={{ once: true || viewport?.once, ...viewport }}
       transition={{
         staggerChildren: transition?.staggerChildren || 0.2,

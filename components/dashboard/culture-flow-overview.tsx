@@ -11,6 +11,7 @@ import { ParallaxHero } from '@/components/ui/parallax-scrolling';
 import parallaxLayerBgImg from '@/public/images/van-hoa/parallax-layer-bg.webp';
 import parallaxLayerMidImg from '@/public/images/van-hoa/parallax-layer-mid.webp';
 import parallaxLayerFgImg from '@/public/images/van-hoa/parallax-layer-fg.webp';
+import { useReducedEffects } from '@/lib/use-reduced-effects';
 
 const CHAPTER_STARS = [
   { top: '8%', left: '6%', size: 2, duration: 3.4, delay: 0 },
@@ -45,6 +46,8 @@ const CHAPTER_LABELS = ['Về Ethan', 'Câu chuyện Founder', 'Cơ cấu tổ c
 /** Bốn "chương" đầu trang Văn hoá dùng đúng nội dung thật của 4 bài viết bên dưới (Về Ethan / Câu chuyện Founder /
  *  Cơ cấu tổ chức / Văn hoá); chương 05 là phần giải trí cố định (mini game Air Hockey), không gắn với bài viết nào. */
 export default function CultureFlowOverview({ articles }: { articles: CultureArticle[] }) {
+  const reduceEffects = useReducedEffects();
+
   if (articles.length === 0) return null;
 
   return (
@@ -136,8 +139,9 @@ export default function CultureFlowOverview({ articles }: { articles: CultureArt
               </div>
 
               <motion.p
-                initial={{ opacity: 0, letterSpacing: '0em' }}
-                whileInView={{ opacity: 1, letterSpacing: '0.2em' }}
+                initial={reduceEffects ? false : { opacity: 0, letterSpacing: '0em' }}
+                animate={reduceEffects ? { opacity: 1, letterSpacing: '0.2em' } : undefined}
+                whileInView={reduceEffects ? undefined : { opacity: 1, letterSpacing: '0.2em' }}
                 viewport={{ once: true, amount: 0.6 }}
                 transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
                 className="relative text-xs font-medium uppercase"
@@ -178,8 +182,9 @@ export default function CultureFlowOverview({ articles }: { articles: CultureArt
             </div>
 
             <motion.p
-              initial={{ opacity: 0, letterSpacing: '0em' }}
-              whileInView={{ opacity: 1, letterSpacing: '0.2em' }}
+              initial={reduceEffects ? false : { opacity: 0, letterSpacing: '0em' }}
+              animate={reduceEffects ? { opacity: 1, letterSpacing: '0.2em' } : undefined}
+              whileInView={reduceEffects ? undefined : { opacity: 1, letterSpacing: '0.2em' }}
               viewport={{ once: true, amount: 0.6 }}
               transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
               className="relative text-xs font-medium uppercase"

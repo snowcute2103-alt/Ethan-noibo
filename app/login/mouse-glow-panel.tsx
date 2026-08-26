@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type MouseEvent, type ReactNode } from 'react';
+import { useReducedEffects } from '@/lib/use-reduced-effects';
 
 interface MouseGlowPanelProps {
   className?: string;
@@ -11,6 +12,7 @@ interface MouseGlowPanelProps {
 export default function MouseGlowPanel({ className, children }: MouseGlowPanelProps) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [hovering, setHovering] = useState(false);
+  const reduceEffects = useReducedEffects();
 
   function handleMouseMove(e: MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -18,8 +20,13 @@ export default function MouseGlowPanel({ className, children }: MouseGlowPanelPr
   }
 
   return (
-    <div className={className} onMouseMove={handleMouseMove} onMouseEnter={() => setHovering(true)} onMouseLeave={() => setHovering(false)}>
-      <div
+    <div
+      className={className}
+      onMouseMove={reduceEffects ? undefined : handleMouseMove}
+      onMouseEnter={reduceEffects ? undefined : () => setHovering(true)}
+      onMouseLeave={reduceEffects ? undefined : () => setHovering(false)}
+    >
+      {!reduceEffects && <div
         className={`pointer-events-none absolute left-0 top-0 h-80 w-80 rounded-full bg-gradient-to-r from-cyan/60 via-blue-cta/60 to-gold/50 blur-3xl transition-opacity duration-200 ${
           hovering ? 'opacity-100' : 'opacity-0'
         }`}
@@ -28,7 +35,7 @@ export default function MouseGlowPanel({ className, children }: MouseGlowPanelPr
           transition: 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
         aria-hidden="true"
-      />
+      />}
       {children}
     </div>
   );

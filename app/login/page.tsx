@@ -28,7 +28,7 @@ const STARS = [
 
 export default function LoginPage() {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05060a] px-4 py-10">
+    <main className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05060a] px-4 py-10">
       <div className="glow-orb -left-32 top-0 h-96 w-96 bg-cyan/15" aria-hidden="true" />
       <div className="glow-orb -right-24 bottom-0 h-80 w-80 bg-gold/10" aria-hidden="true" />
       <div className="glow-orb left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 bg-blue/10" aria-hidden="true" />
@@ -50,11 +50,11 @@ export default function LoginPage() {
       </div>
 
       <div
-        className="pointer-events-none absolute bottom-0 left-1/2 h-[420px] w-[85%] max-w-[1100px] -translate-x-1/2 translate-y-1/4 rounded-full bg-blue-cta/35 blur-[110px]"
+        className="auth-ambient pointer-events-none absolute bottom-0 left-1/2 h-[420px] w-[85%] max-w-[1100px] -translate-x-1/2 translate-y-1/4 rounded-full bg-blue-cta/35 blur-[110px]"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute bottom-0 left-1/2 h-64 w-2/3 -translate-x-1/2 translate-y-1/3 rounded-full bg-cyan/25 blur-[90px]"
+        className="auth-ambient pointer-events-none absolute bottom-0 left-1/2 h-64 w-2/3 -translate-x-1/2 translate-y-1/3 rounded-full bg-cyan/25 blur-[90px]"
         aria-hidden="true"
       />
       <div
@@ -62,7 +62,7 @@ export default function LoginPage() {
         aria-hidden="true"
       />
 
-      <div className="relative grid w-full max-w-[1220px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[480px] lg:grid-cols-2">
+      <div className="auth-card relative grid w-full max-w-[1220px] overflow-hidden border border-cyan/20 bg-navy-2 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] lg:min-h-[480px] lg:grid-cols-2">
         <div className="relative h-32 sm:h-44 lg:h-auto">
           <Image src={loginImg} alt="" fill sizes="(max-width: 1024px) 100vw, 700px" className="object-cover" priority />
           <div

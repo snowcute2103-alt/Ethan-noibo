@@ -106,7 +106,7 @@ export default async function DashboardHome() {
 
   return (
     <div className="flex flex-col">
-      <div className="mx-auto w-full max-w-[1500px] px-8 pt-20 sm:pt-28">
+      <div className="mx-auto w-full max-w-[1500px] px-4 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-28">
         <div className="mb-12 text-center">
           <p className="font-heading text-4xl font-light uppercase tracking-wide text-navy sm:text-5xl">
             Ethan Ecom
@@ -122,7 +122,7 @@ export default async function DashboardHome() {
         <GreetingHero greeting={greeting} department={departmentLabel(session.department)} />
       </div>
 
-      <div className="mx-auto mb-[140px] flex w-full max-w-[1500px] flex-col gap-24 px-8 py-16 sm:gap-36 sm:py-24">
+      <div className="mx-auto mb-16 flex w-full max-w-[1500px] flex-col gap-16 px-4 py-12 sm:px-6 sm:py-16 lg:mb-[140px] lg:gap-36 lg:px-8 lg:py-24">
         <Reveal>
           <div id="thong-bao">
             <ThongBaoSection session={session} />
@@ -151,7 +151,7 @@ export default async function DashboardHome() {
                   Nội dung khác
                 </h2>
               </div>
-              <div className="relative grid grid-cols-1 items-start gap-8 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="other-content-grid relative grid grid-cols-1 items-start gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
                 {contentCards.map(({ key, hoverTone, ...card }) => (
                   <div key={key} data-hover-tone={hoverTone}>
                     <ContentTeaserCard {...card} />

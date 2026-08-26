@@ -3,6 +3,9 @@
 export default function RuleLaptopScene() {
   return (
     <div className="bg-navy-deep">
+      <div className="rule-laptop-mobile-brand" aria-label="Ethan Ecom">
+        <img src="/images/brand/logo-hires.png" alt="Ethan Ecom" />
+      </div>
       <div className="rule-laptop">
         <svg className="rule-scroll-cue" viewBox="0 0 24 24" aria-hidden="true">
           <path

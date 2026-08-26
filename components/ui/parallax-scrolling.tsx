@@ -5,6 +5,7 @@ import Image, { type StaticImageData } from 'next/image';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
+import { useReducedEffects } from '@/lib/use-reduced-effects';
 
 /**
  * Hero parallax chuyển thể từ mẫu Osmo (GSAP ScrollTrigger + Lenis): cùng 4 lớp,
@@ -61,8 +62,10 @@ export function ParallaxHero({
   layer4: StaticImageData;
 }) {
   const parallaxRef = useRef<HTMLDivElement>(null);
+  const reduceEffects = useReducedEffects();
 
   useEffect(() => {
+    if (reduceEffects) return;
     const root = parallaxRef.current;
     const triggerElement = root?.querySelector<HTMLElement>('[data-parallax-layers]');
     if (!triggerElement) return;
@@ -101,7 +104,7 @@ export function ParallaxHero({
       ctx.revert();
       releaseLenis();
     };
-  }, []);
+  }, [reduceEffects]);
 
   return (
     <div className="parallax relative" ref={parallaxRef}>

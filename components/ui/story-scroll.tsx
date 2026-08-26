@@ -1,10 +1,11 @@
 'use client';
 
-import { Children, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Children, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { cn } from '@/lib/utils';
+import { useReducedEffects } from '@/lib/use-reduced-effects';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -56,15 +57,7 @@ export interface FlowArtProps {
 /** Chuỗi FlowSection cuộn kiểu "ghim + xoay vào khung" — chuyển thể từ mẫu story-scroll (GSAP + ScrollTrigger pin). */
 export default function FlowArt({ children, className, 'aria-label': ariaLabel = 'Story scroll' }: FlowArtProps) {
   const containerRef = useRef<HTMLElement>(null);
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
+  const reducedMotion = useReducedEffects();
 
   useGSAP(
     () => {

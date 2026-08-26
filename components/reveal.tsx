@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useReducedEffects } from '@/lib/use-reduced-effects';
 
 /**
  * Bọc nội dung để chạy hiệu ứng fade-up-in (globals.css) khi cuộn tới, thay vì
@@ -17,8 +18,13 @@ export default function Reveal({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const reduceEffects = useReducedEffects();
 
   useEffect(() => {
+    if (reduceEffects) {
+      setVisible(true);
+      return;
+    }
     const node = ref.current;
     if (!node) return;
     const observer = new IntersectionObserver(
@@ -32,13 +38,13 @@ export default function Reveal({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [reduceEffects]);
 
   return (
     <div
       ref={ref}
-      className={`${visible ? 'animate-fade-up' : 'opacity-0'} ${className}`}
-      style={visible ? { animationDelay: `${delayMs}ms` } : undefined}
+      className={`${visible ? (reduceEffects ? '' : 'animate-fade-up') : 'opacity-0'} ${className}`}
+      style={visible && !reduceEffects ? { animationDelay: `${delayMs}ms` } : undefined}
     >
       {children}
     </div>

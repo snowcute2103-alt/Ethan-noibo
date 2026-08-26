@@ -222,7 +222,7 @@ export default function PermissionChecklist({
         </div>
       )}
 
-      <div className="max-h-[560px] overflow-y-auto border border-navy/15">
+      <div className="max-h-[560px] overflow-auto border border-navy/15">
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
           <thead className="sticky top-0">
             <tr className="bg-navy text-cyan">

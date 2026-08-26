@@ -319,6 +319,234 @@ body {
   }
 }
 
+@media (max-width: 1024px) {
+  .box-wave-section {
+    min-height: 96px;
+  }
+}
+
+/* ---- Tablet + mobile: bố cục cân bằng, ít hiệu ứng hơn desktop. ---- */
+.culture-gallery-static,
+.rule-laptop-mobile-brand {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .site-shell input,
+  .site-shell select,
+  .site-shell textarea {
+    font-size: 16px;
+  }
+
+  .dashboard-shell .glow-orb,
+  .dashboard-shell .culture-gallery-glow,
+  .dashboard-shell .rule-scroll-cue,
+  .dashboard-shell .desktop-visual-effect {
+    display: none;
+  }
+
+  .recognition-hero-grid,
+  .rule-content-grid,
+  .dashboard-feature-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recognition-hero-copy {
+    text-align: center;
+  }
+
+  .recognition-hero-copy p {
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .other-content-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-shell .glow-orb,
+  .auth-page .auth-ambient,
+  .auth-page .animate-star-rise {
+    display: none;
+  }
+
+  .auth-card {
+    box-shadow: 0 16px 40px -24px rgba(0, 0, 0, 0.72);
+  }
+
+  .content-hover-tone {
+    margin-inline: 0;
+    padding: 24px;
+  }
+
+  .dashboard-shell .animate-balloon-float,
+  .dashboard-shell .animate-coin-reveal-glow,
+  .dashboard-shell .animate-coin-reveal-ring,
+  .dashboard-shell .animate-fade-up,
+  .dashboard-shell .animate-firework-particle,
+  .dashboard-shell .animate-float-drift,
+  .dashboard-shell .animate-holo-drift,
+  .dashboard-shell .animate-inspire-blink,
+  .dashboard-shell .animate-inspire-glow,
+  .dashboard-shell .animate-inspire-img-in,
+  .dashboard-shell .animate-inspire-pop,
+  .dashboard-shell .animate-inspire-ripple,
+  .dashboard-shell .animate-nyt-panel-in,
+  .dashboard-shell .animate-org-glow,
+  .dashboard-shell .animate-star-rise,
+  .dashboard-shell .animate-star-rise-card,
+  .dashboard-shell .animate-twinkle,
+  .dashboard-shell .box-wave-item,
+  .dashboard-shell .box-wave-item::after,
+  .dashboard-shell .retro-tv-widget *,
+  .dashboard-shell .retro-tv-widget *::before,
+  .dashboard-shell .retro-tv-widget *::after {
+    animation: none !important;
+  }
+
+  .dashboard-shell a,
+  .dashboard-shell button,
+  .dashboard-shell input,
+  .dashboard-shell select,
+  .dashboard-shell textarea {
+    transition-duration: 150ms !important;
+  }
+
+  .culture-gallery-heading {
+    margin-bottom: 0;
+    padding-bottom: 32px;
+  }
+
+  .culture-gallery-heading > * {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+
+  .culture-gallery-motion {
+    display: none;
+  }
+
+  .culture-gallery-static {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 24px 64px;
+  }
+
+  [data-flow-section] {
+    min-height: auto;
+  }
+
+  [data-flow-inner] {
+    min-height: auto;
+    gap: 32px;
+    padding: 64px 24px;
+    transform: none !important;
+    will-change: auto;
+  }
+
+  .parallax__header {
+    height: 72dvh;
+    min-height: 520px;
+  }
+
+  .parallax__layer-img,
+  .parallax__layer-title {
+    transform: none !important;
+    will-change: auto;
+  }
+
+  .sticky-board-widget {
+    height: 80dvh;
+    min-height: 620px;
+    padding: 32px;
+    perspective: none;
+  }
+
+  .sticky-board-widget .stickynote {
+    transform: none;
+    box-shadow: inset 0 12px 20px -12px rgba(0, 0, 0, 0.24);
+  }
+
+  .box-wave-section {
+    min-height: 96px;
+  }
+
+  .rule-laptop {
+    display: none;
+  }
+
+  .rule-laptop-mobile-brand {
+    display: flex;
+    min-height: 72dvh;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 24px;
+  }
+
+  .rule-laptop-mobile-brand img {
+    width: min(72vw, 560px);
+    height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-card {
+    max-width: calc(100vw - 32px);
+  }
+
+  .content-hover-tone {
+    padding: 16px;
+  }
+
+  .rule-page-title {
+    font-size: clamp(2.25rem, 10vw, 3rem);
+  }
+
+  .other-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .culture-gallery-static {
+    grid-template-columns: 1fr;
+    padding-right: 16px;
+    padding-bottom: 48px;
+    padding-left: 16px;
+  }
+
+  [data-flow-inner] {
+    gap: 24px;
+    padding: 48px 16px;
+  }
+
+  .parallax__header {
+    height: 64dvh;
+    min-height: 440px;
+  }
+
+  .sticky-board-widget {
+    height: 72dvh;
+    min-height: 560px;
+    padding: 24px;
+  }
+
+  .rule-laptop-mobile-brand {
+    min-height: 64dvh;
+    padding: 48px 16px;
+  }
+
+  .rule-laptop-mobile-brand img {
+    width: min(84vw, 420px);
+  }
+}
+
 .curved-scroll-svg {
   position: absolute;
   inset: 0;
@@ -1027,6 +1255,12 @@ body {
   place-items: center;
   overflow: hidden;
   background: linear-gradient(180deg, #000 0%, var(--navy-deep) 100%);
+}
+
+@media (max-width: 1024px) {
+  .box-wave-section {
+    min-height: 96px;
+  }
 }
 
 .box-wave {

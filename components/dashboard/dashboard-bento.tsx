@@ -244,7 +244,7 @@ export default function DashboardBento({
 
         {hasCoreValues && visionArticle && coreValues && (
           <section
-            className="mt-24 grid grid-cols-1 items-stretch gap-16 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] lg:gap-16 xl:gap-20"
+            className="dashboard-feature-grid mt-24 grid grid-cols-1 items-stretch gap-16 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] lg:gap-16 xl:gap-20"
             aria-labelledby="core-values-title"
           >
             <div className="flex min-h-[620px] flex-col items-start text-left sm:min-h-[700px] lg:min-h-[760px] xl:min-h-[820px]">

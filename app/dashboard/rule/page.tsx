@@ -70,7 +70,7 @@ export default async function RulePage() {
         <div className="glow-orb bottom-0 left-1/4 h-56 w-56 bg-blue/25" aria-hidden="true" />
         <Spotlight className="-top-40 left-1/3 md:-top-20" fill="white" />
         <div className="rule-hero-grid" aria-hidden="true" />
-        <div className="relative mx-auto w-full max-w-[1500px] px-8 py-20 sm:py-28">
+        <div className="relative mx-auto w-full max-w-[1500px] px-4 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
           <div
             className="rule-hover-banner"
             style={
@@ -80,9 +80,9 @@ export default async function RulePage() {
             }
           >
             <div className="rule-hover-banner-inner">
-              <div className="relative z-10 px-8 text-center sm:px-14">
+              <div className="relative z-10 px-4 text-center sm:px-10 lg:px-14">
                 <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan">Khối vận hành</p>
-                <h1 className="title-glow mt-5 font-heading text-[clamp(2.75rem,7vw,5.5rem)] font-medium leading-[0.95] tracking-wide text-white">
+                <h1 className="rule-page-title title-glow mt-5 font-heading text-[clamp(2.75rem,7vw,5.5rem)] font-medium leading-[0.95] tracking-wide text-white">
                   SOP &amp; Quy trình
                 </h1>
                 <div className="gradient-divider mx-auto mt-6 w-24" aria-hidden="true" />
@@ -128,13 +128,13 @@ export default async function RulePage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1500px] px-8 py-28 sm:py-36">
+      <div className="mx-auto max-w-[1500px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-36">
         {sopDocs.length === 0 ? (
           <p className="border border-dashed border-[#d5dfef] p-10 text-center text-base text-muted">
             Trang này hiện chưa có tài liệu SOP cho khối của bạn.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-14 lg:grid-cols-[1fr_360px] lg:items-start">
+          <div className="rule-content-grid grid grid-cols-1 gap-14 lg:grid-cols-[1fr_360px] lg:items-start">
             <div>
               <div className="text-center">
                 <p className="font-heading text-xs font-bold uppercase tracking-[0.35em] text-blue">

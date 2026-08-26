@@ -2140,3 +2140,11 @@ light {
     }
   }
 }
+@media (max-width: 1024px) {
+  .retro-tv-widget *,
+  .retro-tv-widget *::before,
+  .retro-tv-widget *::after {
+    animation: none !important;
+    transition-duration: 150ms !important;
+  }
+}

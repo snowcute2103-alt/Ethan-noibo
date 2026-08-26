@@ -77,7 +77,7 @@ export default function CultureGalleryHero() {
         ))}
       </div>
 
-      <ContainerStagger className="relative z-[9999] -mb-12 place-self-center px-6 pt-12 text-center">
+      <ContainerStagger className="culture-gallery-heading relative z-20 -mb-12 place-self-center px-4 pt-12 text-center sm:px-6">
         <ContainerAnimated>
           <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan">Câu chuyện Ethan</p>
         </ContainerAnimated>
@@ -94,7 +94,7 @@ export default function CultureGalleryHero() {
         </ContainerAnimated>
       </ContainerStagger>
       <div
-        className="pointer-events-none absolute z-10 h-[70vh] w-full"
+        className="culture-gallery-glow pointer-events-none absolute z-10 h-[70vh] w-full"
         style={{
           background:
             'linear-gradient(to right, rgba(230,233,240,0.6) 0%, rgba(90,95,110,0.28) 20%, rgba(8,10,16,0) 42%, rgba(8,10,16,0) 58%, rgba(90,95,110,0.28) 80%, rgba(230,233,240,0.6) 100%)',
@@ -103,9 +103,10 @@ export default function CultureGalleryHero() {
         }}
       />
 
-      <ContainerScroll className="relative h-[350vh]">
-        <ContainerSticky className="h-svh">
-          <GalleryContainer>
+      <div className="culture-gallery-motion">
+        <ContainerScroll className="relative h-[350vh]">
+          <ContainerSticky className="h-svh">
+            <GalleryContainer>
             <GalleryCol yRange={['-10%', '2%']} className="-mt-2">
               {IMAGES_1.map((img, index) => (
                 <div key={index} className="relative aspect-video block h-auto max-h-full w-full overflow-hidden rounded-md shadow">
@@ -127,9 +128,18 @@ export default function CultureGalleryHero() {
                 </div>
               ))}
             </GalleryCol>
-          </GalleryContainer>
-        </ContainerSticky>
-      </ContainerScroll>
+            </GalleryContainer>
+          </ContainerSticky>
+        </ContainerScroll>
+      </div>
+
+      <div className="culture-gallery-static" aria-label="Hình ảnh văn hoá Ethan">
+        {[officeImg, teamBuildingImg, passionImg, dongLongImg, connguoiImg, hanhtrinhImg].map((img, index) => (
+          <div key={index} className="relative aspect-[4/3] overflow-hidden">
+            <Image src={img} alt="" fill sizes="(min-width: 640px) 50vw, 100vw" className="object-cover" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

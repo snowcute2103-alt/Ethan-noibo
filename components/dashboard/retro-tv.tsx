@@ -4,6 +4,7 @@
 import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import ethanLogo from '@/public/images/brand/logo.png';
+import { useReducedEffects } from '@/lib/use-reduced-effects';
 import './retro-tv.css';
 
 const GRILL_HOLES = 34;
@@ -24,13 +25,15 @@ const AUTO_POWER_ON_DELAY_MS = 600;
  */
 export default function RetroTv() {
   const powerRef = useRef<HTMLInputElement>(null);
+  const reduceEffects = useReducedEffects();
 
   useEffect(() => {
+    if (reduceEffects) return;
     const timer = setTimeout(() => {
       if (powerRef.current) powerRef.current.checked = true;
     }, AUTO_POWER_ON_DELAY_MS);
     return () => clearTimeout(timer);
-  }, []);
+  }, [reduceEffects]);
 
   return (
     <div className="retro-tv-widget d-flex">
@@ -45,7 +48,7 @@ export default function RetroTv() {
               <u></u>
               <video
                 className="tv-logo-video"
-                autoPlay
+                autoPlay={!reduceEffects}
                 muted
                 loop
                 playsInline

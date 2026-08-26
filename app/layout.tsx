@@ -46,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi">
       <body
-        className={`${fahkwang.variable} ${mulish.variable} ${libreBaskerville.variable} ${alexBrush.variable} ${notoSerif.variable} font-body`}
+        className={`site-shell ${fahkwang.variable} ${mulish.variable} ${libreBaskerville.variable} ${alexBrush.variable} ${notoSerif.variable} font-body`}
       >
         {children}
       </body>

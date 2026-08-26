@@ -5,11 +5,11 @@ import logo from '@/public/images/brand/logo.png';
 
 export default function ForgotPasswordPage() {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05060a] px-4 py-10">
+    <main className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05060a] px-4 py-10">
       <div className="glow-orb -left-32 top-0 h-96 w-96 bg-cyan/15" aria-hidden="true" />
       <div className="glow-orb -right-24 bottom-0 h-80 w-80 bg-gold/10" aria-hidden="true" />
 
-      <MouseGlowPanel className="relative flex w-full max-w-[480px] flex-col gap-6 overflow-hidden border border-cyan/20 bg-navy-2 px-6 py-10 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] sm:max-w-[560px] sm:px-10">
+      <MouseGlowPanel className="auth-card relative flex w-full max-w-[480px] flex-col gap-6 overflow-hidden border border-cyan/20 bg-navy-2 px-6 py-10 shadow-[0_0_140px_-20px_rgba(0,82,204,0.5),0_40px_100px_-24px_rgba(0,0,0,0.8)] sm:max-w-[560px] sm:px-10">
         <div className="glow-orb -right-10 -top-10 h-52 w-52 bg-cyan/10" aria-hidden="true" />
 
         <div className="relative flex flex-col items-center gap-3">

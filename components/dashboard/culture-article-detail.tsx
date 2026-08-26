@@ -9,6 +9,7 @@ import { CULTURE_ARTICLE_IMAGE } from '@/lib/content/images';
 import VisibilityBadge from '@/components/visibility-badge';
 import { SpinningText } from '@/components/ui/spinning-text';
 import { cn } from '@/lib/utils';
+import { useReducedEffects } from '@/lib/use-reduced-effects';
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -34,7 +35,7 @@ export function CultureArticleDetail({
    *  có đường kẻ trắng + khoảng cách phía trên để tách khỏi đoạn văn ngay trước. */
   insertAfterHeading?: { heading: string; node: ReactNode };
 }) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = Boolean(useReducedMotion()) || useReducedEffects();
   const image = CULTURE_ARTICLE_IMAGE[article.id];
 
   const staggerParent: Variants = { hidden: {}, visible: { transition: { staggerChildren: reduceMotion ? 0 : 0.14 } } };
@@ -51,8 +52,9 @@ export function CultureArticleDetail({
   return (
     <motion.article
       id={article.id}
-      initial="hidden"
-      whileInView="visible"
+      initial={reduceMotion ? false : 'hidden'}
+      animate={reduceMotion ? 'visible' : undefined}
+      whileInView={reduceMotion ? undefined : 'visible'}
       viewport={{ once: true, amount: 0.15 }}
       variants={staggerParent}
       className={cn('grid grid-cols-1 gap-16 lg:grid-cols-[1fr_1.4fr] lg:gap-24', className)}

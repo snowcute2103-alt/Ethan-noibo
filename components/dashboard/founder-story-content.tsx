@@ -5,6 +5,7 @@ import { motion, useReducedMotion, type Variants } from 'motion/react';
 import { Quote } from 'lucide-react';
 import type { CultureArticle } from '@/lib/content';
 import VisibilityBadge from '@/components/visibility-badge';
+import { useReducedEffects } from '@/lib/use-reduced-effects';
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -22,7 +23,7 @@ function renderParagraphWithEmphasis(text: string) {
 
 /** Khối nội dung nền đen của bài "Câu chuyện Founder" — kicker/tiêu đề/badge/quote/blocks — dùng chung giữa phần chi tiết bài viết và chương 2 của FlowArt overview. */
 export function FounderStoryContent({ article }: { article: CultureArticle }) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = Boolean(useReducedMotion()) || useReducedEffects();
 
   const staggerParent: Variants = { hidden: {}, visible: { transition: { staggerChildren: reduceMotion ? 0 : 0.14 } } };
   const fadeUp: Variants = reduceMotion
@@ -37,8 +38,9 @@ export function FounderStoryContent({ article }: { article: CultureArticle }) {
 
   return (
     <motion.div
-      initial="hidden"
-      whileInView="visible"
+      initial={reduceMotion ? false : 'hidden'}
+      animate={reduceMotion ? 'visible' : undefined}
+      whileInView={reduceMotion ? undefined : 'visible'}
       viewport={{ once: true, amount: 0.1 }}
       variants={staggerParent}
       className="flex flex-col items-center gap-11 text-center"

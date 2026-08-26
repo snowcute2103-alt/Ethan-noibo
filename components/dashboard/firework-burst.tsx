@@ -69,7 +69,7 @@ export default function FireworkBurst({
   function spawn() {
     // Đợt trước chưa dọn xong thì bỏ qua — tránh chồng nhiều đợt nổ trông như nổ liên tục không dứt.
     if (burstsRef.current.length > 0) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.matchMedia('(max-width: 1024px), (prefers-reduced-motion: reduce)').matches) return;
     const startId = idRef.current;
     idRef.current += burstCount;
     const next = Array.from({ length: burstCount }, (_, i) => ({

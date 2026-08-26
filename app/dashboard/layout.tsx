@@ -48,7 +48,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     session.tier === 'full' ? [...NAV_ITEMS, { href: '/dashboard/admin', label: 'Quản trị' }] : NAV_ITEMS;
 
   return (
-    <div className="min-h-screen bg-surface-2">
+    <div className="dashboard-shell min-h-screen overflow-x-hidden bg-surface-2">
       <WhatsNewModal items={whatsNew} avatarUrl={bgdAvatarUrl} />
       <DashboardHeader
         navItems={navItems}
