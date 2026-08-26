@@ -1,0 +1,258 @@
+/* Ported from a CodePen sticky-note corkboard. Selectors are scoped under
+   .sticky-board-widget (instead of the original #board/#trash ids and a bare
+   `* { margin: 0 }` reset) so this can be embedded inside the dashboard page
+   without touching unrelated elements — Tailwind's preflight (@tailwind base
+   in app/globals.css) already zeroes margins project-wide, so the original
+   reset rule is redundant here. */
+@import url('https://fonts.googleapis.com/css2?family=Playpen+Sans:wght@400;500;600&display=swap');
+
+.sticky-board-widget {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background-color: #101a30;
+  background-image:
+    radial-gradient(circle at 8% 12%, rgba(0, 210, 255, 0.14), transparent 28%),
+    radial-gradient(circle at 92% 8%, rgba(245, 166, 35, 0.12), transparent 24%);
+  overflow: hidden;
+  perspective: 1600px;
+  display: flex;
+  justify-content: end;
+  align-items: end;
+  box-sizing: border-box;
+  padding: 50px;
+}
+
+/* pointer-events: none — chữ chỉ để trang trí, không được chặn việc kéo note đi ngang qua. */
+.sticky-board-widget .sticky-board-title {
+  position: absolute;
+  top: 50px;
+  left: 50px;
+  right: 50px;
+  color: white;
+  text-align: center;
+  pointer-events: none;
+}
+
+.sticky-board-widget .sticky-board-title .sticky-board-eyebrow {
+  margin: 0;
+  font-family: sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.sticky-board-widget .sticky-board-title .sticky-board-heading {
+  margin: 8px auto 0;
+  max-width: 820px;
+  font-family: 'Playpen Sans', cursive;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.sticky-board-widget .sticky-board-title .sticky-board-title-divider {
+  width: 64px;
+  height: 1px;
+  margin: 20px auto 0;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 640px) {
+  .sticky-board-widget .sticky-board-title {
+    top: 24px;
+    left: 24px;
+    right: 24px;
+  }
+
+  .sticky-board-widget .sticky-board-title .sticky-board-heading {
+    font-size: 20px;
+  }
+}
+
+.sticky-board-widget .stickynote {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  box-sizing: border-box;
+  padding: 10px;
+  transform: rotateX(5deg);
+  box-shadow:
+    -1px 10px 5px -4px rgba(0, 0, 0, 0.012),
+    inset 0 24px 30px -12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.sticky-board-widget .stickynote-text {
+  border-radius: 10px;
+  color: #373c49;
+  font-size: 18px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  outline: none;
+  text-align: center;
+  resize: none;
+  overflow: hidden;
+  font-family: 'Playpen Sans', cursive;
+}
+
+.sticky-board-widget .stickynote-text:focus {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.sticky-board-widget .stickynote-text::placeholder {
+  color: black;
+  opacity: 30%;
+}
+
+/* Ribbon ghim theo mẫu bookmark: phần đuôi lõm được tạo bằng clip-path, số là tổng
+   tài khoản đã ghim. Nút nằm trên textarea để bấm không khởi động thao tác kéo note. */
+.sticky-board-widget .stickynote-pin {
+  position: absolute;
+  z-index: 3;
+  top: -8px;
+  right: 10px;
+  width: 46px;
+  height: 64px;
+  padding: 0 0 14px;
+  border: 0;
+  color: white;
+  background: #d9413e;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+  cursor: pointer;
+  font-family: 'Playpen Sans', cursive;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: transform 160ms ease, background-color 160ms ease, filter 160ms ease, opacity 160ms ease;
+}
+
+/* Note chưa có lượt ghim không treo ribbon số 0. Khi người dùng đưa chuột vào note,
+   ribbon mới xuất hiện để vẫn có thể thực hiện lượt ghim đầu tiên. */
+.sticky-board-widget .stickynote-pin.has-pins,
+.sticky-board-widget .stickynote:hover .stickynote-pin,
+.sticky-board-widget .stickynote-pin:focus-visible {
+  opacity: 1;
+}
+
+/* Từ một lượt ghim trở lên, ribbon ở trạng thái cố định kể cả khi rời chuột. */
+.sticky-board-widget .stickynote-pin.has-pins {
+  transform: translateY(0);
+}
+
+.sticky-board-widget .stickynote-pin:hover,
+.sticky-board-widget .stickynote-pin:focus-visible {
+  transform: translateY(-3px);
+  filter: brightness(1.05);
+  outline: none;
+}
+
+.sticky-board-widget .stickynote-pin.has-pins:hover {
+  transform: translateY(0);
+}
+
+.sticky-board-widget .stickynote-pin:focus-visible {
+  filter: drop-shadow(0 0 0.2rem white) drop-shadow(0 0 0.35rem #173a63);
+}
+
+.sticky-board-widget .stickynote-pin.is-pinned {
+  background: #b91c1c;
+}
+
+.sticky-board-widget .stickynote-pin:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.sticky-board-widget .stickynote-pin[hidden] {
+  display: none;
+}
+
+/* "Chữ ký" người kéo note ra — chỉ có nội dung sau khi setAuthorLabel() chạy
+   (sticky-board.tsx), rỗng thì không chiếm chỗ hiển thị. */
+.sticky-board-widget .stickynote-author {
+  position: absolute;
+  right: 14px;
+  bottom: 8px;
+  left: 14px;
+  color: rgba(55, 60, 73, 0.6);
+  font-family: 'Playpen Sans', cursive;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 500;
+  text-align: right;
+  white-space: normal;
+  pointer-events: none;
+}
+
+.sticky-board-widget .sticky-board-trash {
+  /* No explicit width/height here (the original pen set 50px, sized for a content-box
+     world) — this app's Tailwind preflight makes every element box-sizing:border-box,
+     and a declared size smaller than the padding sum resolves against the padding
+     instead of the declared number. Letting width/height stay auto and sizing the
+     icon directly below gives the same ~114px button (icon 50px + 32px padding each
+     side) without depending on that box-sizing interaction. */
+  position: absolute;
+  fill: white;
+  left: 50px;
+  bottom: 50px;
+  padding: 32px;
+  background-color: #d90429;
+  border-radius: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+/* The original pen left the <svg> itself unsized and relied on the browser's default
+   replaced-element sizing to shrink it to fit; in this app that resolves to 0x0 instead
+   (no intrinsic size, so the flex item collapses), leaving the trash icon invisible. */
+.sticky-board-widget .sticky-board-trash svg {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+}
+
+.sticky-board-widget .sticky-board-reset {
+  position: absolute;
+  font-size: 18px;
+  font-family: sans-serif;
+  font-weight: bold;
+  color: white;
+  opacity: 0;
+  bottom: 14px;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+@media (max-width: 640px) {
+  .sticky-board-widget {
+    height: 70vh;
+    padding: 24px;
+  }
+
+  .sticky-board-widget .stickynote {
+    width: 140px;
+    height: 140px;
+  }
+
+  .sticky-board-widget .sticky-board-trash {
+    left: 24px;
+    bottom: 24px;
+    padding: 18px;
+  }
+
+  .sticky-board-widget .sticky-board-trash svg {
+    width: 32px;
+    height: 32px;
+  }
+}

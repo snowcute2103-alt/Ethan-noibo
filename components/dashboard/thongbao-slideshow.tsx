@@ -1,88 +1,281 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import avatarPlaceholder from '@/public/images/avatar-placeholder.jpg';
 
 export interface ThongBaoSlide {
   key: string;
   label: string;
+  title: string;
+  excerpt: string;
+  date: string;
+  /** Gạch đầu dòng ngắn tóm tắt (tối đa 3, hiển thị 1 dòng/gạch) — lấp khoảng trống giữa thẻ. */
+  details?: string[];
+  /** Nội dung đầy đủ, hiển thị trong popup khi bấm vào thẻ đang ở giữa. */
   node: ReactNode;
 }
 
-const AUTOPLAY_MS = 8000;
+/**
+ * Bảng màu kiểu giấy note (cặp nhạt/đậm) — mỗi thông báo giữ cố định 1 màu (hash theo
+ * key) dù carousel xoay vị trí; thẻ chính dùng tông "strong", thẻ phụ dùng "soft".
+ */
+const NOTE_COLORS = [
+  { soft: '#FFF4D6', strong: '#FFD873' }, // vàng
+  { soft: '#E7F0FF', strong: '#8FB8FF' }, // xanh dương
+  { soft: '#E3F5E1', strong: '#8FDBA0' }, // xanh lá
+  { soft: '#FFE8CF', strong: '#FFB37A' }, // cam đào
+  { soft: '#E9E6FB', strong: '#B7ADF2' }, // tím
+];
 
-/** Carousel 1 slide/lần cho Thông báo + Chính sách + Announcement — tự chạy, dừng khi người dùng thao tác. */
-export default function ThongBaoSlideshow({ slides }: { slides: ThongBaoSlide[] }) {
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
+function noteColorFor(key: string): { soft: string; strong: string } {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return NOTE_COLORS[hash % NOTE_COLORS.length];
+}
 
-  useEffect(() => {
-    if (slides.length <= 1 || paused) return;
-    const timer = setInterval(() => {
-      setIndex((i) => (i + 1) % slides.length);
-    }, AUTOPLAY_MS);
-    return () => clearInterval(timer);
-  }, [slides.length, paused]);
+function centerIndexOf(length: number): number {
+  return length % 2 ? (length - 1) / 2 : length / 2;
+}
 
-  if (slides.length === 0) return null;
+/** Xoay mảng (đã sắp mới nhất trước) sao cho phần tử mới nhất rơi đúng vào vị trí giữa của carousel. */
+function centerNewestFirst<T>(items: T[]): T[] {
+  const n = items.length;
+  if (n === 0) return items;
+  const shift = (n - centerIndexOf(n)) % n;
+  return [...items.slice(shift), ...items.slice(0, shift)];
+}
 
-  const goTo = (next: number) => {
-    setIndex(((next % slides.length) + slides.length) % slides.length);
-    setPaused(true);
-  };
+function ThongBaoCard({
+  slide,
+  position,
+  cardSize,
+  visible,
+  avatarUrl,
+  onSelect,
+}: {
+  slide: ThongBaoSlide;
+  position: number;
+  cardSize: number;
+  visible: boolean;
+  avatarUrl?: string | null;
+  onSelect: (position: number) => void;
+}) {
+  const isCenter = position === 0;
+  const note = noteColorFor(slide.key);
+  const cardColor = isCenter ? note.strong : note.soft;
 
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+    <button
+      type="button"
+      onClick={() => onSelect(position)}
+      aria-label={isCenter ? `Xem đầy đủ: ${slide.title}` : `Đến thông báo: ${slide.title}`}
+      aria-hidden={!visible}
+      tabIndex={visible ? 0 : -1}
+      className={cn(
+        'absolute left-1/2 top-1/2 flex flex-col items-start p-6 text-left text-navy transition-all duration-500 ease-in-out sm:p-7',
+        !visible && 'pointer-events-none opacity-0',
+        isCenter ? 'z-10 shadow-[0_20px_40px_-14px_rgba(16,26,48,0.45)]' : 'z-0'
+      )}
+      style={{
+        width: cardSize,
+        height: cardSize,
+        background: cardColor,
+        clipPath: 'polygon(56px 0%, calc(100% - 56px) 0%, 100% 56px, 100% 100%, calc(100% - 56px) 100%, 56px 100%, 0 100%, 0 0)',
+        // Gộp cả scale vào chung 1 chuỗi transform — style inline sẽ đè mất class scale-*
+        // của Tailwind nếu tách riêng, khiến hiệu ứng phóng to/nhỏ không chạy.
+        transform: `
+          translate(-50%, -50%)
+          translateX(${(cardSize / 1.5) * position}px)
+          translateY(${isCenter ? -30 : position % 2 ? 12 : -12}px)
+          rotate(${isCenter ? 0 : position % 2 ? 2 : -2}deg)
+          scale(${isCenter ? 1.05 : 0.95})
+        `,
+      }}
     >
-      <div className="flex items-center justify-between gap-4">
-        <span className="rounded-full bg-navy/5 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-navy/70">
-          {slides[index].label}
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" title="Từ Ban lãnh đạo">
+          <Image
+            src={avatarUrl || avatarPlaceholder}
+            alt="Ban lãnh đạo"
+            width={44}
+            height={44}
+            className="h-full w-full rounded-full object-cover"
+          />
         </span>
-        {slides.length > 1 && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted">
-              {index + 1}/{slides.length}
-            </span>
-            <button
-              type="button"
-              onClick={() => goTo(index - 1)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-navy/10 text-navy transition-colors hover:bg-navy/5"
-              aria-label="Thông báo trước"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => goTo(index + 1)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-navy/10 text-navy transition-colors hover:bg-navy/5"
-              aria-label="Thông báo tiếp theo"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
+        <span className="rounded-full bg-white/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-navy/80">
+          {slide.label}
+        </span>
+      </div>
+      <h3
+        className={cn(
+          'font-heading mt-3 line-clamp-2 text-xl uppercase tracking-wide sm:text-2xl',
+          isCenter ? 'font-medium' : 'font-light text-navy/70'
         )}
-      </div>
-
-      <div key={slides[index].key} className="animate-fade-up mt-4 max-h-[420px] overflow-y-auto rounded-[20px] sm:max-h-[480px]">
-        {slides[index].node}
-      </div>
-
-      {slides.length > 1 && (
-        <div className="mt-6 flex justify-center gap-2">
-          {slides.map((s, i) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => goTo(i)}
-              className={`h-1.5 rounded-full transition-all ${
-                i === index ? 'w-6 bg-navy' : 'w-1.5 bg-navy/20'
-              }`}
-              aria-label={`Đến thông báo ${i + 1}`}
-            />
+      >
+        {slide.title}
+      </h3>
+      <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-navy/70">{slide.excerpt}</p>
+      {slide.details && slide.details.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1.5">
+          {slide.details.slice(0, 3).map((d, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs leading-snug text-navy/60">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-navy/40" aria-hidden="true" />
+              <span className="line-clamp-1">{d}</span>
+            </li>
           ))}
+        </ul>
+      )}
+      <span
+        className="mt-auto inline-flex w-fit items-center rounded-full px-3.5 py-1.5 text-sm font-light tracking-wide text-white"
+        style={{ background: 'linear-gradient(135deg, #1A2745 0%, #0052CC 55%, #00D2FF 100%)' }}
+      >
+        {slide.date}
+      </span>
+    </button>
+  );
+}
+
+/** Carousel thẻ xếp lệch cho Thông báo + Chính sách + Announcement — mới nhất ghim giữa, bấm thẻ giữa để xem popup đầy đủ. */
+export default function ThongBaoSlideshow({
+  slides,
+  avatarUrl,
+}: {
+  slides: ThongBaoSlide[];
+  avatarUrl?: string | null;
+}) {
+  const [list, setList] = useState(() => centerNewestFirst(slides).map((s, i) => ({ ...s, tempId: i })));
+  const [cardSize, setCardSize] = useState(420);
+  const [radius, setRadius] = useState(1);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setList(centerNewestFirst(slides).map((s, i) => ({ ...s, tempId: i })));
+  }, [slides]);
+
+  useEffect(() => {
+    const updateSize = () => {
+      const isWide = window.matchMedia('(min-width: 1536px)').matches;
+      const isDesktop = window.matchMedia('(min-width: 640px)').matches;
+      if (isWide) {
+        // Màn rộng: đủ chỗ bung full-bleed để hiện 5 thẻ (giữa + 2 bên) không bị cắt.
+        setCardSize(380);
+        setRadius(2);
+      } else {
+        setCardSize(isDesktop ? 420 : 320);
+        setRadius(1);
+      }
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  if (list.length === 0) return null;
+
+  function move(steps: number) {
+    setList((current) => {
+      const next = [...current];
+      if (steps > 0) {
+        for (let i = steps; i > 0; i--) {
+          const item = next.shift();
+          if (!item) return current;
+          next.push({ ...item, tempId: Math.random() });
+        }
+      } else {
+        for (let i = steps; i < 0; i++) {
+          const item = next.pop();
+          if (!item) return current;
+          next.unshift({ ...item, tempId: Math.random() });
+        }
+      }
+      return next;
+    });
+  }
+
+  function handleSelect(position: number) {
+    if (position === 0) {
+      setOpenKey(list[centerIndexOf(list.length)].key);
+      return;
+    }
+    move(position);
+  }
+
+  const openSlide = list.find((s) => s.key === openKey) ?? null;
+
+  return (
+    <div>
+      {/* Tràn hết chiều rộng viewport (thoát khung max-w của trang) để đủ chỗ bung thẻ 2 bên mà không bị cắt. */}
+      <div
+        className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden"
+        style={{ height: cardSize + 140 }}
+      >
+        {list.map((slide, index) => {
+          const position = index - centerIndexOf(list.length);
+          return (
+            <ThongBaoCard
+              key={slide.tempId}
+              slide={slide}
+              position={position}
+              cardSize={cardSize}
+              // Luôn render đủ thẻ (giữ nguyên key/DOM node) để transform + opacity chuyển động mượt
+              // khi đổi vị trí — chỉ ẩn bằng opacity thay vì unmount, tránh giật cục lúc next/prev.
+              visible={Math.abs(position) <= radius}
+              avatarUrl={avatarUrl}
+              onSelect={handleSelect}
+            />
+          );
+        })}
+      </div>
+
+      {list.length > 1 && (
+        <div className="mt-2 flex justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => move(-1)}
+            className="flex h-11 w-11 items-center justify-center border-2 border-navy/15 text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white"
+            aria-label="Thông báo trước"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={() => move(1)}
+            className="flex h-11 w-11 items-center justify-center border-2 border-navy/15 text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white"
+            aria-label="Thông báo tiếp theo"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+      )}
+
+      {openSlide && (
+        <div
+          role="presentation"
+          onClick={() => setOpenKey(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4 backdrop-blur-[2px]"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={openSlide.title}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-[20px] bg-transparent"
+          >
+            <div className="sticky top-0 z-10 flex justify-end p-2">
+              <button
+                type="button"
+                onClick={() => setOpenKey(null)}
+                aria-label="Đóng"
+                className="flex h-9 w-9 items-center justify-center border border-navy/15 bg-white text-navy/70 shadow-sm transition hover:border-navy hover:text-navy"
+              >
+                <X size={16} strokeWidth={2.25} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="px-1 pb-1">{openSlide.node}</div>
+          </div>
         </div>
       )}
     </div>

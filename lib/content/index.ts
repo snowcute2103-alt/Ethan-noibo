@@ -6,3 +6,4 @@ export * from './sop';
 export * from './culture';
 export * from './recognition';
 export * from './feed';
+export * from './whats-new';

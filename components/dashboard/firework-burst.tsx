@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 interface Particle {
   id: number;
@@ -20,13 +20,13 @@ interface Burst {
 }
 
 const COLORS = ['#F5A623', '#FF6F91', '#00D2FF', '#7C6CF0', '#FFD54D'];
-const BURST_COUNT = 4;
-const PARTICLES_PER_BURST = 14;
-const LIFETIME_MS = 4200;
+const DEFAULT_BURST_COUNT = 4;
+const DEFAULT_PARTICLES_PER_BURST = 14;
+const DEFAULT_LIFETIME_MS = 4200;
 
-function makeParticles(burstId: number): Particle[] {
-  return Array.from({ length: PARTICLES_PER_BURST }, (_, i) => {
-    const angle = (i / PARTICLES_PER_BURST) * Math.PI * 2 + Math.random() * 0.3;
+function makeParticles(burstId: number, particlesPerBurst: number): Particle[] {
+  return Array.from({ length: particlesPerBurst }, (_, i) => {
+    const angle = (i / particlesPerBurst) * Math.PI * 2 + Math.random() * 0.3;
     const distance = 55 + Math.random() * 50;
     return {
       id: burstId * 100 + i,
@@ -39,26 +39,75 @@ function makeParticles(burstId: number): Particle[] {
   });
 }
 
-/** Pháo hoa chào mừng khi vào trang — nổ vài điểm ngẫu nhiên rồi tự dọn, tôn trọng prefers-reduced-motion. */
-export default function FireworkBurst() {
+interface FireworkBurstProps {
+  /** Tự nổ 1 lần khi mount — mặc định true để giữ nguyên hành vi cũ (trang Khen thưởng dùng không kèm props). */
+  autoPlay?: boolean;
+  /** Tăng giá trị này (vd mỗi lần hover vào khung) để kích hoạt thêm 1 đợt nổ mới. */
+  trigger?: number;
+  /** Số điểm nổ mỗi đợt. Mặc định 4 (hiệu ứng chào mừng nhiều điểm) — hiệu ứng hover nên dùng 1 cho gọn. */
+  burstCount?: number;
+  /** Số hạt mỗi điểm nổ. */
+  particlesPerBurst?: number;
+  /** Thời gian (ms) trước khi tự dọn cả đợt — nên khớp với thời lượng animation của hạt để không kéo dài cảm giác "nổ liên tục". */
+  lifetimeMs?: number;
+}
+
+/** Pháo hoa — nổ vài điểm ngẫu nhiên rồi tự dọn, tôn trọng prefers-reduced-motion. Tự nổ khi mount
+ *  (trang Khen thưởng) hoặc nổ theo yêu cầu qua prop `trigger` (vd khung Chương trình sinh nhật khi hover). */
+export default function FireworkBurst({
+  autoPlay = true,
+  trigger,
+  burstCount = DEFAULT_BURST_COUNT,
+  particlesPerBurst = DEFAULT_PARTICLES_PER_BURST,
+  lifetimeMs = DEFAULT_LIFETIME_MS,
+}: FireworkBurstProps = {}) {
   const [bursts, setBursts] = useState<Burst[]>([]);
+  const idRef = useRef(0);
+  const isFirstTriggerRun = useRef(true);
+  const burstsRef = useRef<Burst[]>([]);
+
+  function spawn() {
+    // Đợt trước chưa dọn xong thì bỏ qua — tránh chồng nhiều đợt nổ trông như nổ liên tục không dứt.
+    if (burstsRef.current.length > 0) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const startId = idRef.current;
+    idRef.current += burstCount;
+    const next = Array.from({ length: burstCount }, (_, i) => ({
+      id: startId + i,
+      x: 15 + Math.random() * 70,
+      y: 12 + Math.random() * 55,
+      delay: i * 0.35 + Math.random() * 0.2,
+      particles: makeParticles(startId + i, particlesPerBurst),
+    }));
+    burstsRef.current = next;
+    setBursts(next);
+  }
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    setBursts(
-      Array.from({ length: BURST_COUNT }, (_, i) => ({
-        id: i,
-        x: 15 + Math.random() * 70,
-        y: 12 + Math.random() * 55,
-        delay: i * 0.35 + Math.random() * 0.2,
-        particles: makeParticles(i),
-      })),
-    );
-
-    const timeout = setTimeout(() => setBursts([]), LIFETIME_MS);
-    return () => clearTimeout(timeout);
+    if (autoPlay) spawn();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (trigger === undefined) return;
+    // Bỏ qua lần chạy đầu (giá trị khởi tạo của trigger) — chỉ nổ khi trigger thực sự tăng.
+    if (isFirstTriggerRun.current) {
+      isFirstTriggerRun.current = false;
+      return;
+    }
+    spawn();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigger]);
+
+  useEffect(() => {
+    if (bursts.length === 0) return;
+    const timeout = setTimeout(() => {
+      burstsRef.current = [];
+      setBursts([]);
+    }, lifetimeMs);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bursts]);
 
   if (bursts.length === 0) return null;
 

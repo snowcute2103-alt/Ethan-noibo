@@ -51,4 +51,17 @@ export const NOTICES: Notice[] = [
     callout: 'Rất mong mọi người sắp xếp công việc và có mặt đúng giờ để buổi họp diễn ra thuận lợi. Cảm ơn mọi người!',
     visibility: { departments: 'all' },
   },
+  {
+    id: 'giai-cuu-khan-giay-rnd',
+    title: '🚨 Giải cứu Ethan & giải cứu Team R&D 🆘🛟',
+    date: '14/07/2026',
+    body: 'Sau quá trình R&D, tụi mình có một lô khăn giấy napkin trắng trơn không sử dụng, nên đành đem bán lại cho anh em với giá siêu hời...',
+    details: [
+      'Chất liệu giấy tốt, an toàn cho người sử dụng.',
+      'Có 2 kích thước: 12 × 12 cm — 83k/1kg (túi lớn); 15 × 15 cm — 88k/1kg (túi lớn).',
+      '📦 Hàng còn siêu nhiều, không sợ hết. Mua bao nhiêu tụi mình cũng bán.',
+    ],
+    callout: 'Ai cần thì nhắn Bắp hoặc order trực tiếp trên Sheet (tab "Mua giấy") — Team R&D sẽ giao tận nơi cho mọi người luôn ạaaa 👉🏻👈🏻',
+    visibility: { departments: 'all' },
+  },
 ];

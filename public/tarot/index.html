@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tarot Huyền Bí — Bói Bài Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fahkwang:wght@300;400;500&family=Mulish:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<img src="mattrang.png" class="moon-top" alt="" aria-hidden="true">
+<canvas id="smokeCanvas"></canvas>
+
+<div class="container">
+  <header>
+    <h1>BÓI BÀI TAROT</h1>
+    <p class="subtitle">✦ Lắng nghe thông điệp từ vũ trụ ✦</p>
+  </header>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <span class="divider-star">✧</span><span class="divider-star">✦</span><span class="divider-star">✧</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <!-- Daily card -->
+  <div class="daily-bar">
+    <div class="daily-bar-body open" id="dailyBarBody">
+      <div class="daily-bar-title" id="dailyBarTitle">✦ LÁ BÀI TRONG NGÀY</div>
+      <div id="dailyCardSection"></div>
+    </div>
+  </div>
+
+  <footer>
+    ✦ &nbsp; Tarot chỉ là gương chiếu nội tâm — Sức mạnh thực sự nằm trong bạn &nbsp; ✦
+    <br>
+    <button class="all-cards-btn" onclick="openAllCards()">✦ Xem tất cả thẻ bài ✦</button>
+  </footer>
+</div>
+
+<!-- Modal xem tất cả thẻ bài -->
+<div id="allCardsModal" class="all-cards-modal" onclick="if(event.target===this)closeAllCards()">
+  <div class="all-cards-panel">
+    <button class="all-cards-close" onclick="closeAllCards()" aria-label="Đóng danh sách thẻ bài">✕</button>
+    <h2 class="all-cards-title">✦ Tất Cả Thẻ Bài Tarot ✦</h2>
+    <p class="all-cards-desc">Tarot là bộ 78 lá bài biểu tượng — không phải để đoán tương lai, mà để soi chiếu nội tâm. Mỗi lá mang một nguyên mẫu của con người: nỗi sợ, khao khát, bài học, và tiềm năng. Khi rút một lá, bạn không hỏi vũ trụ — bạn đang hỏi chính mình.</p>
+    <div class="all-cards-grid" id="allCardsGrid"></div>
+  </div>
+</div>
+
+<!-- Modal chi tiết 1 thẻ -->
+<div id="cardDetailModal" class="card-detail-modal" onclick="if(event.target===this)closeCardDetail()">
+  <div class="card-detail-panel">
+    <button class="all-cards-close" onclick="closeCardDetail()" aria-label="Đóng chi tiết thẻ bài">✕</button>
+    <div class="card-detail-body" id="cardDetailBody"></div>
+  </div>
+</div>
+
+<script src="cards.js"></script>
+<script src="smoke.js"></script>
+<script src="stars-bg.js"></script>
+<script src="card-render.js"></script>
+<script src="reset-effects.js"></script>
+<script src="role-readings-data.js"></script>
+<script src="daily-card.js"></script>
+<script src="card-gallery.js"></script>
+<script src="embed-resize.js"></script>
+</body>
+</html>

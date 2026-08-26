@@ -1,5 +1,6 @@
 import type { Announcement } from '@/lib/content';
 import VisibilityBadge from '@/components/visibility-badge';
+import FromBgdBadge from '@/components/dashboard/from-bgd-badge';
 
 export default function AnnouncementList({ announcements }: { announcements: Announcement[] }) {
   if (announcements.length === 0) return null;
@@ -17,7 +18,8 @@ export default function AnnouncementList({ announcements }: { announcements: Ann
             <span className="text-sm text-muted">{a.date}</span>
           </div>
           <p className="text-base leading-relaxed text-ink">{a.body}</p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
+            <FromBgdBadge />
             <VisibilityBadge visibility={a.visibility} />
           </div>
         </li>

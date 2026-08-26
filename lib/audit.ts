@@ -9,7 +9,15 @@ export type AuditAction =
   | 'password_reset.dismiss'
   | 'permission.grant'
   | 'permission.revoke'
-  | 'permission.backfill';
+  | 'permission.backfill'
+  | 'rule.create'
+  | 'rule.update'
+  | 'rule.delete'
+  | 'announcement.create'
+  | 'announcement.update'
+  | 'announcement.delete'
+  | 'announcement_permission.grant'
+  | 'announcement_permission.revoke';
 
 /**
  * Allow-list nội dung ghi audit log — KHÔNG BAO GIỜ đưa mật khẩu/hash/SĐT/email
@@ -57,4 +65,36 @@ export async function logAdminAction(
     targetUserId,
     JSON.stringify(safeDetail),
   ]);
+}
+
+export interface AuditLogEntry {
+  id: number;
+  action: AuditAction;
+  detail: AuditDetail;
+  createdAt: string;
+  actorFullName: string | null;
+  actorUsername: string | null;
+}
+
+/** Nhật ký thao tác của BGĐ nhắm vào 1 user cụ thể (làm mục tiêu), mới nhất trước. */
+export async function listAuditLogForUser(targetUserId: number, limit = 50): Promise<AuditLogEntry[]> {
+  const rows = await sql.query(
+    `SELECT l.id, l.action, l.detail, l.created_at,
+            a.full_name AS actor_full_name, a.username AS actor_username
+     FROM admin_audit_log l
+     LEFT JOIN users a ON a.id = l.actor_user_id
+     WHERE l.target_user_id = $1
+     ORDER BY l.created_at DESC
+     LIMIT $2`,
+    [targetUserId, limit]
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.map((row: any) => ({
+    id: row.id,
+    action: row.action,
+    detail: row.detail ?? {},
+    createdAt: row.created_at,
+    actorFullName: row.actor_full_name,
+    actorUsername: row.actor_username,
+  }));
 }

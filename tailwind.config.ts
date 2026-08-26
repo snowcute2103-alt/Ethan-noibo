@@ -21,6 +21,9 @@ const config: Config = {
       fontFamily: {
         heading: ['var(--font-heading)', 'sans-serif'],
         body: ['var(--font-body)', 'sans-serif'],
+        baskerville: ['var(--font-baskerville)', 'serif'],
+        script: ['var(--font-script)', 'cursive'],
+        serif: ['var(--font-serif)', 'Georgia', 'Times New Roman', 'serif'],
       },
       borderRadius: {
         DEFAULT: '0px',

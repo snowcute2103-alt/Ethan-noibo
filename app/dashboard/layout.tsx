@@ -1,11 +1,17 @@
-import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { findUserById } from '@/lib/users';
+import { findUserById, findFullTierAvatarUrl } from '@/lib/users';
+import { canView } from '@/lib/roles';
+import { ANNOUNCEMENTS, NOTICES, POLICIES, RULE_DOCUMENTS } from '@/lib/content';
+import { buildWhatsNew } from '@/lib/content/whats-new';
+import { docIdsVisibleTo } from '@/lib/rule-permissions';
+import { listRules } from '@/lib/rules';
+import { listAnnouncements } from '@/lib/announcements';
+import { announcementIdsVisibleTo } from '@/lib/announcement-permissions';
 import { NAV_ITEMS } from '@/lib/nav';
-import NavLink from '@/components/dashboard/nav-link';
-import UserMenu from '@/components/dashboard/user-menu';
-import logo from '@/public/images/brand/logo.png';
+import DashboardHeader from '@/components/dashboard/dashboard-header';
+import WhatsNewModal from '@/components/dashboard/whats-new-modal';
+import FloatingGreeting from '@/components/dashboard/floating-greeting';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -15,6 +21,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const user = await findUserById(session.userId);
   if (!user) redirect('/login');
 
+  // Tính "Có gì mới" ở layout chung (không phải riêng trang chủ) để nút chuông gim
+  // xuất hiện xuyên suốt mọi trang trong /dashboard, không mất khi chuyển trang.
+  const allRules = [...RULE_DOCUMENTS, ...(await listRules())];
+  const visibleRuleIds = await docIdsVisibleTo(session.userId, session.tier);
+  const visibleRules = visibleRuleIds === 'all' ? allRules : allRules.filter((d) => visibleRuleIds.has(d.id));
+
+  const allAnnouncements = [...ANNOUNCEMENTS, ...(await listAnnouncements())];
+  const visibleAnnouncementIds = await announcementIdsVisibleTo(session.userId, session.tier);
+  const visibleAnnouncements = allAnnouncements.filter(
+    (a) => canView(session, a.visibility) || visibleAnnouncementIds === 'all' || visibleAnnouncementIds.has(Number(a.id))
+  );
+
+  const whatsNew = buildWhatsNew({
+    notices: NOTICES.filter((n) => canView(session, n.visibility)),
+    policies: POLICIES.filter((p) => canView(session, p.visibility)),
+    announcements: visibleAnnouncements,
+    rules: visibleRules,
+  });
+  // Cùng avatar "Từ BGĐ" dùng ở ThongBaoSection — nguồn thống nhất cho mọi thông báo/rule mới.
+  const bgdAvatarUrl = await findFullTierAvatarUrl();
+
   // Link "Quản trị" chỉ hiện với BGĐ (tier full) — không đưa vào NAV_ITEMS tĩnh
   // vì lib/nav.ts không có session, thêm điều kiện ngay ở đây (layout đã có session sẵn).
   const navItems =
@@ -22,59 +49,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-surface-2">
-      <header className="relative overflow-hidden bg-navy-deep text-white">
-        <div
-          className="glow-orb -left-24 -top-32 h-72 w-72 bg-cyan/20"
-          aria-hidden="true"
-        />
-        <div
-          className="glow-orb -right-16 -top-24 h-64 w-64 bg-gold/15"
-          aria-hidden="true"
-        />
-        <div className="relative mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-5 py-5 sm:gap-4 sm:px-8 sm:py-7">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <Image src={logo} alt="Ethan Ecom" className="h-14 w-auto shrink-0 sm:h-16 lg:h-[4.5rem]" priority />
-            <div className="min-w-0">
-              <p className="hidden font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan sm:block">
-                Ethan Ecom
-              </p>
-              <h1 className="font-heading whitespace-nowrap text-lg font-medium tracking-wide sm:text-2xl">
-                Nội Bộ
-              </h1>
-            </div>
-          </div>
-          <nav
-            aria-label="Điều hướng chính"
-            className="order-3 w-full lg:order-none lg:w-auto lg:flex-1"
-          >
-            <div className="flex items-center gap-5 overflow-x-auto border-x border-white/30 px-4 py-2.5 sm:gap-8 sm:px-6 lg:justify-center">
-              {navItems.map((item) => (
-                <NavLink key={item.href} item={item} />
-              ))}
-            </div>
-          </nav>
-          <div className="flex items-center gap-4 text-base sm:gap-6">
-            <UserMenu
-              user={{
-                fullName: user.fullName,
-                username: user.username,
-                department: user.department,
-                tier: user.tier,
-                employeeCode: user.employeeCode,
-                jobTitle: user.jobTitle,
-                positionTitle: user.positionTitle,
-                teamLabel: user.teamLabel,
-                personalEmail: user.personalEmail,
-                phone: user.phone,
-                office: user.office,
-                avatarUrl: user.avatarUrl,
-              }}
-            />
-          </div>
-        </div>
-        <div className="gradient-divider" aria-hidden="true" />
-      </header>
-      <main>{children}</main>
+      <WhatsNewModal items={whatsNew} avatarUrl={bgdAvatarUrl} />
+      <DashboardHeader
+        navItems={navItems}
+        user={{
+          fullName: user.fullName,
+          username: user.username,
+          department: user.department,
+          tier: user.tier,
+          employeeCode: user.employeeCode,
+          jobTitle: user.jobTitle,
+          positionTitle: user.positionTitle,
+          teamLabel: user.teamLabel,
+          personalEmail: user.personalEmail,
+          phone: user.phone,
+          office: user.office,
+          avatarUrl: user.avatarUrl,
+        }}
+      />
+      <main className="relative">
+        <FloatingGreeting fullName={user.fullName} />
+        {children}
+      </main>
     </div>
   );
 }

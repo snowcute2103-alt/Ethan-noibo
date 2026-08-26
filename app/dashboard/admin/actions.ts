@@ -15,7 +15,7 @@ import {
 } from '@/lib/users';
 import { hashPassword, generatePassword, passwordLengthFor } from '@/lib/password';
 import { grantPermission, revokePermission } from '@/lib/rule-permissions';
-import { logAdminAction } from '@/lib/audit';
+import { logAdminAction, listAuditLogForUser, type AuditLogEntry } from '@/lib/audit';
 import { findResetRequestById, resolveResetRequest } from '@/lib/reset-requests';
 import { DEPARTMENTS } from '@/lib/roles';
 import type { Department, Tier } from '@/lib/roles';
@@ -27,7 +27,7 @@ const AVATAR_TYPES: Record<string, string> = {
   'image/webp': 'webp',
 };
 
-async function requireAdmin() {
+export async function requireAdmin() {
   const session = await getSession();
   if (!session || session.tier !== 'full') {
     throw new Error('Không có quyền thực hiện thao tác này.');
@@ -185,6 +185,39 @@ export async function unlockUserAction(username: string): Promise<{ ok: true }> 
   return { ok: true };
 }
 
+/** Áp 1 thay đổi (vd. isActive) cho nhiều user cùng lúc — dùng bởi thanh hành động
+ *  hàng loạt trên bảng quản trị. Xử lý tuần tự để chặn "hạ quyền/vô hiệu hoá BGĐ
+ *  cuối cùng" trong updateUserAction luôn thấy đúng số lượng còn active. */
+export async function bulkUpdateUsersAction(
+  ids: number[],
+  input: UpdateUserInput
+): Promise<{ ok: true; failed: { id: number; message: string }[] }> {
+  const failed: { id: number; message: string }[] = [];
+  for (const id of ids) {
+    try {
+      await updateUserAction(id, input);
+    } catch (e) {
+      failed.push({ id, message: e instanceof Error ? e.message : 'Có lỗi xảy ra.' });
+    }
+  }
+  return { ok: true, failed };
+}
+
+/** Mở khoá đăng nhập cho nhiều user cùng lúc. */
+export async function bulkUnlockUsersAction(usernames: string[]): Promise<{ ok: true }> {
+  const admin = await requireAdmin();
+  for (const username of usernames) {
+    await unlockUser(username);
+    await logAdminAction(admin.userId, 'user.unlock', null, { note: username });
+  }
+  return { ok: true };
+}
+
+export async function getUserAuditLogAction(userId: number): Promise<AuditLogEntry[]> {
+  await requireAdmin();
+  return listAuditLogForUser(userId);
+}
+
 export async function grantPermissionAction(userId: number, docId: string): Promise<{ ok: true }> {
   const admin = await requireAdmin();
   await grantPermission(userId, docId, admin.userId);
@@ -196,5 +229,25 @@ export async function revokePermissionAction(userId: number, docId: string): Pro
   const admin = await requireAdmin();
   await revokePermission(userId, docId);
   await logAdminAction(admin.userId, 'permission.revoke', userId, { docId });
+  return { ok: true };
+}
+
+/** Cấp quyền đọc 1 tài liệu cho nhiều user cùng lúc — dùng bởi thanh chọn hàng loạt. */
+export async function bulkGrantPermissionAction(userIds: number[], docId: string): Promise<{ ok: true }> {
+  const admin = await requireAdmin();
+  for (const userId of userIds) {
+    await grantPermission(userId, docId, admin.userId);
+    await logAdminAction(admin.userId, 'permission.grant', userId, { docId });
+  }
+  return { ok: true };
+}
+
+/** Thu hồi quyền đọc 1 tài liệu của nhiều user cùng lúc — dùng bởi thanh chọn hàng loạt. */
+export async function bulkRevokePermissionAction(userIds: number[], docId: string): Promise<{ ok: true }> {
+  const admin = await requireAdmin();
+  for (const userId of userIds) {
+    await revokePermission(userId, docId);
+    await logAdminAction(admin.userId, 'permission.revoke', userId, { docId });
+  }
   return { ok: true };
 }

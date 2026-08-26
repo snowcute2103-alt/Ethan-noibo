@@ -90,6 +90,71 @@ export async function findUserByUsernameOrEmail(identifier: string): Promise<Use
   return rows[0] ? mapRow(rows[0]) : null;
 }
 
+export interface HeadcountByGender {
+  total: number;
+  female: number;
+  male: number;
+}
+
+/** Số nhân sự đang hoạt động (is_active = true), tách theo giới tính — dùng cho thẻ
+ *  "Về con người" ở trang chủ (xem DashboardBento). Giá trị gender lưu 'Nam'/'Nữ'/'Khác'/null. */
+export async function countActiveUsersByGender(): Promise<HeadcountByGender> {
+  const rows = await sql.query('SELECT gender, count(*)::int AS count FROM users WHERE is_active = true GROUP BY gender');
+  let total = 0;
+  let female = 0;
+  let male = 0;
+  for (const row of rows) {
+    const count = row.count as number;
+    total += count;
+    if (row.gender === 'Nữ') female += count;
+    else if (row.gender === 'Nam') male += count;
+  }
+  return { total, female, male };
+}
+
+export interface HeadcountByDepartment {
+  department: Department;
+  count: number;
+}
+
+/** Số nhân sự đang hoạt động (is_active = true), tách theo bộ phận — dùng cho thẻ
+ *  "Về con người" ở trang chủ (xem DashboardBento). Xếp theo số lượng giảm dần. */
+export async function countActiveUsersByDepartment(): Promise<HeadcountByDepartment[]> {
+  const rows = await sql.query(
+    'SELECT department, count(*)::int AS count FROM users WHERE is_active = true GROUP BY department ORDER BY count DESC'
+  );
+  return rows.map((row) => ({
+    department: row.department as Department,
+    count: row.count as number,
+  }));
+}
+
+export interface BirthdayPerson {
+  fullName: string;
+  department: Department;
+  avatarUrl: string | null;
+  day: number;
+}
+
+/** Nhân sự đang hoạt động (is_active = true) có sinh nhật trong tháng hiện tại, xếp theo ngày
+ *  tăng dần — dùng cho popup "Xem ai sinh nhật tháng này" ở thẻ Chương trình sinh nhật trang chủ.
+ *  Chỉ trả ngày/tháng (không year) — đủ cho mục đích chúc mừng, tránh lộ năm sinh không cần thiết. */
+export async function listActiveBirthdaysThisMonth(): Promise<BirthdayPerson[]> {
+  const rows = await sql.query(
+    `SELECT full_name, department, avatar_url, EXTRACT(DAY FROM birth_date)::int AS day
+     FROM users
+     WHERE is_active = true AND birth_date IS NOT NULL
+       AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE)
+     ORDER BY day ASC`
+  );
+  return rows.map((row) => ({
+    fullName: row.full_name as string,
+    department: row.department as Department,
+    avatarUrl: (row.avatar_url as string | null) ?? null,
+    day: row.day as number,
+  }));
+}
+
 /** Email cá nhân của các tài khoản BGĐ (tier=full) đang hoạt động — nơi nhận thông
  *  báo "Quên mật khẩu" tự động (xem app/api/forgot-password/route.ts). */
 export async function listActiveFullTierEmails(): Promise<string[]> {
@@ -97,6 +162,15 @@ export async function listActiveFullTierEmails(): Promise<string[]> {
     "SELECT personal_email FROM users WHERE tier = 'full' AND is_active = true AND personal_email IS NOT NULL"
   );
   return rows.map((row) => row.personal_email as string).filter(Boolean);
+}
+
+/** Avatar của tài khoản BGĐ (tier=full) đang hoạt động, đã upload ảnh — dùng làm avatar
+ *  "Từ BGĐ" trên card Thông báo trang chủ (xem ThongBaoSection). */
+export async function findFullTierAvatarUrl(): Promise<string | null> {
+  const rows = await sql.query(
+    "SELECT avatar_url FROM users WHERE tier = 'full' AND is_active = true AND avatar_url IS NOT NULL ORDER BY id ASC LIMIT 1"
+  );
+  return (rows[0]?.avatar_url as string | undefined) ?? null;
 }
 
 export async function findUserById(id: number): Promise<UserRow | null> {

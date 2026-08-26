@@ -1,13 +1,16 @@
+import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { canView, departmentLabel } from '@/lib/roles';
 import { listUsers } from '@/lib/users';
 import { RECOGNITION_LISTS } from '@/lib/content';
 import RecognitionWall from '@/components/dashboard/recognition-wall';
-import MoneyRain from '@/components/dashboard/money-rain';
 import FireworkBurst from '@/components/dashboard/firework-burst';
 import Reveal from '@/components/reveal';
 import SphereImageGrid, { type ImageData } from '@/components/ui/img-sphere';
+import money1 from '@/public/images/khenthuong/money-1.png';
+import money2 from '@/public/images/khenthuong/money-2.png';
+import money3 from '@/public/images/khenthuong/money-3.png';
 
 export default async function KhenThuongPage() {
   const session = await getSession();
@@ -25,31 +28,29 @@ export default async function KhenThuongPage() {
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF5F8] via-white to-white">
-      <svg
-        className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 opacity-40"
-        viewBox="0 0 200 200"
-        aria-hidden="true"
-      >
-        <circle cx="100" cy="100" r="100" fill="#FFD9E4" />
-      </svg>
-      <svg
-        className="pointer-events-none absolute -right-20 top-40 h-72 w-72 opacity-30"
-        viewBox="0 0 200 200"
-        aria-hidden="true"
-      >
-        <circle cx="100" cy="100" r="100" fill="#CFF3FF" />
-      </svg>
-      <svg
-        className="pointer-events-none absolute bottom-0 left-1/3 h-56 w-56 opacity-30"
-        viewBox="0 0 200 200"
-        aria-hidden="true"
-      >
-        <circle cx="100" cy="100" r="100" fill="#FFECC2" />
-      </svg>
-
       <div className="relative mx-auto flex max-w-[1500px] flex-col gap-32 px-8 py-28 sm:py-36">
         <div className="relative grid grid-cols-1 items-center gap-14 overflow-visible sm:grid-cols-[1fr_600px]">
-          <MoneyRain />
+          <Image
+            src={money1}
+            alt=""
+            aria-hidden="true"
+            priority={false}
+            className="pointer-events-none absolute -left-24 top-0 z-[5] w-[420px] -rotate-12 opacity-[0.22] blur-[1px] sm:w-[520px]"
+          />
+          <Image
+            src={money2}
+            alt=""
+            aria-hidden="true"
+            priority={false}
+            className="pointer-events-none absolute left-[8%] top-[42%] z-[5] w-[340px] rotate-[18deg] opacity-[0.18] blur-[1px] sm:w-[400px]"
+          />
+          <Image
+            src={money3}
+            alt=""
+            aria-hidden="true"
+            priority={false}
+            className="pointer-events-none absolute -left-16 bottom-0 z-[5] w-[400px] rotate-[8deg] opacity-[0.18] blur-[1px] sm:w-[500px]"
+          />
           <FireworkBurst />
           <div className="relative z-10 text-center sm:text-left">
             <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-[#FF6F91]">Wall of fame</p>

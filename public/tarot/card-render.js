@@ -1,0 +1,31 @@
+// ══════════════════════════════════════════════════════
+//  Card image helpers
+// ══════════════════════════════════════════════════════
+const CARD_IMAGES = [
+  'cards/00_the-fool.jpg','cards/01_the-magician.jpg','cards/02_the-high-priestess.jpg',
+  'cards/03_the-empress.jpg','cards/04_the-emperor.jpg','cards/05_the-hierophant.jpg',
+  'cards/06_the-lovers.jpg','cards/07_the-chariot.jpg','cards/08_strength.jpg',
+  'cards/09_the-hermit.jpg','cards/10_wheel-of-fortune.jpg','cards/11_justice.jpg',
+  'cards/12_the-hanged-man.jpg','cards/13_death.jpg','cards/14_temperance.jpg',
+  'cards/15_the-devil.jpg','cards/16_the-tower.jpg','cards/17_the-star.jpg',
+  'cards/18_the-moon.jpg','cards/19_the-sun.jpg','cards/20_judgement.jpg',
+  'cards/21_the-world.jpg','cards/22_ace-of-wands.jpg','cards/23_two-of-wands.jpg',
+  'cards/24_three-of-wands.jpg','cards/25_four-of-wands.jpg','cards/26_five-of-wands.jpg',
+  'cards/27_six-of-wands.jpg','cards/28_seven-of-wands.jpg','cards/29_eight-of-wands.jpg',
+  'cards/30_nine-of-wands.jpg','cards/31_ten-of-wands.jpg','cards/32_page-of-wands.jpg',
+  'cards/33_knight-of-wands.jpg','cards/34_queen-of-wands.jpg','cards/35_king-of-wands.jpg',
+  'cards/36_ace-of-cups.jpg','cards/37_two-of-cups.jpg','cards/38_three-of-cups.jpg',
+  'cards/39_four-of-cups.jpg','cards/40_five-of-cups.jpg','cards/41_six-of-cups.jpg',
+  'cards/42_seven-of-cups.jpg','cards/43_eight-of-cups.jpg','cards/44_nine-of-cups.jpg',
+  'cards/45_ten-of-cups.jpg','cards/46_page-of-cups.jpg','cards/47_knight-of-cups.jpg',
+  'cards/48_queen-of-cups.jpg','cards/49_king-of-cups.jpg','cards/50_ace-of-swords.jpg',
+  'cards/51_two-of-swords.jpg','cards/52_three-of-swords.jpg','cards/53_four-of-swords.jpg',
+  'cards/54_five-of-swords.jpg','cards/55_six-of-swords.jpg','cards/56_seven-of-swords.jpg',
+  'cards/57_eight-of-swords.jpg','cards/58_nine-of-swords.jpg','cards/59_ten-of-swords.jpg',
+  'cards/60_page-of-swords.jpg','cards/61_knight-of-swords.jpg','cards/62_queen-of-swords.jpg',
+  'cards/63_king-of-swords.jpg','cards/64_ace-of-pentacles.jpg','cards/65_two-of-pentacles.jpg',
+  'cards/66_three-of-pentacles.jpg','cards/67_four-of-pentacles.jpg','cards/68_five-of-pentacles.jpg',
+  'cards/69_six-of-pentacles.jpg','cards/70_seven-of-pentacles.jpg','cards/71_eight-of-pentacles.jpg',
+  'cards/72_nine-of-pentacles.jpg','cards/73_ten-of-pentacles.jpg','cards/74_page-of-pentacles.jpg',
+  'cards/75_knight-of-pentacles.jpg','cards/76_queen-of-pentacles.jpg','cards/77_king-of-pentacles.jpg',
+];

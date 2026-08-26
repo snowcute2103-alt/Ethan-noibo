@@ -53,7 +53,7 @@ const STARS = [
 ];
 
 /**
- * Hero mở đầu trang Văn hoá — dùng nguyên các primitive ContainerScroll/ContainerSticky/
+ * Hero mở đầu trang Văn hoá, dùng nguyên các primitive ContainerScroll/ContainerSticky/
  * GalleryContainer/GalleryCol từ components/ui/animated-gallery.tsx, giữ đúng cấu trúc và
  * thông số của DemoVariant1 gốc, chỉ đổi nội dung chữ/ảnh sang theme Văn hoá Ethan.
  */
@@ -88,7 +88,7 @@ export default function CultureGalleryHero() {
         </ContainerAnimated>
         <ContainerAnimated className="my-4">
           <p className="mx-auto max-w-2xl text-lg leading-relaxed text-white/80">
-            &ldquo;Đồng lòng đồng sức, bứt phá gặt thành công&rdquo; — tầm nhìn, con người và những câu chuyện làm nên
+            &ldquo;Đồng lòng đồng sức, bứt phá gặt thành công&rdquo;, tầm nhìn, con người và những câu chuyện làm nên
             Ethan, dành riêng cho nhân sự nội bộ.
           </p>
         </ContainerAnimated>

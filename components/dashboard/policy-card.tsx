@@ -2,7 +2,7 @@ import { CircleAlert, OctagonAlert, Info } from 'lucide-react';
 import type { Policy, PolicyRule } from '@/lib/content';
 import VisibilityBadge from '@/components/visibility-badge';
 
-function severityStyles(severity?: PolicyRule['severity']) {
+export function severityStyles(severity?: PolicyRule['severity']) {
   if (severity === 'critical') return { icon: OctagonAlert, badge: 'bg-red-50 text-red-600', dot: 'text-red-600' };
   if (severity === 'warning') return { icon: CircleAlert, badge: 'bg-[#FFF3D6] text-[#B5720A]', dot: 'text-gold-2' };
   return { icon: Info, badge: 'bg-[#E7F0FF] text-blue', dot: 'text-blue' };

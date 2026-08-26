@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Fahkwang, Mulish } from 'next/font/google';
+import { Alex_Brush, Fahkwang, Libre_Baskerville, Mulish, Noto_Serif } from 'next/font/google';
 import './globals.css';
 
 const fahkwang = Fahkwang({
@@ -14,6 +14,28 @@ const mulish = Mulish({
   variable: '--font-body',
 });
 
+/** Serif báo in — dùng cho phần đọc dài kiểu NYT (trang Quy trình/SOP). Có subset vietnamese nên dấu tiếng Việt hiển thị đúng, khác Libre Baskerville bên dưới. */
+const notoSerif = Noto_Serif({
+  subsets: ['latin', 'vietnamese'],
+  weight: ['400', '500', '600', '700', '900'],
+  style: ['normal', 'italic'],
+  variable: '--font-serif',
+});
+
+/** Thay tạm cho BaskervilleVN (font riêng, không có sẵn) — cùng họ Baskerville, miễn phí bản quyền qua Google Fonts. Chỉ dùng cho chữ "Ethan Ecom" trên ParallaxHero. */
+const libreBaskerville = Libre_Baskerville({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-baskerville',
+});
+
+/** Chữ script vàng trên vé "Admit One" (birthday ticket). */
+const alexBrush = Alex_Brush({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-script',
+});
+
 export const metadata: Metadata = {
   title: 'Nội Bộ · Ethan Ecom',
   description: 'Cổng thông tin nội bộ Ethan Ecom — chỉ dành cho nhân sự.',
@@ -23,7 +45,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi">
-      <body className={`${fahkwang.variable} ${mulish.variable} font-body`}>{children}</body>
+      <body
+        className={`${fahkwang.variable} ${mulish.variable} ${libreBaskerville.variable} ${alexBrush.variable} ${notoSerif.variable} font-body`}
+      >
+        {children}
+      </body>
     </html>
   );
 }
