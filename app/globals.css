@@ -685,13 +685,11 @@ body {
 .rule-laptop {
   --rl-black: #111214;
   --rl-white: #f6f6f4;
-  /* Khởi động ngay khi section chạm đầu viewport. Mốc 15% cũ tạo gần hai
-     màn hình cuộn chết trên laptop trước khi model bắt đầu chuyển động. */
-  --rl-jump: cover 0% cover 45%;
-  --rl-spin: cover 0% cover 45%;
-  --rl-flip: cover 0% cover 45%;
-  --rl-open: cover 0% cover 45%;
-  --rl-straighten: cover 0% cover 45%;
+  --rl-jump: cover 15% cover 45%;
+  --rl-spin: cover 15% cover 45%;
+  --rl-flip: cover 15% cover 45%;
+  --rl-open: cover 15% cover 45%;
+  --rl-straighten: contain 25% contain 65%;
   --rl-zoom: contain 25% exit -20%;
   height: 500vh;
   view-timeline: --rule-laptop;
