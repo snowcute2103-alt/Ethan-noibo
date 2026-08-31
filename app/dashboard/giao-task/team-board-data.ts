@@ -1,6 +1,15 @@
 import 'server-only';
 import { getTeamWithRoster, listAllTeamsSummary, listTeamCategories, type TeamTaskCategory, type TeamWithRoster, type TeamSummary } from '@/lib/teams';
-import { listTasksForTeam, getMonthProgress, getDailyAssigneeBreakdown, getAllTeamsMonthProgress, type Task, type DailyAssigneeCount, type TeamMonthProgress } from '@/lib/tasks';
+import {
+  listTasksForTeam,
+  getMonthProgress,
+  getDailyAssigneeBreakdown,
+  getAllTeamsMonthProgress,
+  getDistinctProductsForTeam,
+  type Task,
+  type DailyAssigneeCount,
+  type TeamMonthProgress,
+} from '@/lib/tasks';
 
 interface DateRange {
   fromDate: string;
@@ -13,6 +22,7 @@ export interface TeamBoardCore {
   tasks: Task[];
   monthProgress: { done: number; total: number };
   chart: DailyAssigneeCount[];
+  products: string[];
   range: DateRange;
 }
 
@@ -29,16 +39,17 @@ export async function loadTeamBoardCore(teamId: number, today: string): Promise<
   const yearMonth = today.slice(0, 7);
   const range: DateRange = { fromDate: today, toDate: today };
 
-  const [team, categories, tasks, monthProgress, chart] = await Promise.all([
+  const [team, categories, tasks, monthProgress, chart, products] = await Promise.all([
     getTeamWithRoster(teamId),
     listTeamCategories(teamId),
     listTasksForTeam(teamId, range),
     getMonthProgress(teamId, yearMonth),
     getDailyAssigneeBreakdown(teamId, today, today),
+    getDistinctProductsForTeam(teamId),
   ]);
 
   if (!team) return null;
-  return { team, categories, tasks, monthProgress, chart, range };
+  return { team, categories, tasks, monthProgress, chart, products, range };
 }
 
 export async function loadTeamsOverview(today: string): Promise<TeamsOverview> {

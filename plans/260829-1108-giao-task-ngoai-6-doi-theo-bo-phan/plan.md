@@ -94,9 +94,8 @@ không nhân bản *model đội KD* sang khối khác, task cá nhân không ph
   hoạt động như cũ ở Phase 5.
 - Không cho leader bộ phận quyền quản lý task cá nhân của nhân viên trong bộ
   phận (đã chốt ở quyết định #3).
-- Không làm Bảng/Thẻ chi tiết cho task cá nhân — chỉ Kanban (2 cột Chưa làm/
-  Hoàn thành), khớp đúng yêu cầu gốc "tạo task kiểu kanban", không tự thêm
-  scope.
+- Không mở rộng chi tiết/lịch sử/comment/rollover sang task đội KD; Phase 6
+  chỉ áp dụng cho task cá nhân theo yêu cầu bổ sung ngày 2026-08-31.
 - Không seed sẵn dữ liệu mẫu — người dùng tự tạo task Kanban của mình qua UI.
 - Không thêm biểu đồ/chart riêng cho task cá nhân (chart theo người/ngày vốn
   chỉ có ý nghĩa khi nhiều người — 1 người 1 board không cần).
@@ -110,6 +109,7 @@ không nhân bản *model đội KD* sang khối khác, task cá nhân không ph
 | 3 | [Phase 3: Server actions](./phase-03-server-actions.md) | Pending |
 | 4 | [Phase 4: UI trang Giao Task cho nguoi ngoai 6 doi](./phase-04-ui-trang-giao-task-cho-nguoi-ngoai-6-doi.md) | Pending |
 | 5 | [Phase 5: Kiem thu thu cong](./phase-05-kiem-thu-thu-cong.md) | Pending |
+| 6 | [Phase 6: Chi tiet task, lich su, binh luan va rollover](./phase-06-chi-tiet-task-lich-su-binh-luan-va-rollover.md) | In progress |
 
 ## Success Criteria
 
@@ -127,6 +127,11 @@ không nhân bản *model đội KD* sang khối khác, task cá nhân không ph
       không chỉ dựa vào ẩn UI.
 - [ ] `npm run build` và `npm run lint` sạch; trang 6 đội KD vẫn hoạt động
       như cũ (không regression).
+- [ ] Task cá nhân có tiêu đề, mô tả, ảnh, ngày task, mức ưu tiên; mở card ra
+      drawer bên phải để sửa, xem ngày tạo/sửa, comment và lịch sử thay đổi.
+- [ ] Khi tải board ngày mới, mọi task cá nhân chưa xong ở ngày cũ được chuyển
+      tới hôm nay, trạng thái `in_progress`, gắn trễ hạn và xếp trên cùng;
+      chạy lại không thay đổi thêm dữ liệu hoặc tạo bản sao.
 
 ## Risk Assessment tổng quan
 

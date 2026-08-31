@@ -1,10 +1,10 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { MoreVertical, TriangleAlert, ListChecks, CircleDot, CheckCircle2, Check, ArrowLeft, Plus, X, StickyNote, Video, LayoutGrid, Rows3, Grid2x2, Search } from 'lucide-react';
+import { MoreVertical, TriangleAlert, ListChecks, CircleDot, CheckCircle2, Check, ArrowLeft, X, StickyNote, Video, Rows3, Grid2x2 } from 'lucide-react';
 import { useCheckboxConfetti } from '@/components/dashboard/checkbox-confetti';
 import DepartmentOverview from '@/components/dashboard/department-overview';
 import TaskCalendar from '@/components/dashboard/task-calendar';
@@ -38,7 +38,6 @@ import {
 const POLL_INTERVAL_MS = 150_000;
 
 type ViewMode = 'day' | 'week' | 'month';
-type TaskStatusFilter = 'all' | 'open' | 'done';
 
 interface DateRange {
   fromDate: string;
@@ -52,6 +51,7 @@ interface BoardData {
   isManager: boolean;
   monthProgress: { done: number; total: number };
   chart: DailyAssigneeCount[];
+  products: string[];
   range: DateRange;
 }
 
@@ -77,13 +77,59 @@ const COLUMN_LABELS: Record<TaskColumnKey, string> = {
   note: 'Ghi chú',
 };
 
-const CHART_PALETTE = ['#4FA3F7', '#FFB84D', '#2DD4BF', '#9B7EF0', '#FF7A5C', '#FF6FA0', '#7FA8D9'];
+// Né hẳn dải màu xanh dương (trùng với --blue thương hiệu dùng cho nút/link
+// khắp trang) — chỉ chọn tông tím/cam/hồng/vàng/xanh lá cho bảng màu người/nhóm.
+const CHART_PALETTE = ['#9B7EF0', '#FFB84D', '#22C55E', '#FF7A5C', '#FF6FA0', '#FACC15', '#C084FC'];
 
 /** Mỗi nhóm task (Media/Support...) có 1 màu riêng lấy từ CHART_PALETTE theo
  *  vị trí trong danh sách nhóm — ổn định, không đổi màu khi lọc/sắp xếp lại. */
 function categoryColor(categories: { id: number }[], categoryId: number): string {
   const index = categories.findIndex((c) => c.id === categoryId);
   return CHART_PALETTE[Math.max(index, 0) % CHART_PALETTE.length];
+}
+
+const UNASSIGNED_COLOR = '#B7C2D6';
+
+function hslToHex(h: number, s: number, l: number): string {
+  const sat = s / 100;
+  const lig = l / 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = sat * Math.min(lig, 1 - lig);
+  const f = (n: number) => lig - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+const GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
+// Cắt hẳn dải hue xanh lá/xanh dương/cyan (130°-260°: 130-175 trùng xanh lá
+// "Hoàn thành" #20C978 ở cột Trạng thái, 175-260 trùng --blue thương hiệu)
+// khỏi vòng màu, rồi rải hue theo góc vàng chỉ trong phần còn lại (230°) —
+// vì chuỗi (index * GOLDEN_RATIO_CONJUGATE) % 1 không bao giờ lặp giá trị
+// giữa các index khác nhau, hue sinh ra cũng không bao giờ trùng nhau, khác
+// với cách cũ dùng bảng màu 7 phần tử cố định (người thứ 8 sẽ trùng màu
+// người đầu tiên do chia dư).
+const HUE_BAND_START = 260;
+const HUE_USABLE_SPAN = 230;
+
+/** Sinh 1 màu ổn định cho từng chuỗi trong danh sách (theo thứ tự chữ cái) —
+ *  dùng chung cho màu người phụ trách và màu sản phẩm để 1 tên/sản phẩm luôn
+ *  cùng 1 màu ở mọi nơi trên trang, không bao giờ trùng màu dù danh sách dài. */
+function distinctColorMap(values: string[]): Map<string, string> {
+  const names = Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'vi'));
+  return new Map(
+    names.map((name, index) => {
+      const t = (index * GOLDEN_RATIO_CONJUGATE) % 1;
+      const hue = (HUE_BAND_START + t * HUE_USABLE_SPAN) % 360;
+      return [name, hslToHex(hue, 70, 62)];
+    })
+  );
+}
+
+/** Mỗi thành viên 1 màu riêng theo vị trí tên (sắp xếp chữ cái) trong danh
+ *  sách đội — dùng chung giữa thẻ tổng hợp "Task theo người" và bảng task để
+ *  1 người luôn cùng 1 màu ở mọi nơi trên trang. */
+function assigneeColorMap(members: TeamMember[]): Map<string, string> {
+  return distinctColorMap(members.map((m) => m.fullName));
 }
 
 function parseISO(dateStr: string): Date {
@@ -160,24 +206,22 @@ function givenNameOf(fullName: string): string {
 export default function TaskBoard({ isBgd, today, overview: initialOverview, board: initialBoard }: TaskBoardProps) {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
-  // Kanban/Thẻ chỉ là 2 cách trình bày khác của cùng dữ liệu task (kéo-thả
-  // hoặc bấm để đổi trạng thái) — song song với bảng cũ, không thay thế, giữ
-  // nguyên mọi thao tác nhân bản/sửa nhanh vốn chỉ có ở bảng.
-  const [boardView, setBoardView] = useState<'table' | 'kanban' | 'card'>('table');
+  // Thẻ chỉ là 1 cách trình bày khác của cùng dữ liệu task (bấm để đổi trạng
+  // thái) — song song với bảng cũ, không thay thế, giữ nguyên mọi thao tác
+  // nhân bản/sửa nhanh vốn chỉ có ở bảng.
+  const [boardView, setBoardView] = useState<'table' | 'card'>('table');
   const [anchorDate, setAnchorDate] = useState(today);
   // Chuyển đội giờ đi qua điều hướng URL thật (/dashboard/giao-task/[code],
   // xem OverviewPanel bên dưới) thay vì đổi state — mỗi đội/màn tổng quan là
   // 1 lượt mount TaskBoard mới (page.tsx truyền `key` khác nhau), nên giá trị
   // này chỉ cần đọc 1 lần lúc mount, không cần setter.
   const activeTeamId = initialBoard?.team.id ?? null;
-  // Không còn tab "Toàn bộ" — luôn cố định vào 1 nhóm task (Media/Support...);
-  // mặc định là nhóm đầu tiên, khớp với dữ liệu page.tsx đã lọc sẵn phía server.
-  const [categoryId, setCategoryId] = useState<number | undefined>(initialBoard?.categories[0]?.id);
+  // Mặc định vào nhóm đầu tiên (Media/Support...), khớp với dữ liệu page.tsx
+  // đã lọc sẵn phía server; 'all' là tab "Tất cả" xem gộp mọi nhóm.
+  const [categoryId, setCategoryId] = useState<number | 'all' | undefined>(initialBoard?.categories[0]?.id);
   const [board, setBoard] = useState<BoardData | null>(initialBoard);
   const [overview, setOverview] = useState<OverviewData | null>(initialOverview);
   const [error, setError] = useState<string | null>(null);
-  const [taskQuery, setTaskQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
   const [statusPendingTaskIds, setStatusPendingTaskIds] = useState<Set<number>>(new Set());
   const [isPending, startTransition] = useTransition();
 
@@ -190,6 +234,8 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   // Giữ trạng thái vừa bấm xuyên qua mọi lần đồng bộ nền. Đồng thời đánh số
   // request để một response cũ không thể ghi đè dữ liệu mới hơn.
   const optimisticStatusesRef = useRef<Map<number, TaskStatus>>(new Map());
+  const optimisticTasksRef = useRef<Map<number, Task>>(new Map());
+  const optimisticCreatedTasksRef = useRef<Map<number, Task>>(new Map());
   const refreshBoardRequestRef = useRef(0);
   const range = useMemo(() => rangeFor(viewMode, anchorDate), [viewMode, anchorDate]);
 
@@ -198,48 +244,37 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   // "gom nhóm thành viên" quyết định task hiện ở tab nào.
   const categoryTasks = useMemo(() => {
     if (!board) return [];
+    if (categoryId === 'all') return board.tasks;
     const memberCategoryById = new Map(board.team.members.map((m) => [m.userId, m.categoryId]));
     return board.tasks.filter((t) => t.assigneeUserId != null && memberCategoryById.get(t.assigneeUserId) === categoryId);
   }, [board, categoryId]);
 
-  const deferredTaskQuery = useDeferredValue(taskQuery.trim().toLocaleLowerCase('vi'));
-  const visibleTasks = useMemo(() => {
-    return categoryTasks.filter((task) => {
-      if (statusFilter === 'open' && task.status === 'done') return false;
-      if (statusFilter === 'done' && task.status !== 'done') return false;
-      if (!deferredTaskQuery) return true;
-      return [task.title, task.assigneeFullName, task.accountName, task.product, task.channel, task.note]
-        .filter(Boolean)
-        .some((value) => String(value).toLocaleLowerCase('vi').includes(deferredTaskQuery));
-    });
-  }, [categoryTasks, deferredTaskQuery, statusFilter]);
-
-  const taskStatusCounts = useMemo(
-    () => ({
-      all: categoryTasks.length,
-      open: categoryTasks.filter((task) => task.status !== 'done').length,
-      done: categoryTasks.filter((task) => task.status === 'done').length,
-    }),
-    [categoryTasks]
-  );
+  const visibleTasks = categoryTasks;
 
   // Thêm task ngay trên tab nào thì chỉ gán được cho người đang ở đúng nhóm
   // đó — tránh tình huống vừa lưu xong task đã biến mất khỏi tab đang xem.
+  // Tab "Tất cả" cho gán bất kỳ ai trong đội.
   const assignableMembers = useMemo(() => {
     if (!board) return [];
+    if (categoryId === 'all') return board.team.members;
     return board.team.members.filter((m) => m.categoryId === categoryId);
   }, [board, categoryId]);
 
   const calendarYearMonth = anchorDate.slice(0, 7);
+
+  function refreshDayCategoryCounts() {
+    if (!board) return;
+    getMonthTaskCategoryCountsAction(board.team.id, calendarYearMonth)
+      .then(setDayCategoryCounts)
+      .catch(() => setDayCategoryCounts([]));
+  }
 
   // Lịch mini tô màu theo tháng — độc lập với viewMode/range đang chọn. Lấy
   // số task theo TỪNG nhóm (không lọc theo tab đang xem) để mỗi ô ngày vừa
   // tô màu "có hoạt động" vừa hiện số lượng riêng từng nhóm (Media/Support...).
   useEffect(() => {
     if (!board) return;
-    getMonthTaskCategoryCountsAction(board.team.id, calendarYearMonth)
-      .then(setDayCategoryCounts)
-      .catch(() => setDayCategoryCounts([]));
+    refreshDayCategoryCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board?.team.id, calendarYearMonth]);
 
@@ -264,10 +299,12 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       if (requestId !== refreshBoardRequestRef.current) return;
       if ('needsBgdOverview' in result) return;
       const tasks = result.tasks.map((task) => {
+        const optimisticTask = optimisticTasksRef.current.get(task.id);
         const optimisticStatus = optimisticStatusesRef.current.get(task.id);
-        return optimisticStatus == null ? task : { ...task, status: optimisticStatus };
+        const mergedTask = optimisticTask ?? task;
+        return optimisticStatus == null ? mergedTask : { ...mergedTask, status: optimisticStatus };
       });
-      setBoard({ ...result, tasks, range });
+      setBoard({ ...result, tasks: [...tasks, ...optimisticCreatedTasksRef.current.values()], range });
       setError(null);
     } catch (err) {
       if (requestId !== refreshBoardRequestRef.current) return;
@@ -305,10 +342,11 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, anchorDate, activeTeamId]);
 
-  // Không còn tab "Toàn bộ": nếu nhóm đang chọn không còn tồn tại (đổi đội,
-  // nhóm bị xoá, hoặc nhóm đầu tiên vừa được tạo) thì tự chuyển sang nhóm đầu.
+  // Nếu nhóm đang chọn không còn tồn tại (đổi đội, nhóm bị xoá, hoặc nhóm đầu
+  // tiên vừa được tạo) thì tự chuyển sang nhóm đầu — trừ khi đang ở tab "Tất cả".
   useEffect(() => {
     if (!board) return;
+    if (categoryId === 'all') return;
     if (board.categories.length === 0) return;
     if (board.categories.some((c) => c.id === categoryId)) return;
     setCategoryId(board.categories[0].id);
@@ -334,6 +372,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           // dùng thất bại, nên không đẩy banner đỏ gây hiểu lầm.
           void refreshBoard({ silent: true });
           void refreshOverview({ silent: true });
+          refreshDayCategoryCounts();
         })
         .catch((err) => setError(err instanceof Error ? err.message : 'Có lỗi xảy ra.'));
     });
@@ -358,6 +397,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           // Lần tải sau khi server xác nhận sẽ hủy hiệu lực mọi response cũ.
           // Vẫn ghép trạng thái lạc quan trong lúc tải để dấu tick không nháy.
           await Promise.all([refreshBoard({ silent: true }), refreshOverview({ silent: true })]);
+          refreshDayCategoryCounts();
           optimisticStatusesRef.current.delete(task.id);
         })
         .catch((err) => {
@@ -382,6 +422,120 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             next.delete(task.id);
             return next;
           });
+        });
+    });
+  }
+
+  function createTaskOptimistically(input: TaskInput) {
+    if (!board) return;
+    const teamId = board.team.id;
+    const tempId = -Date.now();
+    const member = board.team.members.find((item) => item.userId === input.assigneeUserId);
+    const now = new Date().toISOString();
+    const optimisticTask: Task = {
+      id: tempId,
+      teamId,
+      ownerUserId: null,
+      categoryId: input.categoryId ?? null,
+      taskDate: input.taskDate,
+      dueDate: null,
+      assigneeUserId: input.assigneeUserId ?? null,
+      assigneeFullName: member?.fullName ?? null,
+      assigneeAvatarUrl: member?.avatarUrl ?? null,
+      accountName: input.accountName ?? null,
+      title: input.title,
+      channel: input.channel ?? null,
+      videoCount: input.videoCount ?? null,
+      product: input.product ?? null,
+      optionTag: input.optionTag ?? null,
+      referenceLink: input.referenceLink ?? null,
+      note: input.note ?? null,
+      description: null,
+      imageUrl: null,
+      priority: 'normal',
+      originalTaskDate: null,
+      rolledOverAt: null,
+      status: input.status ?? 'not_started',
+      duplicatedFromTaskId: null,
+      createdBy: null,
+      createdByFullName: null,
+      createdByAvatarUrl: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setError(null);
+    setIsAddingTask(false);
+    optimisticCreatedTasksRef.current.set(tempId, optimisticTask);
+    setBoard((current) => (current ? { ...current, tasks: [...current.tasks, optimisticTask] } : current));
+    startTransition(() => {
+      createTaskAction(teamId, input)
+        .then((savedTask) => {
+          optimisticCreatedTasksRef.current.delete(tempId);
+          setBoard((current) =>
+            current
+              ? { ...current, tasks: current.tasks.map((task) => (task.id === tempId ? savedTask : task)) }
+              : current
+          );
+          void refreshBoard({ silent: true });
+          void refreshOverview({ silent: true });
+          refreshDayCategoryCounts();
+        })
+        .catch((err) => {
+          optimisticCreatedTasksRef.current.delete(tempId);
+          refreshBoardRequestRef.current += 1;
+          setBoard((current) =>
+            current ? { ...current, tasks: current.tasks.filter((task) => task.id !== tempId) } : current
+          );
+          setError(err instanceof Error ? err.message : 'Không thể tạo task.');
+        });
+    });
+  }
+
+  function updateTaskOptimistically(taskId: number, input: TaskInput) {
+    if (!board) return;
+    const teamId = board.team.id;
+    const previousTask = board.tasks.find((task) => task.id === taskId);
+    if (!previousTask) return;
+    const member = board.team.members.find((item) => item.userId === input.assigneeUserId);
+    const optimisticTask: Task = {
+      ...previousTask,
+      ...input,
+      assigneeUserId: input.assigneeUserId ?? null,
+      assigneeFullName: member?.fullName ?? null,
+      assigneeAvatarUrl: member?.avatarUrl ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setError(null);
+    optimisticTasksRef.current.set(taskId, optimisticTask);
+    setBoard((current) =>
+      current
+        ? { ...current, tasks: current.tasks.map((task) => (task.id === taskId ? optimisticTask : task)) }
+        : current
+    );
+    startTransition(() => {
+      updateTaskAction(teamId, taskId, input)
+        .then((savedTask) => {
+          optimisticTasksRef.current.delete(taskId);
+          setBoard((current) =>
+            current
+              ? { ...current, tasks: current.tasks.map((task) => (task.id === taskId ? savedTask : task)) }
+              : current
+          );
+          void refreshBoard({ silent: true });
+          void refreshOverview({ silent: true });
+          refreshDayCategoryCounts();
+        })
+        .catch((err) => {
+          optimisticTasksRef.current.delete(taskId);
+          refreshBoardRequestRef.current += 1;
+          setBoard((current) =>
+            current
+              ? { ...current, tasks: current.tasks.map((task) => (task.id === taskId ? previousTask : task)) }
+              : current
+          );
+          setError(err instanceof Error ? err.message : 'Không thể lưu thay đổi task.');
         });
     });
   }
@@ -443,28 +597,42 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
 
       {board && (
         <>
+          <div className="mb-5">
+            <AssigneeBarChart chart={board.chart} members={board.team.members} showDailyChart={viewMode !== 'day'} />
+          </div>
+
           <div className="mb-5 flex flex-wrap items-center gap-2">
-            {boardView === 'table' && (
+            <div className="flex items-center gap-1 rounded-[10px] border border-black p-1">
+              {boardView === 'table' && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingTask(true)}
+                  className="rounded-[8px] bg-blue px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-cta"
+                >
+                  + Thêm task
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setIsAddingTask(true)}
-                className="rounded-[10px] bg-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-cta"
+                onClick={() => setCategoryId('all')}
+                className={`rounded-[8px] px-3 py-1.5 text-sm font-normal uppercase text-[#000000] ${categoryId === 'all' ? 'bg-[#EAB308]' : ''}`}
               >
-                + Thêm task
+                Tất cả
               </button>
-            )}
-            {board.categories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setCategoryId(cat.id)}
-                className={`rounded-[10px] px-3 py-1.5 text-sm font-semibold ${
-                  categoryId === cat.id ? 'bg-[#E7F0FF] text-blue' : 'bg-surface-2 text-muted'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+              {board.categories.map((cat) => {
+                const isSelected = categoryId === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategoryId(cat.id)}
+                    className={`rounded-[8px] px-3 py-1.5 text-sm font-normal uppercase text-[#000000] ${isSelected ? 'bg-[#EAB308]' : ''}`}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
             <div className="ml-auto flex gap-1 rounded-[10px] bg-surface-2 p-1">
               <button
                 type="button"
@@ -475,16 +643,6 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
               >
                 <Rows3 className="h-3.5 w-3.5" aria-hidden="true" />
                 Bảng
-              </button>
-              <button
-                type="button"
-                onClick={() => setBoardView('kanban')}
-                className={`flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-xs font-semibold ${
-                  boardView === 'kanban' ? 'bg-white text-blue shadow-sm' : 'text-muted'
-                }`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                Kanban
               </button>
               <button
                 type="button"
@@ -499,16 +657,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             </div>
           </div>
 
-          <TaskFilterBar
-            query={taskQuery}
-            onQueryChange={setTaskQuery}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            counts={taskStatusCounts}
-            visibleCount={visibleTasks.length}
-          />
-
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_440px]">
             <div className="min-w-0">
               {boardView === 'table' ? (
                 <TaskTable
@@ -516,7 +665,8 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   visibleColumns={board.categories.find((c) => c.id === categoryId)?.visibleColumns ?? [...TASK_COLUMN_KEYS]}
                   teamCode={board.team.code}
                   allMembers={board.team.members}
-                  onUpdate={(taskId, input) => runAction(() => updateTaskAction(board.team.id, taskId, input))}
+                  products={board.products}
+                  onUpdate={updateTaskOptimistically}
                   onDelete={(task) => runAction(() => deleteTaskAction(board.team.id, task.id))}
                   allowBulkPattern={board.isManager}
                   onBulkDuplicateDates={(taskIds, dates, assigneeUserIds) =>
@@ -527,23 +677,12 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   }
                   onStatusChange={updateTaskStatusOptimistically}
                   statusPendingTaskIds={statusPendingTaskIds}
-                  emptyMessage={taskQuery || statusFilter !== 'all' ? 'Không tìm thấy task phù hợp.' : 'Chưa có task nào trong khoảng thời gian này.'}
+                  emptyMessage="Chưa có task nào trong khoảng thời gian này."
                   isAdding={isAddingTask}
                   assignableMembers={assignableMembers}
                   defaultDate={anchorDate}
                   onCancelAdd={() => setIsAddingTask(false)}
-                  onCreate={(input) => runAction(() => createTaskAction(board.team.id, input), () => setIsAddingTask(false))}
-                />
-              ) : boardView === 'kanban' ? (
-                <TaskKanban
-                  tasks={visibleTasks}
-                  assignableMembers={assignableMembers}
-                  defaultDate={anchorDate}
-                  today={today}
-                  onStatusChange={updateTaskStatusOptimistically}
-                  statusPendingTaskIds={statusPendingTaskIds}
-                  onCreate={(input) => runAction(() => createTaskAction(board.team.id, input))}
-                  onDelete={(task) => runAction(() => deleteTaskAction(board.team.id, task.id))}
+                  onCreate={createTaskOptimistically}
                 />
               ) : (
                 <TaskCardGrid
@@ -552,11 +691,10 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   members={board.team.members}
                   onStatusChange={updateTaskStatusOptimistically}
                   statusPendingTaskIds={statusPendingTaskIds}
-                  emptyMessage={taskQuery || statusFilter !== 'all' ? 'Không tìm thấy task phù hợp.' : 'Chưa có task nào trong khoảng thời gian này.'}
+                  emptyMessage="Chưa có task nào trong khoảng thời gian này."
                   onDelete={(task) => runAction(() => deleteTaskAction(board.team.id, task.id))}
                 />
               )}
-              <AssigneeBarChart chart={board.chart} members={board.team.members} />
             </div>
 
             <div className="flex flex-col gap-4">
@@ -896,82 +1034,12 @@ function OverviewPanel({
   );
 }
 
-function TaskFilterBar({
-  query,
-  onQueryChange,
-  statusFilter,
-  onStatusFilterChange,
-  counts,
-  visibleCount,
-}: {
-  query: string;
-  onQueryChange: (value: string) => void;
-  statusFilter: TaskStatusFilter;
-  onStatusFilterChange: (value: TaskStatusFilter) => void;
-  counts: Record<TaskStatusFilter, number>;
-  visibleCount: number;
-}) {
-  const filters: { value: TaskStatusFilter; label: string }[] = [
-    { value: 'all', label: 'Tất cả' },
-    { value: 'open', label: 'Chưa xong' },
-    { value: 'done', label: 'Hoàn thành' },
-  ];
-
-  return (
-    <div className="mb-4 flex flex-col gap-3 border-y border-[var(--theme-border)] bg-[var(--surface)] py-3 sm:flex-row sm:items-center">
-      <label className="relative block min-w-0 flex-1 sm:max-w-md">
-        <span className="sr-only">Tìm task</span>
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Tìm chủ đề, thành viên, sản phẩm..."
-          className="h-11 w-full rounded-[10px] border border-[var(--theme-border)] bg-[var(--surface)] pl-10 pr-10 text-base text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-muted focus:border-blue focus:ring-2 focus:ring-blue/15"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => onQueryChange('')}
-            aria-label="Xoá nội dung tìm kiếm"
-            className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-[10px] text-muted transition-colors duration-150 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        )}
-      </label>
-
-      <div className="flex min-w-0 gap-1 overflow-x-auto rounded-[10px] bg-surface-2 p-1" aria-label="Lọc trạng thái task">
-        {filters.map((filter) => (
-          <button
-            key={filter.value}
-            type="button"
-            aria-pressed={statusFilter === filter.value}
-            onClick={() => onStatusFilterChange(filter.value)}
-            className={`flex h-11 shrink-0 items-center gap-2 rounded-[8px] px-3 text-xs font-semibold transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue ${
-              statusFilter === filter.value ? 'bg-white text-navy shadow-sm' : 'text-muted hover:bg-white/70 hover:text-navy'
-            }`}
-          >
-            {filter.label}
-            <span className="font-variant-numeric-tabular rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold">
-              {counts[filter.value]}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <p className="shrink-0 text-xs font-semibold text-muted" aria-live="polite">
-        Hiện {visibleCount} task
-      </p>
-    </div>
-  );
-}
-
 function TaskTable({
   tasks,
   visibleColumns,
   teamCode,
   allMembers,
+  products,
   onUpdate,
   onDelete,
   allowBulkPattern,
@@ -990,6 +1058,7 @@ function TaskTable({
   visibleColumns: string[];
   teamCode: string;
   allMembers: TeamMember[];
+  products: string[];
   onUpdate: (taskId: number, input: TaskInput) => void;
   onDelete: (task: Task) => void;
   allowBulkPattern: boolean;
@@ -1014,6 +1083,23 @@ function TaskTable({
   const [bulkDuplicating, setBulkDuplicating] = useState(false);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
 
+  // Cùng bảng màu/thứ tự tên với thẻ tổng hợp "Task theo người" phía trên —
+  // gom nhóm task theo người phụ trách để dễ quét theo từng người, mỗi người
+  // 1 màu nhất quán ở mọi nơi trên trang.
+  const colorMap = useMemo(() => assigneeColorMap(allMembers), [allMembers]);
+  const nameOrder = useMemo(() => Array.from(colorMap.keys()), [colorMap]);
+  const sortedTasks = useMemo(() => {
+    const orderOf = (name: string | null) => {
+      if (!name) return nameOrder.length;
+      const idx = nameOrder.indexOf(name);
+      return idx === -1 ? nameOrder.length : idx;
+    };
+    return [...tasks].sort((a, b) => orderOf(a.assigneeFullName) - orderOf(b.assigneeFullName));
+  }, [tasks, nameOrder]);
+
+  // Mỗi sản phẩm 1 màu ổn định, dùng chung giữa ô hiển thị và ô chọn khi sửa.
+  const productColorMap = useMemo(() => distinctColorMap(products), [products]);
+
   function toggleSelect(taskId: number) {
     setSelectedTaskIds((prev) => {
       const next = new Set(prev);
@@ -1021,6 +1107,16 @@ function TaskTable({
       else next.add(taskId);
       return next;
     });
+  }
+
+  const allSelected = tasks.length > 0 && selectedTaskIds.size === tasks.length;
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = selectedTaskIds.size > 0 && !allSelected;
+  }, [selectedTaskIds.size, allSelected]);
+
+  function toggleSelectAll() {
+    setSelectedTaskIds((prev) => (prev.size === tasks.length ? new Set() : new Set(tasks.map((t) => t.id))));
   }
 
   // Đổi tab nhóm/task bị xoá/board tự làm mới đều đổi `tasks` — bỏ khỏi lựa
@@ -1036,9 +1132,9 @@ function TaskTable({
 
   return (
     <div className="overflow-hidden rounded-[16px] border-2 border-navy/15 bg-white shadow-[0_16px_40px_-24px_rgba(16,26,48,0.35)]">
-      <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #F5A623 0%, #FFFFFF 50%, #00D2FF 100%)' }} aria-hidden="true" />
+      <div className="h-1 w-full rounded-t-[14px] bg-navy" aria-hidden="true" />
       {selectedTaskIds.size > 0 && (
-        <div className="flex items-center justify-between gap-2 border-b border-l-4 border-[#e8edf5] border-l-gold bg-[#F2F6FF] px-4 py-2 text-xs">
+        <div className="flex items-center justify-between gap-2 border-b border-l-4 border-[#e8edf5] border-l-blue bg-[#F2F6FF] px-4 py-2 text-xs">
           <span className="font-semibold text-navy">Đã chọn {selectedTaskIds.size} task</span>
           <div className="flex gap-3">
             <button type="button" onClick={() => setSelectedTaskIds(new Set())} className="font-semibold text-muted hover:text-navy">
@@ -1056,23 +1152,32 @@ function TaskTable({
       )}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[820px] border-collapse text-left text-sm">
-          <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-muted">
+          <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-[#000000]">
             <tr className="divide-x divide-[#e8edf5]">
-              <th className="px-3 py-3" />
-              <th className="px-3 py-3">Ngày</th>
-              <th className="px-3 py-3">Thành viên</th>
+              <th className="px-3 py-3">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  aria-label="Chọn tất cả task để nhân bản hàng loạt"
+                  className="h-4 w-4 cursor-pointer accent-blue"
+                />
+              </th>
+              <th className="whitespace-nowrap px-3 py-3">Ngày</th>
+              <th className="whitespace-nowrap px-3 py-3">Thành viên</th>
               {leadingColumns.map((key) => (
-                <th key={key} className="px-3 py-3">
+                <th key={key} className="whitespace-nowrap px-3 py-3">
                   {COLUMN_LABELS[key]}
                 </th>
               ))}
-              <th className="px-3 py-3">Chủ đề</th>
+              <th className="whitespace-nowrap px-3 py-3">Chủ đề</th>
               {trailingColumns.map((key) => (
-                <th key={key} className="px-3 py-3">
+                <th key={key} className="whitespace-nowrap px-3 py-3">
                   {COLUMN_LABELS[key]}
                 </th>
               ))}
-              <th className="px-3 py-3">Trạng thái</th>
+              <th className="whitespace-nowrap px-3 py-3">Trạng thái</th>
               <th className="px-3 py-3" />
             </tr>
           </thead>
@@ -1083,6 +1188,7 @@ function TaskTable({
                 trailingColumns={trailingColumns}
                 teamCode={teamCode}
                 members={assignableMembers}
+                products={products}
                 defaultDate={defaultDate}
                 onCancel={onCancelAdd}
                 onSubmit={onCreate}
@@ -1095,8 +1201,9 @@ function TaskTable({
                 </td>
               </tr>
             )}
-            {tasks.map((task, index) =>
-              editingTaskId === task.id ? (
+            {sortedTasks.map((task) => {
+              const rowColor = colorMap.get(task.assigneeFullName ?? '') ?? UNASSIGNED_COLOR;
+              return editingTaskId === task.id ? (
                 <TaskRowEditor
                   key={task.id}
                   task={task}
@@ -1104,6 +1211,7 @@ function TaskTable({
                   trailingColumns={trailingColumns}
                   teamCode={teamCode}
                   members={allMembers}
+                  products={products}
                   defaultDate={task.taskDate}
                   onCancel={() => setEditingTaskId(null)}
                   onSubmit={(input) => {
@@ -1114,9 +1222,10 @@ function TaskTable({
               ) : (
               <tr
                 key={task.id}
-                className={`divide-x divide-[#edf1f7] hover:bg-[#f6f9ff] ${index % 2 === 1 ? 'bg-cyan/5' : 'bg-white'}`}
+                className="divide-x divide-[#edf1f7] transition-[filter] hover:brightness-95"
+                style={{ backgroundColor: `${rowColor}26` }}
               >
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" style={{ borderLeft: `3px solid ${rowColor}` }}>
                   <input
                     type="checkbox"
                     checked={selectedTaskIds.has(task.id)}
@@ -1153,7 +1262,7 @@ function TaskTable({
                   return (
                     <td key={key} className="px-3 py-2.5">
                       {value ? (
-                        <span className="inline-block rounded-full bg-cyan/10 px-2.5 py-1 text-xs font-semibold text-blue">{value}</span>
+                        <span className="text-sm font-medium text-[#000000]">{value}</span>
                       ) : (
                         <span className="text-muted">—</span>
                       )}
@@ -1161,11 +1270,29 @@ function TaskTable({
                   );
                 })}
                 <td className="px-3 py-2.5 font-medium text-navy">{task.title}</td>
-                {trailingColumns.map((key) => (
-                  <td key={key} className="px-3 py-2.5 text-ink">
-                    {key === 'videoCount' ? task.videoCount ?? '' : String((task as unknown as Record<string, unknown>)[key] ?? '')}
-                  </td>
-                ))}
+                {trailingColumns.map((key) => {
+                  const rawValue = String((task as unknown as Record<string, unknown>)[key] ?? '');
+                  return (
+                    <td key={key} className="px-3 py-2.5 text-ink">
+                      {key === 'videoCount' ? (
+                        task.videoCount ?? ''
+                      ) : key === 'product' && task.product ? (
+                        <span
+                          className="inline-block truncate rounded-full px-2.5 py-1 text-xs font-semibold text-white"
+                          style={{ background: productColorMap.get(task.product) ?? UNASSIGNED_COLOR }}
+                        >
+                          {task.product}
+                        </span>
+                      ) : key === 'note' || key === 'referenceLink' ? (
+                        <span className="block max-w-[220px] truncate" title={rawValue || undefined}>
+                          {rawValue}
+                        </span>
+                      ) : (
+                        rawValue
+                      )}
+                    </td>
+                  );
+                })}
                 <td className="px-3 py-2.5">
                   <button
                     type="button"
@@ -1180,21 +1307,27 @@ function TaskTable({
                       const rect = event.currentTarget.getBoundingClientRect();
                       fireConfetti(event.clientX || rect.left + rect.width / 2, event.clientY || rect.top + rect.height / 2);
                     }}
-                    className={`grid h-6 w-6 cursor-pointer place-items-center rounded-[5px] border transition-[background-color,border-color,transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
-                      task.status === 'done'
-                        ? 'border-[#20C978] bg-[#20C978] text-white shadow-[0_5px_12px_-7px_rgba(32,201,120,0.9)]'
-                        : 'border-navy/30 bg-white text-transparent hover:scale-105 hover:border-[#20C978]'
-                    } ${statusPendingTaskIds.has(task.id) ? 'cursor-wait opacity-80' : ''}`}
+                    className={`group grid h-11 w-11 place-items-center rounded-[8px] transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
+                      statusPendingTaskIds.has(task.id) ? 'cursor-wait opacity-80' : 'cursor-pointer active:scale-[0.96]'
+                    }`}
                   >
-                    <Check size={16} strokeWidth={3} aria-hidden="true" />
+                    <span
+                      className={`grid h-6 w-6 place-items-center rounded-[5px] border transition-[background-color,border-color,transform] duration-150 ${
+                        task.status === 'done'
+                          ? 'border-[#20C978] bg-[#20C978] text-white shadow-[0_5px_12px_-7px_rgba(32,201,120,0.9)]'
+                          : 'border-navy/30 bg-white text-transparent group-hover:scale-105 group-hover:border-[#20C978]'
+                      }`}
+                    >
+                      <Check size={16} strokeWidth={3} aria-hidden="true" />
+                    </span>
                   </button>
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right text-xs">
                   <TaskRowMenu onEdit={() => setEditingTaskId(task.id)} onDelete={() => onDelete(task)} />
                 </td>
               </tr>
-              )
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1228,334 +1361,11 @@ const KANBAN_COLUMNS: { status: TaskStatus; label: string; dot: string }[] = [
   { status: 'done', label: 'Hoàn thành', dot: 'bg-emerald-500' },
 ];
 
-/** Bảng Kanban chỉ hiện 2 cột Chưa làm/Hoàn thành theo yêu cầu — bớt cột
- *  Đang làm khỏi *view* này thôi, KANBAN_COLUMNS gốc vẫn giữ đủ 3 trạng thái
- *  vì còn được TaskCard (xem Thẻ) dùng để tra nhãn/màu cho task đang làm. */
-const KANBAN_BOARD_COLUMNS = KANBAN_COLUMNS.filter((c) => c.status !== 'in_progress');
-
-/** Xem Kanban song song với bảng — cùng dữ liệu `tasks` (đã lọc theo tab
- *  Media/Support ở component cha), chỉ khác cách trình bày: 3 cột theo đúng
- *  3 trạng thái sẵn có trong DB, kéo-thả card sang cột khác để đổi trạng
- *  thái. Sửa chi tiết từng trường (link mẫu, ghi chú...) vẫn làm ở Bảng —
- *  Kanban chỉ cần xem nhanh + đổi trạng thái + thêm thẻ nhanh, đúng phạm vi
- *  yêu cầu "trình bày giống Trello", không nhân đôi toàn bộ form sửa task. */
-function TaskKanban({
-  tasks,
-  assignableMembers,
-  defaultDate,
-  today,
-  onStatusChange,
-  statusPendingTaskIds,
-  onCreate,
-  onDelete,
-}: {
-  tasks: Task[];
-  assignableMembers: TeamMember[];
-  defaultDate: string;
-  today: string;
-  onStatusChange: (task: Task, status: TaskStatus) => void;
-  statusPendingTaskIds: Set<number>;
-  onCreate: (input: TaskInput) => void;
-  onDelete: (task: Task) => void;
-}) {
-  const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
-  const tasksById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
-
-  function handleDrop(status: TaskStatus, e: DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    setDragOverStatus(null);
-    const taskId = Number(e.dataTransfer.getData('text/plain'));
-    const task = tasksById.get(taskId);
-    if (task && !statusPendingTaskIds.has(task.id) && task.status !== status) onStatusChange(task, status);
-  }
-
-  return (
-    <div className="flex gap-3 overflow-x-auto rounded-[16px] border-2 border-navy/15 bg-white p-3 shadow-[0_16px_40px_-24px_rgba(16,26,48,0.35)]">
-      {KANBAN_BOARD_COLUMNS.map((col) => {
-        const colTasks = tasks.filter((t) => t.status === col.status);
-        return (
-          <div
-            key={col.status}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOverStatus(col.status);
-            }}
-            onDragLeave={() => setDragOverStatus((s) => (s === col.status ? null : s))}
-            onDrop={(e) => handleDrop(col.status, e)}
-            className={`flex w-72 shrink-0 flex-col rounded-[14px] p-2.5 transition-colors ${
-              dragOverStatus === col.status ? 'bg-[#E7F0FF]' : 'bg-surface-2'
-            }`}
-          >
-            <div className="mb-2 flex items-center gap-2 px-1">
-              <span className={`h-2 w-2 rounded-full ${col.dot}`} aria-hidden="true" />
-              <strong className="font-heading text-sm text-navy">{col.label}</strong>
-              <span className="ml-auto text-xs font-bold text-muted">{colTasks.length}</span>
-            </div>
-            <div className="flex flex-col gap-2">
-              {colTasks.map((task) => (
-                <KanbanCard
-                  key={task.id}
-                  task={task}
-                  today={today}
-                  pending={statusPendingTaskIds.has(task.id)}
-                  onDelete={onDelete}
-                />
-              ))}
-              {colTasks.length === 0 && <p className="px-1 py-2 text-xs text-muted">Không có task.</p>}
-            </div>
-            <div className="mt-2">
-              <KanbanQuickAdd
-                status={col.status}
-                defaultDate={defaultDate}
-                assignableMembers={assignableMembers}
-                onCreate={onCreate}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Thẻ Kanban — kéo được (native HTML5 DnD, không cần thư viện ngoài) và có
- *  menu "⋮" chỉ để xoá; sửa chi tiết chuyển qua Bảng (xem ghi chú ở
- *  TaskKanban). Đóng menu khi bấm ra ngoài, cùng khuôn mẫu với các menu
- *  dropdown khác trong file (TeamRosterCard, MemberPickerCell). */
-function KanbanCard({
-  task,
-  today,
-  pending,
-  onDelete,
-}: {
-  task: Task;
-  today: string;
-  pending: boolean;
-  onDelete: (task: Task) => void;
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handlePointerDown(e: MouseEvent) {
-      if (!cardRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuOpen(false);
-    }
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [menuOpen]);
-
-  const dateTone =
-    task.status === 'done'
-      ? 'bg-emerald-50 text-emerald-600'
-      : task.taskDate < today
-        ? 'bg-red-50 text-red-600'
-        : task.taskDate === today
-          ? 'bg-[#E7F0FF] text-blue'
-          : 'bg-surface-2 text-muted';
-
-  return (
-    <div
-      ref={cardRef}
-      draggable={!pending}
-      aria-busy={pending}
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', String(task.id));
-        e.dataTransfer.effectAllowed = 'move';
-      }}
-      className={`group rounded-[10px] border border-[#e8edf5] bg-white p-3 shadow-[0_6px_16px_-12px_rgba(16,26,48,0.35)] transition-opacity duration-150 ${
-        pending ? 'cursor-wait opacity-75' : 'cursor-grab active:cursor-grabbing'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-navy">{task.title}</p>
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-label="Tuỳ chọn task"
-            className="grid h-6 w-6 place-items-center rounded text-muted opacity-0 hover:bg-[#f2f5fa] hover:text-ink group-hover:opacity-100"
-          >
-            <MoreVertical size={14} aria-hidden="true" />
-          </button>
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 top-7 z-20 w-32 border border-[#e8edf5] bg-white py-1 text-xs shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onDelete(task);
-                  setMenuOpen(false);
-                }}
-                className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-[#f2f5fa]"
-              >
-                Xoá
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-      {(task.accountName || task.product) && (
-        <p className="mt-1 truncate text-xs text-muted">{[task.accountName, task.product].filter(Boolean).join(' · ')}</p>
-      )}
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${dateTone}`}>
-            {formatVi(task.taskDate).slice(0, 5)}
-          </span>
-          {task.note && <StickyNote className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="Có ghi chú" />}
-          {task.videoCount != null && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-semibold text-muted">
-              <Video className="h-3 w-3" aria-hidden="true" />
-              {task.videoCount}
-            </span>
-          )}
-        </div>
-        {task.assigneeFullName &&
-          (task.assigneeAvatarUrl ? (
-            <Image
-              src={task.assigneeAvatarUrl}
-              alt={task.assigneeFullName}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-[9px] font-bold text-white">
-              {initialsOf(task.assigneeFullName)}
-            </span>
-          ))}
-      </div>
-    </div>
-  );
-}
-
-/** "+ Add a card" kiểu Trello ở cuối mỗi cột — gõ tiêu đề, Enter hoặc bấm
- *  "Thêm thẻ" để tạo ngay, ô nhập giữ mở để gõ liên tiếp nhiều thẻ. Người
- *  phụ trách mặc định lấy người đầu tiên đang hiển thị ở tab hiện tại, khớp
- *  hành vi mặc định của hàng thêm task trong Bảng (TaskRowEditor). */
-function KanbanQuickAdd({
-  status,
-  defaultDate,
-  assignableMembers,
-  onCreate,
-}: {
-  status: TaskStatus;
-  defaultDate: string;
-  assignableMembers: TeamMember[];
-  onCreate: (input: TaskInput) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  // Bàn phím ảo/IME trên điện thoại có thể bắn 2 sự kiện Enter liên tiếp cho
-  // 1 lượt gõ (từ cuối cùng bị gõ lại rồi gửi thành task riêng) — khoá gửi
-  // trong 400ms sau lần gửi trước để chặn phát trùng, bất kể vì sao nó xảy ra.
-  const lastSubmitAtRef = useRef(0);
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
-
-  function submit() {
-    const trimmed = title.trim();
-    if (!trimmed) {
-      setOpen(false);
-      return;
-    }
-    const now = Date.now();
-    if (now - lastSubmitAtRef.current < 400) return;
-    lastSubmitAtRef.current = now;
-    onCreate({
-      taskDate: defaultDate,
-      assigneeUserId: assignableMembers[0]?.userId ?? null,
-      title: trimmed,
-      categoryId: null,
-      status,
-    });
-    setTitle('');
-    inputRef.current?.focus();
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-1.5 rounded-[8px] px-2 py-2 text-left text-sm font-semibold text-muted hover:bg-white hover:text-navy"
-      >
-        <Plus className="h-4 w-4" aria-hidden="true" />
-        Thêm thẻ
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-[10px] border border-[#dbe4f2] bg-white p-2">
-      <textarea
-        ref={inputRef}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => {
-          // Bỏ qua Enter khi bộ gõ tiếng Việt (IME) đang ghép dấu (isComposing)
-          // — nếu không, Enter để chốt âm/dấu cũng bị hiểu nhầm là gửi task,
-          // tạo 2 task từ 1 câu gõ dở.
-          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            submit();
-          }
-          if (e.key === 'Escape') {
-            setOpen(false);
-            setTitle('');
-          }
-        }}
-        placeholder="Nhập tiêu đề task…"
-        rows={2}
-        className="w-full resize-none rounded-[6px] border border-[#dbe4f2] px-2 py-1.5 text-sm outline-none focus:border-blue"
-      />
-      <div className="mt-1.5 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={submit}
-          className="rounded-[6px] bg-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-cta"
-        >
-          Thêm thẻ
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            setTitle('');
-          }}
-          aria-label="Huỷ"
-          className="grid h-7 w-7 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
-        >
-          <X className="h-4 w-4" aria-hidden="true" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** Xem Thẻ: lưới thẻ rộng (không phải cột hẹp kiểu Kanban) để dễ quét nhanh
- *  nhiều task cùng lúc — cùng dữ liệu `tasks` và cùng phạm vi thao tác với
- *  Kanban (đổi trạng thái + xoá; sửa chi tiết vẫn làm ở Bảng, theo đúng quy
- *  ước đã có ở TaskKanban). */
-/** Cột song song theo từng người phụ trách (giống bố cục Kanban nhưng nhóm
- *  theo người thay vì trạng thái) — thẻ trong mỗi cột xếp dọc, hiện đủ toàn
- *  bộ task của người đó, không cắt/giới hạn số lượng. */
+/** Xem Thẻ: lưới thẻ rộng để dễ quét nhanh nhiều task cùng lúc — cùng dữ
+ *  liệu `tasks` với Bảng, chỉ khác cách trình bày (đổi trạng thái + xoá;
+ *  sửa chi tiết từng trường vẫn làm ở Bảng). Cột song song theo từng người
+ *  phụ trách, thẻ trong mỗi cột xếp dọc, hiện đủ toàn bộ task của người đó,
+ *  không cắt/giới hạn số lượng. */
 function TaskCardGrid({
   tasks,
   today,
@@ -2109,6 +1919,128 @@ function AccountNameCell({ value, onChange, shops }: { value: string; onChange: 
   );
 }
 
+/** Ô chọn "Sản phẩm" trong TaskRowEditor — combobox tìm-chọn như Tên Acc,
+ *  nhưng danh sách không cố định: `products` suy ra từ các task đã lưu của
+ *  đội (getDistinctProductsForTeam), nên gõ tên sản phẩm mới rồi bấm "Dùng…"
+ *  là đủ để nó tự có trong danh sách gợi ý ở lần thêm/sửa task kế tiếp —
+ *  không cần màn hình quản lý sản phẩm riêng. Mỗi sản phẩm 1 màu ổn định
+ *  (distinctColorMap) hiển thị dạng thẻ màu, khớp màu ở cột hiển thị. */
+function ProductCell({ value, onChange, products }: { value: string; onChange: (name: string) => void; products: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const allProducts = useMemo(
+    () => Array.from(new Set([...products, ...(value ? [value] : [])])).sort((a, b) => a.localeCompare(b, 'vi')),
+    [products, value]
+  );
+  const colorMap = useMemo(() => distinctColorMap(allProducts), [allProducts]);
+  const colorOf = (name: string) => colorMap.get(name) ?? UNASSIGNED_COLOR;
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) searchInputRef.current?.focus();
+    else setQuery('');
+  }, [open]);
+
+  const trimmedQuery = query.trim();
+  const results = allProducts.filter((p) => !trimmedQuery || p.toLowerCase().includes(trimmedQuery.toLowerCase()));
+  const exactMatch = allProducts.some((p) => p.toLowerCase() === trimmedQuery.toLowerCase());
+
+  function select(name: string) {
+    onChange(name);
+    setOpen(false);
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex w-full min-w-[100px] items-center rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-left text-sm outline-none focus:border-blue"
+      >
+        {value ? (
+          <span className="truncate rounded-full px-2 py-0.5 text-xs font-semibold text-white" style={{ background: colorOf(value) }}>
+            {value}
+          </span>
+        ) : (
+          <span className="text-muted">— Chưa chọn —</span>
+        )}
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 top-full z-20 mt-1 w-64 border border-[#e8edf5] bg-white text-sm shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
+        >
+          <div className="px-3 pt-2 pb-1.5">
+            <input
+              ref={searchInputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && trimmedQuery && !exactMatch) {
+                  e.preventDefault();
+                  select(trimmedQuery);
+                }
+              }}
+              placeholder="Tìm hoặc thêm sản phẩm mới…"
+              className="w-full rounded-[6px] border border-[#dbe4f2] px-2 py-1.5 text-sm outline-none focus:border-blue"
+            />
+          </div>
+          <div className="max-h-56 overflow-y-auto pb-1.5">
+            <button
+              type="button"
+              onClick={() => select('')}
+              className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]"
+            >
+              — Chưa chọn —
+            </button>
+            {trimmedQuery && !exactMatch && (
+              <button
+                type="button"
+                onClick={() => select(trimmedQuery)}
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left font-semibold text-blue hover:bg-[#f2f5fa]"
+              >
+                + Dùng "{trimmedQuery}"
+              </button>
+            )}
+            {results.length === 0 && !trimmedQuery && <p className="px-3 py-2 text-xs text-muted">Chưa có sản phẩm nào.</p>}
+            {results.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => select(name)}
+                className="flex w-full items-center px-3 py-1.5 text-left hover:bg-[#f2f5fa]"
+              >
+                <span className="truncate rounded-full px-2 py-0.5 text-xs font-semibold text-white" style={{ background: colorOf(name) }}>
+                  {name}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Hàng nhập liệu ngay trong bảng thay vì popup — dùng chung cho "Thêm task"
  *  (task=null, lưu xong biến mất) và "Sửa task" (task=dòng hiện có, lưu xong
  *  trở về hiển thị thường). Khi thêm mới, members chỉ gợi ý người đúng
@@ -2120,6 +2052,7 @@ function TaskRowEditor({
   trailingColumns,
   teamCode,
   members,
+  products,
   defaultDate,
   onCancel,
   onSubmit,
@@ -2129,6 +2062,7 @@ function TaskRowEditor({
   trailingColumns: readonly TaskColumnKey[];
   teamCode: string;
   members: TeamMember[];
+  products: string[];
   defaultDate: string;
   onCancel: () => void;
   onSubmit: (input: TaskInput) => void;
@@ -2190,7 +2124,7 @@ function TaskRowEditor({
       case 'videoCount':
         return <input type="number" min={0} value={videoCount} onChange={(e) => setVideoCount(e.target.value)} className={cellInputClass} />;
       case 'product':
-        return <input value={product} onChange={(e) => setProduct(e.target.value)} className={cellInputClass} />;
+        return <ProductCell value={product} onChange={setProduct} products={products} />;
       case 'optionTag':
         return <input value={optionTag} onChange={(e) => setOptionTag(e.target.value)} className={cellInputClass} />;
       case 'note':
@@ -2326,9 +2260,7 @@ function TeamRosterCard({
     return (
       <div key={member.userId} className="relative flex items-center justify-between gap-2 text-sm">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-[11px] font-bold text-white">
-            {initialsOf(member.fullName)}
-          </span>
+          {memberAvatar(member, 28)}
           <span className="truncate uppercase text-ink">
             {member.fullName}
             {member.role === 'manager' && <span className="ml-1.5 text-xs font-semibold text-blue">· Quản lý</span>}
@@ -2458,7 +2390,15 @@ function TeamRosterCard({
   );
 }
 
-function AssigneeBarChart({ chart, members }: { chart: DailyAssigneeCount[]; members: TeamMember[] }) {
+function AssigneeBarChart({
+  chart,
+  members,
+  showDailyChart,
+}: {
+  chart: DailyAssigneeCount[];
+  members: TeamMember[];
+  showDailyChart: boolean;
+}) {
   // Popup ngày portal ra document.body thay vì absolute trong cột — khu biểu
   // đồ cuộn ngang (overflow-x-auto) khiến trục dọc cũng bị cắt theo (xem lý
   // do tương tự ở TaskRowMenu), nên popup xổ lên trên sẽ bị khuất mất.
@@ -2479,82 +2419,133 @@ function AssigneeBarChart({ chart, members }: { chart: DailyAssigneeCount[]; mem
   const assignees = Array.from(new Set(chart.map((c) => c.fullName ?? 'Chưa gán'))).sort();
   const max = Math.max(...dates.map((d) => chart.filter((c) => c.date === d).reduce((sum, c) => sum + c.count, 0)), 1);
   const memberByName = new Map(members.map((m) => [m.fullName, m]));
+  const colorMap = assigneeColorMap(members);
+  const colorOf = (name: string) => colorMap.get(name) ?? UNASSIGNED_COLOR;
   const hoveredDayItems = hovered ? chart.filter((c) => c.date === hovered.date) : [];
   const hoveredDayTotal = hoveredDayItems.reduce((sum, c) => sum + c.count, 0);
 
+  const totalsByAssignee = assignees
+    .map((name) => {
+      const items = chart.filter((c) => (c.fullName ?? 'Chưa gán') === name);
+      return {
+        name,
+        color: colorOf(name),
+        member: memberByName.get(name),
+        total: items.reduce((sum, c) => sum + c.count, 0),
+        done: items.reduce((sum, c) => sum + c.done, 0),
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+  const grandTotal = totalsByAssignee.reduce((sum, item) => sum + item.total, 0);
+
   return (
-    <div className="mt-5 rounded-[16px] border border-[#e8edf5] bg-white p-4">
-      <p className="mb-3 font-heading text-sm font-bold text-navy">Task theo ngày, theo người</p>
-      <div className="flex items-end gap-3 overflow-x-auto pb-2" style={{ minHeight: 140 }}>
-        {dates.map((date) => {
-          const dayItems = chart.filter((c) => c.date === date);
-          const dayTotal = dayItems.reduce((sum, c) => sum + c.count, 0);
-          return (
-            <div
-              key={date}
-              className="flex shrink-0 cursor-default flex-col items-center gap-1"
-              style={{ width: 36 }}
-              onMouseEnter={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setHovered({ date, left: rect.left + rect.width / 2, top: rect.top });
-              }}
-              onMouseLeave={() => setHovered((h) => (h?.date === date ? null : h))}
-            >
-              <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-[4px]" style={{ height: 100 }}>
-                {dayItems.map((item, idx) => (
-                  <div
-                    key={`${item.assigneeUserId}-${idx}`}
-                    style={{
-                      height: `${(item.count / max) * 100}%`,
-                      background: CHART_PALETTE[assignees.indexOf(item.fullName ?? 'Chưa gán') % CHART_PALETTE.length],
-                    }}
-                  />
-                ))}
-              </div>
-              <span className="text-[10px] font-semibold text-muted">{dayTotal}</span>
-              <span className="text-[9px] text-muted">{formatVi(date).slice(0, 5)}</span>
-            </div>
-          );
-        })}
+    <div className="rounded-[16px] border border-[#e8edf5] bg-white p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="font-heading text-sm font-bold text-navy">Task theo người</p>
+        <p className="text-xs font-semibold text-muted">Tổng {grandTotal} task</p>
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[11px]">
-        {assignees.map((name) => {
-          const member = memberByName.get(name);
-          return (
-            <span key={name} className="flex items-center gap-1.5">
-              {member && memberAvatar(member, 16)}
-              <span className="font-bold" style={{ color: CHART_PALETTE[assignees.indexOf(name) % CHART_PALETTE.length] }}>
-                {member ? givenNameOf(name) : name}
-              </span>
-            </span>
-          );
-        })}
-      </div>
-      {hovered &&
-        createPortal(
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        {totalsByAssignee.map(({ name, color, member, total, done }) => (
           <div
-            style={{ left: hovered.left, top: hovered.top - 8 }}
-            className="pointer-events-none fixed z-50 w-max max-w-[220px] -translate-x-1/2 -translate-y-full rounded-[10px] border border-[#e8edf5] bg-white p-2.5 shadow-[0_16px_32px_-16px_rgba(16,26,48,0.35)]"
+            key={name}
+            className="flex items-center justify-between gap-2 rounded-[10px] border border-[#e8edf5] p-2"
+            style={{ borderLeftWidth: 3, borderLeftColor: color, backgroundColor: `${color}33` }}
           >
-            <p className="mb-1 font-heading text-[11px] font-bold text-navy">{formatVi(hovered.date)}</p>
-            <ul className="space-y-0.5">
-              {hoveredDayItems.map((item, idx) => {
-                const label = item.fullName ?? 'Chưa gán';
-                const member = memberByName.get(label);
-                return (
-                  <li key={`${item.assigneeUserId}-${idx}`} className="flex items-center justify-between gap-3 text-xs">
-                    <span className="font-semibold" style={{ color: CHART_PALETTE[assignees.indexOf(label) % CHART_PALETTE.length] }}>
-                      {member ? givenNameOf(label) : label}
-                    </span>
-                    <span className="font-bold text-navy">{item.count}</span>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="mt-1.5 border-t border-[#edf1f7] pt-1 text-[10px] font-semibold text-muted">Tổng: {hoveredDayTotal}</p>
-          </div>,
-          document.body
-        )}
+            <div className="flex min-w-0 items-center gap-2">
+              {member ? (
+                memberAvatar(member, 26)
+              ) : (
+                <span
+                  className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
+                  style={{ background: color }}
+                >
+                  {name.charAt(0)}
+                </span>
+              )}
+              <p className="truncate text-xs font-bold text-ink">{member ? givenNameOf(name) : name}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <span className="text-[9px] font-bold uppercase tracking-wide text-muted">Task</span>
+              <div className="flex">
+                <span
+                  className="grid h-7 w-7 place-items-center border border-navy bg-navy text-xs font-extrabold text-white"
+                  title="Đã hoàn thành"
+                >
+                  {done}
+                </span>
+                <span
+                  className="grid h-7 w-7 place-items-center border border-l-0 border-navy bg-white text-xs font-extrabold text-ink"
+                  title="Tổng số task"
+                >
+                  {total}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {showDailyChart && (
+        <>
+          <p className="mb-2 font-heading text-xs font-bold uppercase tracking-wide text-muted">Theo ngày</p>
+          <div className="flex items-end gap-3 overflow-x-auto pb-2" style={{ minHeight: 140 }}>
+            {dates.map((date) => {
+              const dayItems = chart.filter((c) => c.date === date);
+              const dayTotal = dayItems.reduce((sum, c) => sum + c.count, 0);
+              return (
+                <div
+                  key={date}
+                  className="flex shrink-0 cursor-default flex-col items-center gap-1"
+                  style={{ width: 36 }}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHovered({ date, left: rect.left + rect.width / 2, top: rect.top });
+                  }}
+                  onMouseLeave={() => setHovered((h) => (h?.date === date ? null : h))}
+                >
+                  <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-[4px]" style={{ height: 100 }}>
+                    {dayItems.map((item, idx) => (
+                      <div
+                        key={`${item.assigneeUserId}-${idx}`}
+                        style={{
+                          height: `${(item.count / max) * 100}%`,
+                          background: colorOf(item.fullName ?? 'Chưa gán'),
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted">{dayTotal}</span>
+                  <span className="text-[9px] text-muted">{formatVi(date).slice(0, 5)}</span>
+                </div>
+              );
+            })}
+          </div>
+          {hovered &&
+            createPortal(
+              <div
+                style={{ left: hovered.left, top: hovered.top - 8 }}
+                className="pointer-events-none fixed z-50 w-max max-w-[220px] -translate-x-1/2 -translate-y-full rounded-[10px] border border-[#e8edf5] bg-white p-2.5 shadow-[0_16px_32px_-16px_rgba(16,26,48,0.35)]"
+              >
+                <p className="mb-1 font-heading text-[11px] font-bold text-navy">{formatVi(hovered.date)}</p>
+                <ul className="space-y-0.5">
+                  {hoveredDayItems.map((item, idx) => {
+                    const label = item.fullName ?? 'Chưa gán';
+                    const member = memberByName.get(label);
+                    return (
+                      <li key={`${item.assigneeUserId}-${idx}`} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="font-semibold" style={{ color: colorOf(label) }}>
+                          {member ? givenNameOf(label) : label}
+                        </span>
+                        <span className="font-bold text-navy">{item.count}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-1.5 border-t border-[#edf1f7] pt-1 text-[10px] font-semibold text-muted">Tổng: {hoveredDayTotal}</p>
+              </div>,
+              document.body
+            )}
+        </>
+      )}
     </div>
   );
 }

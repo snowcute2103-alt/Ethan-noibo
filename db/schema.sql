@@ -253,3 +253,54 @@ ALTER TABLE tasks ADD CONSTRAINT tasks_scope_xor CHECK (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_owner_date ON tasks (owner_user_id, task_date)
   WHERE owner_user_id IS NOT NULL;
+
+/** Thuộc tính mở rộng chỉ dùng cho task cá nhân. Các cột nằm trên bảng tasks
+ *  chung để giữ một nguồn dữ liệu, task đội KD tiếp tục dùng giá trị mặc định
+ *  và không đổi UI/hành vi. original_task_date ghi ngày trước lần rollover
+ *  đầu tiên, rolled_over_at cho biết task đang mang trạng thái trễ hạn. */
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal';
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS original_task_date DATE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS rolled_over_at TIMESTAMPTZ;
+
+/** Ngày kết thúc tuỳ chọn cho task cá nhân (task_date là ngày bắt đầu) — cho
+ *  phép chọn task kéo dài nhiều ngày (vd 3 ngày, 1 tuần) thay vì luôn đúng 1
+ *  ngày. NULL nghĩa là task 1 ngày như trước, không đổi hành vi cũ. */
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date DATE;
+
+ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_priority_check;
+ALTER TABLE tasks ADD CONSTRAINT tasks_priority_check CHECK (priority IN ('low', 'normal', 'high'));
+
+/** Giữ lại nội dung note đã có của task cá nhân khi nâng cấp sang description. */
+UPDATE tasks
+SET description = note
+WHERE owner_user_id IS NOT NULL AND description IS NULL AND note IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS personal_task_comments (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  author_user_id INTEGER NOT NULL REFERENCES users(id),
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_personal_task_comments_task_created
+  ON personal_task_comments (task_id, created_at ASC);
+
+/** Nhật ký append-only do server ghi, client không được truyền actor hoặc
+ *  changes. changes lưu snapshot field cũ/mới để lịch sử vẫn đọc được dù
+ *  task tiếp tục thay đổi sau đó. */
+CREATE TABLE IF NOT EXISTS personal_task_history (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  actor_user_id INTEGER REFERENCES users(id),
+  event_type TEXT NOT NULL,
+  changes JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (event_type IN ('created', 'updated', 'commented', 'image_updated', 'rollover'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_personal_task_history_task_created
+  ON personal_task_history (task_id, created_at DESC);

@@ -7,13 +7,14 @@ interface PersonalBoardRouteProps {
   today: string;
   ownerUserId: number;
   ownerName: string;
+  ownerAvatarUrl: string | null;
 }
 
 /** BGĐ xem Kanban cá nhân của người khác qua URL thật
  *  (/dashboard/giao-task/{slug-tên}) — cần wrapper 'use client' riêng vì nút
  *  "Bộ phận khác" của PersonalTaskBoard dùng router.push, không truyền được
  *  callback từ server component (page.tsx) sang thẳng client component. */
-export default function PersonalBoardRoute({ today, ownerUserId, ownerName }: PersonalBoardRouteProps) {
+export default function PersonalBoardRoute({ today, ownerUserId, ownerName, ownerAvatarUrl }: PersonalBoardRouteProps) {
   const router = useRouter();
   return (
     <PersonalTaskBoard
@@ -21,6 +22,7 @@ export default function PersonalBoardRoute({ today, ownerUserId, ownerName }: Pe
       ownerUserId={ownerUserId}
       viewerIsBgd
       ownerName={ownerName}
+      ownerAvatarUrl={ownerAvatarUrl}
       onBack={() => router.push('/dashboard/giao-task')}
     />
   );

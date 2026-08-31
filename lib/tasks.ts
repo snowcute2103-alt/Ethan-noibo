@@ -4,6 +4,7 @@ import { TASK_COLUMN_KEYS } from './task-columns';
 import { monthRange } from './date';
 
 export type TaskStatus = 'not_started' | 'in_progress' | 'done';
+export type TaskPriority = 'low' | 'normal' | 'high';
 
 // Re-export để code hiện có (và các phase trước trong plan) import từ đúng
 // chỗ; định nghĩa gốc nằm ở lib/task-columns.ts (KHÔNG có 'server-only') vì
@@ -19,6 +20,7 @@ export interface Task {
   ownerUserId: number | null;
   categoryId: number | null;
   taskDate: string;
+  dueDate: string | null;
   assigneeUserId: number | null;
   assigneeFullName: string | null;
   assigneeAvatarUrl: string | null;
@@ -30,6 +32,11 @@ export interface Task {
   optionTag: string | null;
   referenceLink: string | null;
   note: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  priority: TaskPriority;
+  originalTaskDate: string | null;
+  rolledOverAt: string | null;
   status: TaskStatus;
   duplicatedFromTaskId: number | null;
   createdBy: number | null;
@@ -56,21 +63,52 @@ export interface TaskInput {
 
 export type TaskPatch = Partial<TaskInput>;
 
-/** Task cá nhân của người không thuộc đội KD nào — chỉ 4 field áp dụng
- *  (không có category/assignee/channel/... vốn đặc thù cho task đội KD). */
+/** Task cá nhân của người không thuộc đội KD nào — dùng các field công việc
+ *  chung; không có category/assignee/channel/... vốn đặc thù cho task đội KD. */
 export interface PersonalTaskInput {
   title: string;
   taskDate: string;
-  note?: string | null;
+  dueDate?: string | null;
+  description?: string | null;
+  priority?: TaskPriority;
   status?: TaskStatus;
 }
 
 export type PersonalTaskPatch = Partial<PersonalTaskInput>;
 
+export interface PersonalTaskComment {
+  id: number;
+  taskId: number;
+  authorUserId: number;
+  authorFullName: string;
+  authorAvatarUrl: string | null;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PersonalTaskHistoryEntry {
+  id: number;
+  taskId: number;
+  actorUserId: number | null;
+  actorFullName: string | null;
+  actorAvatarUrl: string | null;
+  eventType: 'created' | 'updated' | 'commented' | 'image_updated' | 'rollover';
+  changes: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface PersonalTaskDetail {
+  task: Task;
+  comments: PersonalTaskComment[];
+  history: PersonalTaskHistoryEntry[];
+}
+
 const TASK_SELECT = `
-  t.id, t.team_id, t.owner_user_id, t.category_id, t.task_date::text AS task_date, t.assignee_user_id,
+  t.id, t.team_id, t.owner_user_id, t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.assignee_user_id,
   u.full_name AS assignee_full_name, u.avatar_url AS assignee_avatar_url, t.account_name, t.title, t.channel, t.video_count,
   t.product, t.option_tag, t.reference_link, t.note, t.status, t.duplicated_from_task_id,
+  t.description, t.image_url, t.priority, t.original_task_date::text AS original_task_date, t.rolled_over_at,
   t.created_by, cb.full_name AS created_by_full_name, cb.avatar_url AS created_by_avatar_url,
   t.created_at, t.updated_at
 `;
@@ -89,6 +127,7 @@ function mapTaskRow(row: any): Task {
     ownerUserId: row.owner_user_id,
     categoryId: row.category_id,
     taskDate: row.task_date,
+    dueDate: row.due_date,
     assigneeUserId: row.assignee_user_id,
     assigneeFullName: row.assignee_full_name,
     assigneeAvatarUrl: row.assignee_avatar_url,
@@ -100,6 +139,11 @@ function mapTaskRow(row: any): Task {
     optionTag: row.option_tag,
     referenceLink: row.reference_link,
     note: row.note,
+    description: row.description,
+    imageUrl: row.image_url,
+    priority: row.priority ?? 'normal',
+    originalTaskDate: row.original_task_date,
+    rolledOverAt: row.rolled_over_at,
     status: row.status,
     duplicatedFromTaskId: row.duplicated_from_task_id,
     createdBy: row.created_by,
@@ -145,7 +189,7 @@ export async function listTasksForTeam(teamId: number, filter: ListTasksFilter):
 // HTTP cho mỗi query, không giữ kết nối TCP).
 export async function createTask(teamId: number, input: TaskInput, createdBy: number | null): Promise<Task> {
   const rows = await sql.query(
-    `WITH ins AS (
+    `/* write */ WITH ins AS (
        INSERT INTO tasks
          (team_id, category_id, task_date, assignee_user_id, account_name, title, channel,
           video_count, product, option_tag, reference_link, note, status, created_by)
@@ -218,7 +262,7 @@ export async function updateTask(taskId: number, teamId: number, patch: TaskPatc
   sets.push('updated_at = now()');
   params.push(taskId, teamId);
   const rows = await sql.query(
-    `WITH upd AS (
+    `/* write */ WITH upd AS (
        UPDATE tasks SET ${sets.join(', ')}
        WHERE id = $${params.length - 1} AND team_id = $${params.length}
        RETURNING *
@@ -254,7 +298,7 @@ export async function duplicateTask(
 ): Promise<Task> {
   const overrideAssignee = assigneeUserId !== undefined;
   const rows = await sql.query(
-    `WITH src AS (
+    `/* write */ WITH src AS (
        SELECT * FROM tasks WHERE id = $1 AND team_id = $2
      ), ins AS (
        INSERT INTO tasks
@@ -409,11 +453,13 @@ export interface DailyAssigneeCount {
   assigneeUserId: number | null;
   fullName: string | null;
   count: number;
+  done: number;
 }
 
 export async function getDailyAssigneeBreakdown(teamId: number, fromDate: string, toDate: string): Promise<DailyAssigneeCount[]> {
   const rows = await sql.query(
-    `SELECT t.task_date::text AS date, t.assignee_user_id, u.full_name, count(*)::int AS count
+    `SELECT t.task_date::text AS date, t.assignee_user_id, u.full_name, count(*)::int AS count,
+            count(*) FILTER (WHERE t.status = 'done')::int AS done
      FROM tasks t LEFT JOIN users u ON u.id = t.assignee_user_id
      WHERE t.team_id = $1 AND t.task_date BETWEEN $2 AND $3
      GROUP BY t.task_date, t.assignee_user_id, u.full_name
@@ -426,7 +472,21 @@ export async function getDailyAssigneeBreakdown(teamId: number, fromDate: string
     assigneeUserId: row.assignee_user_id,
     fullName: row.full_name,
     count: row.count,
+    done: row.done,
   }));
+}
+
+/** Danh sách sản phẩm của 1 đội — lấy từ các giá trị `product` đã từng lưu
+ *  trên toàn bộ task của đội (không giới hạn theo khoảng ngày đang xem), nên
+ *  gõ 1 sản phẩm mới khi tạo/sửa task là đủ để nó tự xuất hiện trong danh
+ *  sách chọn ở những lần sau — không cần bảng riêng để quản lý sản phẩm. */
+export async function getDistinctProductsForTeam(teamId: number): Promise<string[]> {
+  const rows = await sql.query(
+    `SELECT DISTINCT product FROM tasks WHERE team_id = $1 AND product IS NOT NULL AND product <> '' ORDER BY product`,
+    [teamId]
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.map((row: any) => row.product as string);
 }
 
 export interface TeamMonthProgress {
@@ -480,7 +540,11 @@ export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOw
     `SELECT ${TASK_SELECT}
      FROM tasks t ${TASK_JOINS}
      WHERE t.owner_user_id = $1 AND t.task_date BETWEEN $2 AND $3
-     ORDER BY t.task_date ASC, t.id ASC`,
+     ORDER BY
+       CASE WHEN t.rolled_over_at IS NOT NULL AND t.status != 'done' THEN 0 ELSE 1 END ASC,
+       COALESCE(t.original_task_date, t.task_date) ASC,
+       CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END ASC,
+       t.id ASC`,
     [ownerUserId, filter.fromDate, filter.toDate]
   );
   return rows.map(mapTaskRow);
@@ -492,13 +556,26 @@ export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOw
  *  đảm bảo không lọt qua dù tầng validate phía trên có sai sót. */
 export async function createPersonalTask(ownerUserId: number, input: PersonalTaskInput, createdBy: number | null): Promise<Task> {
   const rows = await sql.query(
-    `WITH ins AS (
-       INSERT INTO tasks (owner_user_id, task_date, title, note, status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
+    `/* write */ WITH ins AS (
+       INSERT INTO tasks (owner_user_id, task_date, due_date, title, description, priority, status, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *
+     ), history AS (
+       INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
+       SELECT id, $8, 'created', jsonb_build_object('title', title, 'taskDate', task_date::text, 'dueDate', due_date::text, 'priority', priority)
+       FROM ins
      )
      SELECT ${TASK_SELECT} FROM ins t ${TASK_JOINS}`,
-    [ownerUserId, input.taskDate, input.title, input.note ?? null, input.status ?? 'not_started', createdBy]
+    [
+      ownerUserId,
+      input.taskDate,
+      input.dueDate ?? null,
+      input.title,
+      input.description ?? null,
+      input.priority ?? 'normal',
+      input.status ?? 'not_started',
+      createdBy,
+    ]
   );
   if (!rows[0]) throw new Error('Không tạo được task.');
   return mapTaskRow(rows[0]);
@@ -516,40 +593,89 @@ export async function getPersonalTaskById(taskId: number, ownerUserId: number): 
 /** Chỉ UPDATE các cột thực sự có trong patch (SET động) — KHÔNG SELECT rồi
  *  ghi đè cả hàng như updateTask (task cá nhân có 2 người có thể ghi cùng
  *  hàng — chủ và BGĐ xem hộ — ghi đè cả hàng dễ mất thay đổi của người kia). */
-export async function updatePersonalTask(taskId: number, ownerUserId: number, patch: PersonalTaskPatch): Promise<Task> {
+export async function updatePersonalTask(
+  taskId: number,
+  ownerUserId: number,
+  patch: PersonalTaskPatch,
+  actorUserId: number
+): Promise<Task> {
   const sets: string[] = [];
   const params: unknown[] = [];
+  const historyParts: string[] = [];
+  const addHistoryPart = (key: string, column: string) => {
+    historyParts.push(
+      `CASE WHEN old_${column} IS DISTINCT FROM ${column} THEN jsonb_build_object('${key}', jsonb_build_object('from', old_${column}, 'to', ${column})) ELSE '{}'::jsonb END`
+    );
+  };
   if (patch.title !== undefined) {
     params.push(patch.title);
     sets.push(`title = $${params.length}`);
+    addHistoryPart('title', 'title');
   }
   if (patch.taskDate !== undefined) {
     params.push(patch.taskDate);
     sets.push(`task_date = $${params.length}`);
+    addHistoryPart('taskDate', 'task_date');
   }
-  if (patch.note !== undefined) {
-    params.push(patch.note);
-    sets.push(`note = $${params.length}`);
+  if (patch.dueDate !== undefined) {
+    params.push(patch.dueDate);
+    sets.push(`due_date = $${params.length}`);
+    addHistoryPart('dueDate', 'due_date');
+  }
+  if (patch.description !== undefined) {
+    params.push(patch.description);
+    sets.push(`description = $${params.length}`);
+    addHistoryPart('description', 'description');
+  }
+  if (patch.priority !== undefined) {
+    params.push(patch.priority);
+    sets.push(`priority = $${params.length}`);
+    addHistoryPart('priority', 'priority');
   }
   if (patch.status !== undefined) {
     params.push(patch.status);
     sets.push(`status = $${params.length}`);
+    addHistoryPart('status', 'status');
   }
   if (sets.length > 0) {
     sets.push('updated_at = now()');
-    params.push(taskId, ownerUserId);
-    await sql.query(
-      `UPDATE tasks SET ${sets.join(', ')} WHERE id = $${params.length - 1} AND owner_user_id = $${params.length}`,
+    params.push(taskId, ownerUserId, actorUserId);
+    const taskIdParam = params.length - 2;
+    const ownerParam = params.length - 1;
+    const actorParam = params.length;
+    const oldColumns = ['title', 'task_date', 'due_date', 'description', 'priority', 'status']
+      .map((column) => `b.${column} AS old_${column}`)
+      .join(', ');
+    const changes = historyParts.join(' || ');
+    const rows = await sql.query(
+      `/* write */ WITH before AS MATERIALIZED (
+         SELECT * FROM tasks WHERE id = $${taskIdParam} AND owner_user_id = $${ownerParam} FOR UPDATE
+       ), upd AS (
+         UPDATE tasks t SET ${sets.join(', ')}
+         FROM before b WHERE t.id = b.id
+         RETURNING t.*, ${oldColumns}
+       ), history AS (
+         INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
+         SELECT id, $${actorParam}, 'updated', ${changes} FROM upd
+         WHERE (${changes}) != '{}'::jsonb
+       )
+       SELECT ${TASK_SELECT} FROM upd t ${TASK_JOINS}`,
       params
     );
+    if (!rows[0]) throw new Error('Không tìm thấy task sau khi cập nhật.');
+    return mapTaskRow(rows[0]);
   }
   const updated = await getPersonalTaskById(taskId, ownerUserId);
   if (!updated) throw new Error('Không tìm thấy task sau khi cập nhật.');
   return updated;
 }
 
-export async function deletePersonalTask(taskId: number, ownerUserId: number): Promise<void> {
-  await sql.query('DELETE FROM tasks WHERE id = $1 AND owner_user_id = $2', [taskId, ownerUserId]);
+export async function deletePersonalTask(taskId: number, ownerUserId: number): Promise<string | null> {
+  const rows = await sql.query(
+    'DELETE FROM tasks WHERE id = $1 AND owner_user_id = $2 RETURNING image_url',
+    [taskId, ownerUserId]
+  );
+  return rows[0]?.image_url ?? null;
 }
 
 /** Nhân bản 1 task cá nhân sang 1 ngày khác — dòng thật, độc lập, status
@@ -561,19 +687,160 @@ export async function duplicatePersonalTask(
   createdBy: number | null
 ): Promise<Task> {
   const rows = await sql.query(
-    `WITH src AS (
+    `/* write */ WITH src AS (
        SELECT * FROM tasks WHERE id = $1 AND owner_user_id = $2
      ), ins AS (
-       INSERT INTO tasks (owner_user_id, task_date, title, note, status, duplicated_from_task_id, created_by)
-       SELECT owner_user_id, $3::date, title, note, 'not_started', id, $4::int
+       INSERT INTO tasks (owner_user_id, task_date, title, description, priority, status, duplicated_from_task_id, created_by)
+       SELECT owner_user_id, $3::date, title, description, priority, 'not_started', id, $4::int
        FROM src
        RETURNING *
+     ), history AS (
+       INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
+       SELECT id, $4::int, 'created', jsonb_build_object('duplicatedFromTaskId', $1, 'taskDate', task_date::text)
+       FROM ins
      )
      SELECT ${TASK_SELECT} FROM ins t ${TASK_JOINS}`,
     [taskId, ownerUserId, toDate, createdBy]
   );
   if (!rows[0]) throw new Error('Không tìm thấy task gốc.');
   return mapTaskRow(rows[0]);
+}
+
+export async function setPersonalTaskImageUrl(
+  taskId: number,
+  ownerUserId: number,
+  imageUrl: string | null,
+  actorUserId: number
+): Promise<{ task: Task; previousImageUrl: string | null }> {
+  const rows = await sql.query(
+    `/* write */ WITH before AS MATERIALIZED (
+       SELECT * FROM tasks WHERE id = $1 AND owner_user_id = $2 FOR UPDATE
+     ), upd AS (
+       UPDATE tasks t
+       SET image_url = $3, updated_at = now()
+       FROM before b WHERE t.id = b.id
+       RETURNING t.*, b.image_url AS old_image_url
+     ), history AS (
+       INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
+       SELECT id, $4, 'image_updated', jsonb_build_object(
+         'imageUrl', jsonb_build_object('from', old_image_url, 'to', image_url)
+       ) FROM upd WHERE old_image_url IS DISTINCT FROM image_url
+     )
+     SELECT ${TASK_SELECT} FROM upd t ${TASK_JOINS}`,
+    [taskId, ownerUserId, imageUrl, actorUserId]
+  );
+  if (!rows[0]) throw new Error('Không tìm thấy task.');
+  return { task: mapTaskRow(rows[0]), previousImageUrl: rows[0].old_image_url ?? null };
+}
+
+export async function addPersonalTaskComment(
+  taskId: number,
+  ownerUserId: number,
+  authorUserId: number,
+  content: string
+): Promise<PersonalTaskComment> {
+  const rows = await sql.query(
+    `/* write */ WITH ins AS (
+       INSERT INTO personal_task_comments (task_id, author_user_id, content)
+       SELECT t.id, $3, $4 FROM tasks t WHERE t.id = $1 AND t.owner_user_id = $2
+       RETURNING *
+     ), history AS (
+       INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
+       SELECT task_id, author_user_id, 'commented', jsonb_build_object('commentId', id) FROM ins
+     )
+     SELECT c.id, c.task_id, c.author_user_id, u.full_name AS author_full_name,
+            u.avatar_url AS author_avatar_url, c.content, c.created_at, c.updated_at
+     FROM ins c JOIN users u ON u.id = c.author_user_id`,
+    [taskId, ownerUserId, authorUserId, content]
+  );
+  if (!rows[0]) throw new Error('Không tìm thấy task.');
+  const row = rows[0];
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    authorUserId: row.author_user_id,
+    authorFullName: row.author_full_name,
+    authorAvatarUrl: row.author_avatar_url,
+    content: row.content,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function getPersonalTaskDetail(taskId: number, ownerUserId: number): Promise<PersonalTaskDetail | null> {
+  const task = await getPersonalTaskById(taskId, ownerUserId);
+  if (!task) return null;
+  const [commentRows, historyRows] = await Promise.all([
+    sql.query(
+      `SELECT c.id, c.task_id, c.author_user_id, u.full_name AS author_full_name,
+              u.avatar_url AS author_avatar_url, c.content, c.created_at, c.updated_at
+       FROM personal_task_comments c JOIN users u ON u.id = c.author_user_id
+       WHERE c.task_id = $1 ORDER BY c.created_at ASC, c.id ASC`,
+      [taskId]
+    ),
+    sql.query(
+      `SELECT h.id, h.task_id, h.actor_user_id, u.full_name AS actor_full_name,
+              u.avatar_url AS actor_avatar_url, h.event_type, h.changes, h.created_at
+       FROM personal_task_history h LEFT JOIN users u ON u.id = h.actor_user_id
+       WHERE h.task_id = $1 ORDER BY h.created_at DESC, h.id DESC`,
+      [taskId]
+    ),
+  ]);
+  return {
+    task,
+    comments: commentRows.map((row) => ({
+      id: row.id,
+      taskId: row.task_id,
+      authorUserId: row.author_user_id,
+      authorFullName: row.author_full_name,
+      authorAvatarUrl: row.author_avatar_url,
+      content: row.content,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })),
+    history: historyRows.map((row) => ({
+      id: row.id,
+      taskId: row.task_id,
+      actorUserId: row.actor_user_id,
+      actorFullName: row.actor_full_name,
+      actorAvatarUrl: row.actor_avatar_url,
+      eventType: row.event_type,
+      changes: row.changes ?? {},
+      createdAt: row.created_at,
+    })),
+  };
+}
+
+/** Chuyển task chưa xong ở ngày cũ thẳng tới hôm nay. UPDATE predicate làm
+ *  thao tác idempotent kể cả hai lượt tải chạy đồng thời; history chỉ được
+ *  tạo từ đúng các hàng UPDATE thực sự trả về. */
+export async function rolloverOverduePersonalTasks(ownerUserId: number, today: string): Promise<number> {
+  const rows = await sql.query(
+    `/* write */ WITH candidates AS MATERIALIZED (
+       SELECT id, task_date, status FROM tasks
+       WHERE owner_user_id = $1 AND task_date < $2::date AND status != 'done'
+       FOR UPDATE
+     ), upd AS (
+       UPDATE tasks t
+       SET original_task_date = COALESCE(t.original_task_date, c.task_date),
+           task_date = $2::date,
+           status = 'in_progress',
+           rolled_over_at = now(),
+           updated_at = now()
+       FROM candidates c
+       WHERE t.id = c.id AND t.task_date < $2::date AND t.status != 'done'
+       RETURNING t.id, c.task_date AS old_date, c.status AS old_status
+     ), history AS (
+       INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
+       SELECT id, NULL, 'rollover', jsonb_build_object(
+         'taskDate', jsonb_build_object('from', old_date::text, 'to', $2),
+         'status', jsonb_build_object('from', old_status, 'to', 'in_progress')
+       ) FROM upd
+     )
+     SELECT count(*)::int AS count FROM upd`,
+    [ownerUserId, today]
+  );
+  return rows[0]?.count ?? 0;
 }
 
 export async function getPersonalMonthProgress(ownerUserId: number, yearMonth: string): Promise<{ done: number; total: number }> {

@@ -1,6 +1,8 @@
 'use server';
 
+import { put, del } from '@vercel/blob';
 import { getSession } from '@/lib/auth';
+import { todayIso } from '@/lib/date';
 import { findUserById } from '@/lib/users';
 import { logAdminAction } from '@/lib/audit';
 import {
@@ -34,6 +36,7 @@ import {
   getMonthProgress,
   getMonthTaskCategoryCounts,
   getDailyAssigneeBreakdown,
+  getDistinctProductsForTeam,
   getAllTeamsMonthProgress,
   listTasksForOwner,
   createPersonalTask,
@@ -43,12 +46,18 @@ import {
   duplicatePersonalTask,
   getPersonalMonthProgress,
   getPersonalMonthDayCounts,
+  getPersonalTaskDetail,
+  addPersonalTaskComment,
+  setPersonalTaskImageUrl,
+  rolloverOverduePersonalTasks,
   hasPersonalTasks,
   type Task,
   type TaskInput,
   type TaskPatch,
   type PersonalTaskInput,
   type PersonalTaskPatch,
+  type PersonalTaskDetail,
+  type PersonalTaskComment,
   type BulkDuplicatePattern,
   type DailyAssigneeCount,
   type MonthDayCategoryCount,
@@ -121,6 +130,7 @@ export interface MyTeamBoard {
   isManager: boolean;
   monthProgress: { done: number; total: number };
   chart: DailyAssigneeCount[];
+  products: string[];
   needsBgdOverview?: false;
 }
 
@@ -146,17 +156,18 @@ export async function getMyTeamBoardAction(
   // team không phụ thuộc các query còn lại (chỉ cần teamId) — gộp chung 1
   // Promise.all thay vì await riêng trước rồi mới chạy song song phần sau,
   // tránh round-trip của team chặn cả chuỗi tải trang.
-  const [team, categories, tasks, isManager, monthProgress, chart] = await Promise.all([
+  const [team, categories, tasks, isManager, monthProgress, chart, products] = await Promise.all([
     getTeamWithRoster(teamId),
     listTeamCategories(teamId),
     listTasksForTeam(teamId, { fromDate: range.fromDate, toDate: range.toDate, categoryId: categoryId ?? undefined }),
     isTeamManager(teamId, session.userId),
     getMonthProgress(teamId, range.fromDate.slice(0, 7)),
     getDailyAssigneeBreakdown(teamId, range.fromDate, range.toDate),
+    getDistinctProductsForTeam(teamId),
   ]);
   if (!team) throw new Error('Không tìm thấy đội.');
 
-  return { team, categories, tasks, isManager, monthProgress, chart };
+  return { team, categories, tasks, isManager, monthProgress, chart, products };
 }
 
 export interface AllTeamsOverview {
@@ -175,16 +186,17 @@ export async function getAllTeamsOverviewAction(yearMonth: string, today: string
 export async function getTeamBoardAsBgdAction(teamId: number, range: DateRange, categoryId?: number | null): Promise<MyTeamBoard> {
   await requireBgd();
   assertValidRange(range);
-  const [team, categories, tasks, monthProgress, chart] = await Promise.all([
+  const [team, categories, tasks, monthProgress, chart, products] = await Promise.all([
     getTeamWithRoster(teamId),
     listTeamCategories(teamId),
     listTasksForTeam(teamId, { fromDate: range.fromDate, toDate: range.toDate, categoryId: categoryId ?? undefined }),
     getMonthProgress(teamId, range.fromDate.slice(0, 7)),
     getDailyAssigneeBreakdown(teamId, range.fromDate, range.toDate),
+    getDistinctProductsForTeam(teamId),
   ]);
   if (!team) throw new Error('Không tìm thấy đội.');
 
-  return { team, categories, tasks, isManager: true, monthProgress, chart };
+  return { team, categories, tasks, isManager: true, monthProgress, chart, products };
 }
 
 function assertValidRange(range: DateRange) {
@@ -232,6 +244,7 @@ export interface PersonalBoard {
 export async function getMyPersonalBoardAction(range: DateRange): Promise<PersonalBoard> {
   const session = await requireSession();
   assertValidRange(range);
+  await rolloverOverduePersonalTasks(session.userId, todayIso());
   const [tasks, monthProgress] = await Promise.all([
     listTasksForOwner(session.userId, range),
     getPersonalMonthProgress(session.userId, range.fromDate.slice(0, 7)),
@@ -241,8 +254,9 @@ export async function getMyPersonalBoardAction(range: DateRange): Promise<Person
 
 /** BGĐ xem board cá nhân của 1 người khác (xem hộ). */
 export async function getPersonalBoardAsBgdAction(ownerUserId: number, range: DateRange): Promise<PersonalBoard> {
-  await requireBgd();
+  await requirePersonalTaskContext(ownerUserId);
   assertValidRange(range);
+  await rolloverOverduePersonalTasks(ownerUserId, todayIso());
   const [tasks, monthProgress] = await Promise.all([
     listTasksForOwner(ownerUserId, range),
     getPersonalMonthProgress(ownerUserId, range.fromDate.slice(0, 7)),
@@ -276,8 +290,17 @@ function assertValidPersonalTaskInput(input: PersonalTaskInput | PersonalTaskPat
   if (input.taskDate !== undefined && !isValidDateString(input.taskDate)) {
     throw new Error('Ngày không hợp lệ.');
   }
+  if (input.dueDate !== undefined && input.dueDate !== null && !isValidDateString(input.dueDate)) {
+    throw new Error('Ngày kết thúc không hợp lệ.');
+  }
   if (input.status !== undefined && !['not_started', 'in_progress', 'done'].includes(input.status)) {
     throw new Error('Trạng thái không hợp lệ.');
+  }
+  if (input.priority !== undefined && !['low', 'normal', 'high'].includes(input.priority)) {
+    throw new Error('Mức độ ưu tiên không hợp lệ.');
+  }
+  if (input.description !== undefined && input.description !== null && input.description.length > 10_000) {
+    throw new Error('Mô tả tối đa 10.000 ký tự.');
   }
 }
 
@@ -294,6 +317,10 @@ function assertValidPersonalTaskCreateInput(input: PersonalTaskInput) {
   if (input.status !== undefined && !['not_started', 'in_progress', 'done'].includes(input.status)) {
     throw new Error('Trạng thái không hợp lệ.');
   }
+  if (input.dueDate && input.dueDate < input.taskDate) {
+    throw new Error('Ngày kết thúc phải sau ngày bắt đầu.');
+  }
+  assertValidPersonalTaskInput(input);
 }
 
 export async function createPersonalTaskAction(ownerUserId: number, input: PersonalTaskInput): Promise<Task> {
@@ -309,7 +336,14 @@ export async function createPersonalTaskAction(ownerUserId: number, input: Perso
 export async function updatePersonalTaskAction(ownerUserId: number, taskId: number, patch: PersonalTaskPatch): Promise<Task> {
   const { session } = await requirePersonalTaskContext(ownerUserId);
   assertValidPersonalTaskInput(patch);
-  const updated = await updatePersonalTask(taskId, ownerUserId, patch);
+  const before = await getPersonalTaskById(taskId, ownerUserId);
+  if (!before) throw new Error('Không tìm thấy task.');
+  const effectiveTaskDate = patch.taskDate ?? before.taskDate;
+  const effectiveDueDate = patch.dueDate !== undefined ? patch.dueDate : before.dueDate;
+  if (effectiveDueDate && effectiveDueDate < effectiveTaskDate) {
+    throw new Error('Ngày kết thúc phải sau ngày bắt đầu.');
+  }
+  const updated = await updatePersonalTask(taskId, ownerUserId, patch, session.userId);
   if (session.userId !== ownerUserId) {
     await logAdminAction(session.userId, 'personal_task.update', ownerUserId, { docId: String(taskId) });
   }
@@ -321,6 +355,9 @@ export async function deletePersonalTaskAction(ownerUserId: number, taskId: numb
   const existing = await getPersonalTaskById(taskId, ownerUserId);
   if (!existing) throw new Error('Không tìm thấy task.');
   await deletePersonalTask(taskId, ownerUserId);
+  if (existing.imageUrl?.includes('.public.blob.vercel-storage.com')) {
+    await del(existing.imageUrl).catch(() => {});
+  }
   if (session.userId !== ownerUserId) {
     await logAdminAction(session.userId, 'personal_task.delete', ownerUserId, { docId: String(taskId) });
   }
@@ -334,6 +371,96 @@ export async function duplicatePersonalTaskAction(ownerUserId: number, taskId: n
     await logAdminAction(session.userId, 'personal_task.duplicate', ownerUserId, { docId: String(taskId) });
   }
   return created;
+}
+
+const PERSONAL_TASK_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Đọc magic bytes thay vì tin `file.type` (client tự khai, giả mạo được) —
+ *  đây là nguồn sự thật duy nhất cho loại ảnh thật sự nằm trong file. */
+function sniffPersonalTaskImageType(buffer: Buffer): { ext: 'jpg' | 'png' | 'webp'; mime: string } | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { ext: 'jpg', mime: 'image/jpeg' };
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47 &&
+    buffer[4] === 0x0d && buffer[5] === 0x0a && buffer[6] === 0x1a && buffer[7] === 0x0a
+  ) {
+    return { ext: 'png', mime: 'image/png' };
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return { ext: 'webp', mime: 'image/webp' };
+  }
+  return null;
+}
+
+export async function getPersonalTaskDetailAction(ownerUserId: number, taskId: number): Promise<PersonalTaskDetail> {
+  await requirePersonalTaskContext(ownerUserId);
+  const detail = await getPersonalTaskDetail(taskId, ownerUserId);
+  if (!detail) throw new Error('Không tìm thấy task.');
+  return detail;
+}
+
+export async function addPersonalTaskCommentAction(
+  ownerUserId: number,
+  taskId: number,
+  content: string
+): Promise<PersonalTaskComment> {
+  const { session } = await requirePersonalTaskContext(ownerUserId);
+  const normalized = content.trim();
+  if (!normalized) throw new Error('Bình luận không được để trống.');
+  if (normalized.length > 2_000) throw new Error('Bình luận tối đa 2.000 ký tự.');
+  const comment = await addPersonalTaskComment(taskId, ownerUserId, session.userId, normalized);
+  return comment;
+}
+
+export async function uploadPersonalTaskImageAction(
+  ownerUserId: number,
+  taskId: number,
+  formData: FormData
+): Promise<Task> {
+  const { session } = await requirePersonalTaskContext(ownerUserId);
+  const existing = await getPersonalTaskById(taskId, ownerUserId);
+  if (!existing) throw new Error('Không tìm thấy task.');
+  const file = formData.get('file');
+  if (!(file instanceof File)) throw new Error('Thiếu file ảnh.');
+  if (file.size > PERSONAL_TASK_IMAGE_MAX_BYTES) throw new Error('Ảnh vượt quá 5MB.');
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const sniffed = sniffPersonalTaskImageType(buffer);
+  if (!sniffed) throw new Error('Chỉ nhận ảnh JPEG, PNG hoặc WebP.');
+
+  const blob = await put(
+    `personal-tasks/${ownerUserId}/${taskId}-${Date.now()}.${sniffed.ext}`,
+    new Blob([buffer], { type: sniffed.mime }),
+    { access: 'public' }
+  );
+  let updated: Task;
+  let previousImageUrl: string | null;
+  try {
+    ({ task: updated, previousImageUrl } = await setPersonalTaskImageUrl(taskId, ownerUserId, blob.url, session.userId));
+  } catch (error) {
+    await del(blob.url).catch(() => {});
+    throw error;
+  }
+  if (previousImageUrl?.includes('.public.blob.vercel-storage.com')) {
+    await del(previousImageUrl).catch(() => {});
+  }
+  return updated;
+}
+
+export async function removePersonalTaskImageAction(ownerUserId: number, taskId: number): Promise<Task> {
+  const { session } = await requirePersonalTaskContext(ownerUserId);
+  const existing = await getPersonalTaskById(taskId, ownerUserId);
+  if (!existing) throw new Error('Không tìm thấy task.');
+  const { task: updated, previousImageUrl } = await setPersonalTaskImageUrl(taskId, ownerUserId, null, session.userId);
+  if (previousImageUrl?.includes('.public.blob.vercel-storage.com')) {
+    await del(previousImageUrl).catch(() => {});
+  }
+  return updated;
 }
 
 /** Số task theo ngày, chia theo từng nhóm — cho lịch mini ở sidebar vừa tô

@@ -52,10 +52,24 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
   // Task cá nhân: chỉ chính chủ hoặc BGĐ (khớp requirePersonalTaskContext ở
   // actions.ts) — người khác gõ đúng URL vẫn bị chặn ở đây, không chỉ ẩn UI.
   if (session.userId === person.userId) {
-    return <PersonalTaskBoard today={today} ownerUserId={person.userId} viewerIsBgd={false} />;
+    return (
+      <PersonalTaskBoard
+        today={today}
+        ownerUserId={person.userId}
+        viewerIsBgd={false}
+        ownerAvatarUrl={person.avatarUrl}
+      />
+    );
   }
   if (isBgd) {
-    return <PersonalBoardRoute today={today} ownerUserId={person.userId} ownerName={person.fullName} />;
+    return (
+      <PersonalBoardRoute
+        today={today}
+        ownerUserId={person.userId}
+        ownerName={person.fullName}
+        ownerAvatarUrl={person.avatarUrl}
+      />
+    );
   }
   redirect('/dashboard/giao-task');
 }

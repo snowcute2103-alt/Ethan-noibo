@@ -203,15 +203,17 @@ export async function listUsersOutsideTeamsByDepartment(yearMonth: string): Prom
  *  listUsersOutsideTeamsByDepartment (ngoài 6 đội KD, không phải BGĐ), nhưng
  *  không cần JOIN tiến độ task nên tách hàm riêng, nhẹ hơn. So khớp slug ở
  *  JS vì `nameSlug` không dịch được sang SQL gọn (bỏ dấu + nối chữ). */
-export async function findOutsideTeamUserBySlug(slug: string): Promise<{ userId: number; fullName: string } | null> {
+export async function findOutsideTeamUserBySlug(
+  slug: string
+): Promise<{ userId: number; fullName: string; avatarUrl: string | null } | null> {
   const rows = await sql.query(
-    `SELECT u.id AS user_id, u.full_name FROM users u
+    `SELECT u.id AS user_id, u.full_name, u.avatar_url FROM users u
      WHERE u.is_active = true AND u.department != 'bgd'
        AND NOT EXISTS (SELECT 1 FROM team_members tm WHERE tm.user_id = u.id)`
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const match = (rows as any[]).find((row) => nameSlug(row.full_name) === slug);
-  return match ? { userId: match.user_id, fullName: match.full_name } : null;
+  return match ? { userId: match.user_id, fullName: match.full_name, avatarUrl: match.avatar_url } : null;
 }
 
 function isUniqueViolation(error: unknown): boolean {

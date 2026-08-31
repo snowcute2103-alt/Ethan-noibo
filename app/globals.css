@@ -68,10 +68,6 @@ body {
 :root[data-theme='dark'] [class~='text-navy/80'] { color: rgb(255 255 255 / 0.8); }
 :root[data-theme='dark'] [class~='text-navy/90'] { color: rgb(255 255 255 / 0.9); }
 
-:root[data-theme='dark'] img[alt='Ethan Ecom'] {
-  filter: brightness(0) invert(1);
-}
-
 :root[data-theme='dark'] .bg-white,
 :root[data-theme='dark'] .bg-gray-100 {
   background-color: var(--surface);

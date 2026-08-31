@@ -72,7 +72,7 @@ export async function toggleStickyNotePin(
   userId: number
 ): Promise<{ pinned: boolean; pinCount: number } | null> {
   const rows = await sql.query(
-    `WITH target AS (
+    `/* write */ WITH target AS (
        SELECT id FROM sticky_notes WHERE id = $1
      ), deleted AS (
        DELETE FROM sticky_note_pins WHERE note_id = $1 AND user_id = $2 RETURNING 1

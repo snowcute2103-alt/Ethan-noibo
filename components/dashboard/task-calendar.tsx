@@ -157,7 +157,7 @@ export default function TaskCalendar({
               type="button"
               disabled={!inMonth}
               onClick={() => onSelectDay(dateStr)}
-              className={`flex min-h-[54px] w-full min-w-0 flex-col items-center gap-0.5 rounded-[6px] px-0.5 py-1 ${inMonth ? cellClass(dateStr) : 'invisible'}`}
+              className={`flex min-h-[54px] w-full min-w-0 flex-col items-center gap-0.5 px-0.5 py-1 ${inMonth ? cellClass(dateStr) : 'invisible'}`}
             >
               {inMonth && (
                 <>
