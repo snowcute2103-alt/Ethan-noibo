@@ -327,6 +327,30 @@ body {
   }
 }
 
+/* Hoa giấy tung lên khi tick "Hoàn thành" ở bảng giao task — bắn mạnh + xoay,
+   neo đúng vị trí checkbox vừa bấm (khác firework-particle ở trên, dùng cho hiệu ứng
+   sinh nhật/khen thưởng toàn khung). */
+@keyframes checkbox-confetti-burst {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  55% {
+    transform: translate(var(--cx), var(--cy-peak)) rotate(calc(var(--cr) * 0.5));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--cx), var(--cy-end)) rotate(var(--cr));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-checkbox-confetti {
+    animation: checkbox-confetti-burst ease-out both;
+  }
+}
+
 /* ---- Đồng xu cào trúng thưởng — chớp sáng nhẹ đúng lúc lộ quà ---- */
 
 @keyframes coin-reveal-glow {

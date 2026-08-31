@@ -681,10 +681,7 @@ function PersonalKanbanCard({
         onClick={(e) => {
           e.stopPropagation();
           const next: TaskStatus = task.status === 'done' ? 'not_started' : 'done';
-          if (next === 'done') {
-            const rect = e.currentTarget.getBoundingClientRect();
-            fireConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
-          }
+          if (next === 'done') fireConfetti();
           onStatusChange(next);
         }}
         aria-label={task.status === 'done' ? 'Bỏ đánh dấu hoàn thành' : 'Đánh dấu hoàn thành'}

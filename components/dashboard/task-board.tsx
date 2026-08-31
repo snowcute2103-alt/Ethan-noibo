@@ -1300,12 +1300,11 @@ function TaskTable({
                     aria-pressed={task.status === 'done'}
                     aria-busy={statusPendingTaskIds.has(task.id)}
                     aria-label={task.status === 'done' ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
-                    onClick={(event) => {
+                    onClick={() => {
                       const nextStatus = task.status === 'done' ? 'not_started' : 'done';
                       onStatusChange(task, nextStatus);
                       if (nextStatus !== 'done') return;
-                      const rect = event.currentTarget.getBoundingClientRect();
-                      fireConfetti(event.clientX || rect.left + rect.width / 2, event.clientY || rect.top + rect.height / 2);
+                      fireConfetti();
                     }}
                     className={`group grid h-11 w-11 place-items-center rounded-[8px] transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
                       statusPendingTaskIds.has(task.id) ? 'cursor-wait opacity-80' : 'cursor-pointer active:scale-[0.96]'
@@ -2172,8 +2171,7 @@ function TaskRowEditor({
           onChange={(e) => setStatus(e.target.checked ? 'done' : 'not_started')}
           onClick={(e) => {
             if (!e.currentTarget.checked) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            fireConfetti(e.clientX || rect.left + rect.width / 2, e.clientY || rect.top + rect.height / 2);
+            fireConfetti();
           }}
           aria-label={status === 'done' ? 'Hoàn thành' : 'Chưa hoàn thành'}
           className="h-4 w-4 cursor-pointer accent-[#2ECC85]"
