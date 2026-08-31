@@ -152,3 +152,104 @@ CREATE TABLE IF NOT EXISTS sticky_note_pins (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (note_id, user_id)
 );
+
+/** 6 đội kinh doanh độc lập (KD1..KD6) cho tính năng Giao Task. Không có cột
+ *  manager_user_id ở đây — quản lý là 1 hoặc nhiều dòng role='manager' trong
+ *  team_members bên dưới (KD1 có 2 quản lý ngang quyền, các đội khác có 1). */
+CREATE TABLE IF NOT EXISTS teams (
+  id SERIAL PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+/** user_id UNIQUE vì 1 người chỉ thuộc đúng 1 đội tại một thời điểm. role
+ *  quyết định ai là quản lý (thêm/gỡ thành viên, quản lý nhóm task, nhân bản
+ *  hàng loạt) — nhiều dòng role='manager' cùng 1 team_id nghĩa là đội đó có
+ *  nhiều đồng quản lý ngang quyền. */
+CREATE TABLE IF NOT EXISTS team_members (
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member',
+  added_by INTEGER REFERENCES users(id),
+  added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (team_id, user_id),
+  CHECK (role IN ('manager', 'member'))
+);
+
+/** Nhóm/tab task do quản lý từng đội tự đặt tên (vd Media, Support tiktok,
+ *  Support Etsy ở KD1) — không dùng danh sách cố định chung cho 6 đội, vì
+ *  bảng Notion thật của KD1 và KD3 đã cho thấy mỗi đội tự tổ chức khác nhau.
+ *  visible_columns liệt kê tên field của tasks cần hiện khi lọc theo nhóm
+ *  này (khớp TASK_COLUMN_KEYS ở lib/task-columns.ts) — mỗi nhóm Notion thật hiện
+ *  một bộ cột khác nhau (Media có NOTE, Support tiktok có Option Tiktok). */
+CREATE TABLE IF NOT EXISTS team_task_categories (
+  id SERIAL PRIMARY KEY,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  visible_columns TEXT[] NOT NULL DEFAULT '{}',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (team_id, name)
+);
+
+/** Mỗi thành viên thuộc về 1 nhóm task (Media/Support...) tại một thời điểm —
+ *  dùng để lọc sidebar "Thành viên đội" theo đúng tab đang xem, thay vì luôn
+ *  hiện cả đội. NULL nghĩa là chưa được xếp vào nhóm nào. */
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES team_task_categories(id) ON DELETE SET NULL;
+
+/** Bảng task chính của tính năng Giao Task — đủ trường để phục vụ mọi nhóm
+ *  đã quan sát được trên Notion thật (Toàn bộ/Media/Support tiktok/Support
+ *  Etsy), mỗi nhóm chỉ dùng một phần, để trống phần còn lại. category_id
+ *  NULL nghĩa là task không thuộc nhóm nào (vẫn hiện ở tab "Toàn bộ", tab đó
+ *  không phải 1 dòng trong team_task_categories). duplicated_from_task_id
+ *  chỉ để truy vết task được nhân bản từ đâu, không tạo ràng buộc sửa-liên-
+ *  động — nhân bản luôn tạo dòng độc lập thật (không phải recurring event). */
+CREATE TABLE IF NOT EXISTS tasks (
+  id SERIAL PRIMARY KEY,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  category_id INTEGER REFERENCES team_task_categories(id) ON DELETE SET NULL,
+  task_date DATE NOT NULL,
+  assignee_user_id INTEGER REFERENCES users(id),
+  account_name TEXT,
+  title TEXT NOT NULL,
+  channel TEXT,
+  video_count INTEGER,
+  product TEXT,
+  option_tag TEXT,
+  reference_link TEXT,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'not_started',
+  duplicated_from_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  created_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (status IN ('not_started', 'in_progress', 'done'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_team_date ON tasks (team_id, task_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_team_category ON tasks (team_id, category_id);
+
+/** team_id nullable để tasks chứa được cả task cá nhân của người không thuộc
+ *  đội KD nào — task đội KD vẫn luôn có team_id, chỉ task cá nhân mới NULL. */
+ALTER TABLE tasks ALTER COLUMN team_id DROP NOT NULL;
+
+/** Task cá nhân của người KHÔNG thuộc 6 đội KD — mỗi người chỉ quản lý đúng
+ *  task của chính mình, không có roster/category như đội KD. */
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS owner_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+
+/** Đúng 1 trong 2 loại task: đội KD (team_id có, owner_user_id không) hoặc
+ *  cá nhân (owner_user_id có, team_id không). Postgres không có
+ *  "ADD CONSTRAINT IF NOT EXISTS" — DROP IF EXISTS rồi ADD lại (2 câu lệnh
+ *  riêng, cả 2 đều idempotent độc lập) để script migrate (replay toàn bộ
+ *  file mỗi lần chạy) không bao giờ ném lỗi "constraint already exists" ở
+ *  lần chạy thứ 2 trở đi. */
+ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_scope_xor;
+ALTER TABLE tasks ADD CONSTRAINT tasks_scope_xor CHECK (
+  (team_id IS NOT NULL AND owner_user_id IS NULL) OR
+  (team_id IS NULL AND owner_user_id IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_owner_date ON tasks (owner_user_id, task_date)
+  WHERE owner_user_id IS NOT NULL;

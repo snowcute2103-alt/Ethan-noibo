@@ -18,11 +18,11 @@ export interface DepartmentInfo {
 export const DEPARTMENTS: DepartmentInfo[] = [
   { id: 'bgd', label: 'Ban Giám Đốc', tiers: ['full'] },
   { id: 'kinh-doanh', label: 'Khối Kinh Doanh', tiers: ['staff', 'leader'] },
-  { id: 'sx-theu', label: 'Sản Xuất — Thêu (SX1)', tiers: ['staff', 'leader'] },
-  { id: 'sx-in', label: 'Sản Xuất — In/POD (SX2)', tiers: ['staff', 'leader'] },
   { id: 'rnd', label: 'R&D', tiers: ['staff', 'leader'] },
   { id: 'it', label: 'IT / Development', tiers: ['staff', 'leader'] },
   { id: 'fulfillment', label: 'Fulfillment', tiers: ['staff', 'leader'] },
+  { id: 'sx-theu', label: 'Sản Xuất — Thêu (SX1)', tiers: ['staff', 'leader'] },
+  { id: 'sx-in', label: 'Sản Xuất — In/POD (SX2)', tiers: ['staff', 'leader'] },
 ];
 
 const TIER_RANK: Record<Tier, number> = { staff: 0, leader: 1, full: 2 };

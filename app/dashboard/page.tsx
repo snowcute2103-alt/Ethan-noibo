@@ -107,16 +107,16 @@ export default async function DashboardHome() {
   return (
     <div className="flex flex-col">
       <div className="mx-auto w-full max-w-[1500px] px-4 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-28">
-        <div className="mb-12 text-center">
-          <p className="font-heading text-4xl font-light uppercase tracking-wide text-navy sm:text-5xl">
+        <div className="dashboard-brand-lockup mb-12 text-center">
+          <p className="font-heading text-4xl font-light uppercase tracking-wide sm:text-5xl">
             Ethan Ecom
           </p>
           <div className="mt-2 flex items-center justify-center gap-4">
-            <span className="h-px w-10 bg-navy sm:w-16" aria-hidden="true" />
-            <p className="text-base font-semibold uppercase tracking-[0.15em] text-navy sm:text-lg">
+            <span className="h-px w-10 bg-current sm:w-16" aria-hidden="true" />
+            <p className="text-base font-semibold uppercase tracking-[0.15em] sm:text-lg">
               Đồng lòng đồng sức, bứt phá gặt thành công
             </p>
-            <span className="h-px w-10 bg-navy sm:w-16" aria-hidden="true" />
+            <span className="h-px w-10 bg-current sm:w-16" aria-hidden="true" />
           </div>
         </div>
         <GreetingHero greeting={greeting} department={departmentLabel(session.department)} />

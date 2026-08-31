@@ -18,12 +18,11 @@ const MESSAGES = [
   (name: string) => `Một nụ cười dành cho ${name}. Chúc bạn hôm nay thật thuận lợi!`,
 ] as const;
 
+// Giao Task, Quản trị (admin) và Báo cáo là các trang thao tác nghiệp vụ —
+// không hiện nút lời nhắn nổi ở đây để tránh che nút bấm/nội dung bảng.
+const HIDDEN_ROUTE_PREFIXES = ['/dashboard/giao-task', '/dashboard/admin', '/dashboard/bao-cao'] as const;
+
 const PAGE_POSITIONS = [
-  { route: '/dashboard/admin/permissions', top: 230, side: 'right', offset: '3%' },
-  { route: '/dashboard/admin/announcements', top: 250, side: 'right', offset: '3%' },
-  { route: '/dashboard/admin/rules', top: 250, side: 'right', offset: '3%' },
-  { route: '/dashboard/admin/users/', top: 210, side: 'right', offset: '4%' },
-  { route: '/dashboard/admin', top: 210, side: 'left', offset: '3%' },
   { route: '/dashboard/khenthuong', top: 620, side: 'right', offset: '4%' },
   { route: '/dashboard/van-hoa', top: 760, side: 'left', offset: '4%' },
   { route: '/dashboard/rule', top: 520, side: 'right', offset: '4%' },
@@ -47,11 +46,14 @@ export default function FloatingGreeting({ fullName }: { fullName: string }) {
   const pathname = usePathname();
   const name = givenName(fullName);
   const seed = hashText(`${pathname}:${fullName}`);
+  const tooltipId = useMemo(() => `floating-greeting-${seed}`, [seed]);
+
+  if (HIDDEN_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return null;
+
   const position = PAGE_POSITIONS.find(({ route }) =>
     route === '/dashboard' ? pathname === route : pathname.startsWith(route)
   ) ?? PAGE_POSITIONS[PAGE_POSITIONS.length - 1];
   const message = MESSAGES[(seed >>> 3) % MESSAGES.length](name);
-  const tooltipId = useMemo(() => `floating-greeting-${seed}`, [seed]);
   const alignLeft = position.side === 'left';
 
   return (

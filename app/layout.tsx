@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Alex_Brush, Fahkwang, Libre_Baskerville, Mulish, Noto_Serif } from 'next/font/google';
 import './globals.css';
 
@@ -44,11 +45,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
       <body
         className={`site-shell ${fahkwang.variable} ${mulish.variable} ${libreBaskerville.variable} ${alexBrush.variable} ${notoSerif.variable} font-body`}
       >
         {children}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`try{const saved=localStorage.getItem('ethan-theme');const theme=saved==='light'||saved==='dark'?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme}catch{document.documentElement.dataset.theme='light'}`}
+        </Script>
       </body>
     </html>
   );

@@ -17,7 +17,18 @@ export type AuditAction =
   | 'announcement.update'
   | 'announcement.delete'
   | 'announcement_permission.grant'
-  | 'announcement_permission.revoke';
+  | 'announcement_permission.revoke'
+  | 'team_member.add'
+  | 'team_member.remove'
+  | 'team_member.role_change'
+  | 'team_member.category_change'
+  | 'team_category.create'
+  | 'team_category.update'
+  | 'team_category.delete'
+  | 'personal_task.create'
+  | 'personal_task.update'
+  | 'personal_task.delete'
+  | 'personal_task.duplicate';
 
 /**
  * Allow-list nội dung ghi audit log — KHÔNG BAO GIỜ đưa mật khẩu/hash/SĐT/email

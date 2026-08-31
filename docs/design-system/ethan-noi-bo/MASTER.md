@@ -18,6 +18,8 @@
 
 ## Color Tokens (`tailwind.config.ts`)
 
+The palette is implemented as semantic CSS variables in `app/globals.css` and consumed through Tailwind tokens. Both `light` and `dark` values must be updated together. The selected theme lives on `html[data-theme]`, defaults to the operating-system preference, and is persisted in `localStorage` under `ethan-theme`.
+
 | Token | Hex | Usage |
 |---|---|---|
 | `navy` | `#1A2745` | Primary structural color — header, footers, dark panels |
@@ -32,6 +34,8 @@
 | `muted` | `#5A6B82` | Secondary text |
 | `surface` / `surface-2` | `#FFFFFF` / `#F4F7F9` | Page/card backgrounds |
 
+The hex values above describe the light-mode brand reference. Runtime colors use equivalent OKLCH values; dark mode uses navy-tinted elevated surfaces rather than a mechanical inversion. New UI must use the semantic tokens instead of adding raw light-only background or text colors.
+
 **Section-accent colors** (ad-hoc but consistent per content type — reused as wayfinding, not tokenized):
 
 | Section | Accent | Where |
@@ -40,6 +44,7 @@
 | Thông báo | `#F5A623` (gold) | `hub-card`, notice banner gradient |
 | Khen thưởng | `#FF6F91` (pink) | `hub-card`; chip rotation adds `#00D2FF`, `#F5A623`, `#7C6CF0` |
 | Văn hoá | `#1A2745` (navy) | `hub-card` |
+| Báo cáo | `#0052CC` (blue) | metric cards, search data, report navigation |
 
 **Severity colors** (policy/rule rows) — always paired with an icon + text label, never color alone:
 

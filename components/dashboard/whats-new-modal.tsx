@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Bell, X } from 'lucide-react';
 import type { WhatsNewItem } from '@/lib/content/whats-new';
 import avatarPlaceholder from '@/public/images/avatar-placeholder.jpg';
 
+// Giao Task là trang thao tác nghiệp vụ — không gim nút chuông ở đây để tránh
+// che nút bấm/nội dung bảng, giống nút lời nhắn nổi (floating-greeting.tsx).
+const HIDDEN_ROUTE_PREFIXES = ['/dashboard/giao-task'] as const;
+
 /** Popup nổi hiện mỗi lần trang chủ load lại, gộp Thông báo + Rule mới cập nhật. Tắt đi thì gim nút chuông ở góc màn hình để mở lại. */
 export default function WhatsNewModal({ items, avatarUrl }: { items: WhatsNewItem[]; avatarUrl?: string | null }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(items.length > 0);
 
   useEffect(() => {
@@ -21,6 +27,7 @@ export default function WhatsNewModal({ items, avatarUrl }: { items: WhatsNewIte
   }, [open]);
 
   if (items.length === 0) return null;
+  if (HIDDEN_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return null;
 
   if (!open) {
     return (

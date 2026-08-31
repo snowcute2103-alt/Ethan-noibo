@@ -12,6 +12,7 @@ import { NAV_ITEMS } from '@/lib/nav';
 import DashboardHeader from '@/components/dashboard/dashboard-header';
 import WhatsNewModal from '@/components/dashboard/whats-new-modal';
 import FloatingGreeting from '@/components/dashboard/floating-greeting';
+import RefreshDashboardOnReturn from '@/components/dashboard/refresh-dashboard-on-return';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -42,13 +43,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Cùng avatar "Từ BGĐ" dùng ở ThongBaoSection — nguồn thống nhất cho mọi thông báo/rule mới.
   const bgdAvatarUrl = await findFullTierAvatarUrl();
 
-  // Link "Quản trị" chỉ hiện với BGĐ (tier full) — không đưa vào NAV_ITEMS tĩnh
-  // vì lib/nav.ts không có session, thêm điều kiện ngay ở đây (layout đã có session sẵn).
-  const navItems =
-    session.tier === 'full' ? [...NAV_ITEMS, { href: '/dashboard/admin', label: 'Quản trị' }] : NAV_ITEMS;
+  // "Giao Task" hiện với mọi người đã đăng nhập — khối kinh doanh và BGĐ xem
+  // bảng đội/tổng quan, còn lại (sx-theu, sx-in, rnd, it, fulfillment) tự
+  // quản lý Kanban cá nhân của chính mình. "Quản trị" chỉ hiện với BGĐ. Cả
+  // hai không đưa vào NAV_ITEMS tĩnh vì lib/nav.ts không có session, thêm
+  // điều kiện ngay ở đây (layout đã có session sẵn). Route/action vẫn tự
+  // chặn ở tầng server nếu ai đó gõ thẳng URL — ẩn nav chỉ là UX, không phải
+  // kiểm soát truy cập.
+  const navItems = [
+    ...NAV_ITEMS,
+    { href: '/dashboard/giao-task', label: 'Giao Task' },
+    ...(session.tier === 'full' ? [{ href: '/dashboard/admin', label: 'Quản trị' }] : []),
+  ];
 
   return (
     <div className="dashboard-shell min-h-screen overflow-x-clip bg-surface-2">
+      <RefreshDashboardOnReturn />
       <WhatsNewModal items={whatsNew} avatarUrl={bgdAvatarUrl} />
       <DashboardHeader
         navItems={navItems}

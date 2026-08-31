@@ -4,7 +4,7 @@ import { daysSince } from '@/lib/date';
 import { ANNOUNCEMENTS, NOTICES, POLICIES } from '@/lib/content';
 import { listAnnouncements } from '@/lib/announcements';
 import { announcementIdsVisibleTo } from '@/lib/announcement-permissions';
-import { findFullTierAvatarUrl } from '@/lib/users';
+import { findActiveUserAvatarUrlByUsername, findFullTierAvatarUrl } from '@/lib/users';
 import NoticeBanner from '@/components/dashboard/notice-banner';
 import PolicyCard from '@/components/dashboard/policy-card';
 import AnnouncementList from '@/components/dashboard/announcement-list';
@@ -17,7 +17,10 @@ export default async function ThongBaoSection({ session }: { session: SessionPay
 
   const allAnnouncements = [...ANNOUNCEMENTS, ...(await listAnnouncements())];
   const visibleAnnouncementIds = await announcementIdsVisibleTo(session.userId, session.tier);
-  const avatarUrl = await findFullTierAvatarUrl();
+  const [avatarUrl, duyAvatarUrl] = await Promise.all([
+    findFullTierAvatarUrl(),
+    findActiveUserAvatarUrlByUsername('duynguyen'),
+  ]);
   const announcements = allAnnouncements.filter(
     (a) => canView(session, a.visibility) || visibleAnnouncementIds === 'all' || visibleAnnouncementIds.has(Number(a.id))
   );
@@ -49,6 +52,9 @@ export default async function ThongBaoSection({ session }: { session: SessionPay
       title: a.title,
       excerpt: a.body,
       date: a.date,
+      author: a.author,
+      authorAvatarUrl: a.author === 'Anh Duy' ? duyAvatarUrl : undefined,
+      image: a.image,
       rank: daysSince(a.date) ?? Number.POSITIVE_INFINITY,
       node: <AnnouncementList announcements={[a]} />,
     })),

@@ -12,6 +12,9 @@ export interface ThongBaoSlide {
   title: string;
   excerpt: string;
   date: string;
+  author?: string;
+  authorAvatarUrl?: string | null;
+  image?: string;
   /** Gạch đầu dòng ngắn tóm tắt (tối đa 3, hiển thị 1 dòng/gạch) — lấp khoảng trống giữa thẻ. */
   details?: string[];
   /** Nội dung đầy đủ, hiển thị trong popup khi bấm vào thẻ đang ở giữa. */
@@ -66,6 +69,13 @@ function ThongBaoCard({
   const isCenter = position === 0;
   const note = noteColorFor(slide.key);
   const cardColor = isCenter ? note.strong : note.soft;
+  const authorAvatar = slide.author ? slide.authorAvatarUrl : avatarUrl;
+  const authorInitials = slide.author
+    ?.split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <button
@@ -96,40 +106,88 @@ function ThongBaoCard({
       }}
     >
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" title="Từ Ban lãnh đạo">
-          <Image
-            src={avatarUrl || avatarPlaceholder}
-            alt="Ban lãnh đạo"
-            width={44}
-            height={44}
-            className="h-full w-full rounded-full object-cover"
-          />
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/70"
+          title={slide.author || 'Từ Ban lãnh đạo'}
+        >
+          {authorAvatar ? (
+            <Image
+              src={authorAvatar}
+              alt={slide.author || 'Ban lãnh đạo'}
+              width={44}
+              height={44}
+              className="h-full w-full object-cover"
+            />
+          ) : slide.author ? (
+            <span className="font-heading text-sm font-semibold tracking-wide text-navy" aria-label={slide.author}>
+              {authorInitials}
+            </span>
+          ) : (
+            <Image
+              src={avatarPlaceholder}
+              alt="Ban lãnh đạo"
+              width={44}
+              height={44}
+              className="h-full w-full object-cover"
+            />
+          )}
         </span>
         <span className="rounded-full bg-white/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-navy/80">
           {slide.label}
         </span>
       </div>
-      <h3
-        className={cn(
-          'font-heading mt-3 line-clamp-2 text-xl uppercase tracking-wide sm:text-2xl',
-          isCenter ? 'font-medium' : 'font-light text-navy/70'
-        )}
-      >
-        {slide.title}
-      </h3>
-      <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-navy/70">{slide.excerpt}</p>
-      {slide.details && slide.details.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1.5">
-          {slide.details.slice(0, 3).map((d, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs leading-snug text-navy/60">
-              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-navy/40" aria-hidden="true" />
-              <span className="line-clamp-1">{d}</span>
-            </li>
-          ))}
-        </ul>
+      {slide.author && <p className="mt-2 text-xs font-semibold text-navy/70">Người đăng: {slide.author}</p>}
+      {slide.image ? (
+        <div className="mt-3 flex min-h-0 w-full flex-1 items-stretch overflow-hidden rounded-xl">
+          <div className="relative w-3/5 shrink-0">
+            <Image
+              src={slide.image}
+              alt={slide.title}
+              fill
+              sizes="(max-width: 640px) 164px, 220px"
+              loading={isCenter ? 'eager' : 'lazy'}
+              className="object-contain object-left"
+            />
+          </div>
+          <div className="flex min-w-0 flex-1 items-center px-3 sm:px-4">
+            <h3
+              className={cn(
+                'font-heading text-sm uppercase leading-snug tracking-wide sm:text-base',
+                isCenter ? 'font-medium text-navy' : 'font-light text-navy/70'
+              )}
+            >
+              {slide.title}
+            </h3>
+          </div>
+        </div>
+      ) : (
+        <>
+          <h3
+            className={cn(
+              'font-heading mt-3 line-clamp-2 text-lg uppercase tracking-wide sm:text-2xl',
+              isCenter ? 'font-medium' : 'font-light text-navy/70'
+            )}
+          >
+            {slide.title}
+          </h3>
+          <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-navy/70">{slide.excerpt}</p>
+          {slide.details && slide.details.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1.5">
+              {slide.details.slice(0, 3).map((d, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs leading-snug text-navy/60">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-navy/40" aria-hidden="true" />
+                  <span className="line-clamp-1">{d}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
       <span
-        className="mt-auto inline-flex w-fit items-center rounded-full px-3.5 py-1.5 text-sm font-light tracking-wide text-white"
+        className={cn(
+          'inline-flex w-fit items-center rounded-full px-3.5 py-1.5 text-sm font-light tracking-wide text-white',
+          slide.image ? 'mt-3' : 'mt-auto'
+        )}
         style={{ background: 'linear-gradient(135deg, #1A2745 0%, #0052CC 55%, #00D2FF 100%)' }}
       >
         {slide.date}

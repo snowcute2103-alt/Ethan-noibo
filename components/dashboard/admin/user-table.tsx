@@ -39,6 +39,17 @@ const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'announcement.delete': 'Xoá thông báo',
   'announcement_permission.grant': 'Cấp quyền xem thông báo',
   'announcement_permission.revoke': 'Thu hồi quyền xem thông báo',
+  'team_member.add': 'Thêm thành viên đội',
+  'team_member.remove': 'Gỡ thành viên đội',
+  'team_member.role_change': 'Đổi vai trò trong đội',
+  'team_member.category_change': 'Đổi nhóm task trong đội',
+  'team_category.create': 'Tạo nhóm task',
+  'team_category.update': 'Cập nhật nhóm task',
+  'team_category.delete': 'Xoá nhóm task',
+  'personal_task.create': 'Tạo task cá nhân',
+  'personal_task.update': 'Cập nhật task cá nhân',
+  'personal_task.delete': 'Xoá task cá nhân',
+  'personal_task.duplicate': 'Nhân bản task cá nhân',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -670,7 +681,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
                         height={32}
                         className="h-8 w-8 shrink-0 rounded-full bg-surface-2 object-cover"
                       />
-                      <span className="whitespace-nowrap text-ink">{u.fullName}</span>
+                      <span className="whitespace-nowrap uppercase text-ink">{u.fullName}</span>
                     </div>
                   </td>
                   {visibleColumns.map((col) => (

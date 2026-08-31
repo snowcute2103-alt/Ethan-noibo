@@ -17,6 +17,7 @@ import FireworkBurst from '@/components/dashboard/firework-burst';
 import InspireQuoteWidget from '@/components/dashboard/inspire-quote-widget';
 import type { Quote } from '@/lib/quotes';
 import moneyBill from '@/public/images/khenthuong/money-3.png';
+import birthdayCelebration from '@/sinhnhat.jpeg';
 
 interface DashboardBentoProps {
   culture: CultureArticle[];
@@ -35,10 +36,10 @@ const AVATAR_STACK_ACCENTS = ['#FF6F91', '#00D2FF', '#F5A623', '#7C6CF0'];
 const AVATAR_STACK_Z = ['z-40', 'z-30', 'z-20', 'z-10'];
 
 const BIRTHDAY_BALLOONS = [
-  { color: '#FF6F91', top: '48%', left: '58%', size: 46, rotate: -8, delay: '0ms' },
-  { color: '#00D2FF', top: '42%', left: '78%', size: 34, rotate: 6, delay: '400ms' },
-  { color: '#F5A623', top: '68%', left: '85%', size: 40, rotate: -4, delay: '800ms' },
-  { color: '#7C6CF0', top: '72%', left: '65%', size: 30, rotate: 10, delay: '1200ms' },
+  { color: '#FF6F91', size: 46, rotate: -8, delay: '0ms' },
+  { color: '#00D2FF', size: 34, rotate: 6, delay: '400ms' },
+  { color: '#F5A623', size: 40, rotate: -4, delay: '800ms' },
+  { color: '#7C6CF0', size: 30, rotate: 10, delay: '1200ms' },
 ];
 
 /** Bong bóng bay trang trí — thân oval + nút thắt + dây buộc lượn nhẹ. */
@@ -294,17 +295,7 @@ export default function DashboardBento({
                 aria-hidden="true"
                 className="pointer-events-none absolute left-[4%] top-[43%] w-48 -rotate-[10deg] opacity-90 drop-shadow-xl"
               />
-              {BIRTHDAY_BALLOONS.map((b, i) => (
-                <span
-                  key={i}
-                  className="animate-balloon-float pointer-events-none absolute opacity-80"
-                  style={{ top: b.top, left: b.left, animationDelay: b.delay }}
-                  aria-hidden="true"
-                >
-                  <Balloon color={b.color} size={b.size} rotate={b.rotate} />
-                </span>
-              ))}
-              <div>
+              <div className="relative z-10">
                 <h3 className="font-heading text-xl font-light uppercase tracking-wide text-navy sm:text-2xl">
                   Chương trình sinh nhật
                 </h3>
@@ -313,10 +304,33 @@ export default function DashboardBento({
                   món quà đặc biệt bất ngờ dành cho bạn.
                 </p>
               </div>
+              <div
+                className="relative z-20 mt-3 flex h-20 items-start justify-end gap-3 pr-2 sm:absolute sm:right-8 sm:top-[34%] sm:mt-0 sm:h-24 sm:gap-4 sm:pr-0"
+                aria-hidden="true"
+              >
+                {BIRTHDAY_BALLOONS.map((balloon) => (
+                  <span
+                    key={balloon.color}
+                    className="animate-balloon-float pointer-events-none opacity-80"
+                    style={{ animationDelay: balloon.delay }}
+                  >
+                    <Balloon color={balloon.color} size={balloon.size} rotate={balloon.rotate} />
+                  </span>
+                ))}
+              </div>
+              <div className="pointer-events-none relative z-10 mt-2 h-44 w-full overflow-hidden border border-navy/10 bg-surface-2 sm:absolute sm:bottom-6 sm:right-6 sm:mt-0 sm:h-[38%] sm:w-[42%]">
+                <Image
+                  src={birthdayCelebration}
+                  alt="Minh hoạ chương trình sinh nhật của Ethan"
+                  fill
+                  sizes="(min-width: 640px) 21vw, calc(100vw - 64px)"
+                  className="object-contain"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => setBirthdayOpen(true)}
-                className="group/more mt-6 flex w-fit items-center gap-2 border border-navy/15 px-4 py-2 text-sm font-semibold text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white"
+                className="group/more relative z-20 mt-6 flex min-h-11 w-fit cursor-pointer items-center gap-2 border border-navy/15 px-4 py-2 text-sm font-semibold text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 sm:mt-auto"
               >
                 Xem ai sinh nhật tháng này
                 <ArrowUpRight

@@ -173,6 +173,15 @@ export async function findFullTierAvatarUrl(): Promise<string | null> {
   return (rows[0]?.avatar_url as string | undefined) ?? null;
 }
 
+/** Avatar của một tài khoản đang hoạt động, dùng khi nội dung cần hiển thị đúng người đăng. */
+export async function findActiveUserAvatarUrlByUsername(username: string): Promise<string | null> {
+  const rows = await sql.query(
+    'SELECT avatar_url FROM users WHERE username = $1 AND is_active = true LIMIT 1',
+    [username]
+  );
+  return (rows[0]?.avatar_url as string | undefined) ?? null;
+}
+
 export async function findUserById(id: number): Promise<UserRow | null> {
   const rows = await sql.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id]);
   return rows[0] ? mapRow(rows[0]) : null;

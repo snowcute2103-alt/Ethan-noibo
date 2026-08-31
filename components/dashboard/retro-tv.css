@@ -22,16 +22,16 @@
   visibility: hidden;
   /* `visibility:hidden` keeps these focusable/clickable via their <label for>, but
      unlike `display:none` it still occupies layout space — as native flex-item
-     siblings of <content> inside a tightly fitted container, 6 of them were adding
+     siblings of <tv-content> inside a tightly fitted container, 6 of them were adding
      enough width to overflow the box. Taking them out of flow avoids that. */
   position: absolute;
 }
 
 /* Original design used `font-size: 1svh` on <html> — a full-page hero where the CRT
    fills ~94% of the viewport height. Embedded inline instead, that root is remapped
-   from html to this wrapper (see the rem->em sweep below). The declared `content`
+   from html to this wrapper (see the rem->em sweep below). The declared `tv-content`
    aspect-ratio (1.8/1, below) doesn't match the TV's actual natural proportions
-   (~1.54/1 — crt is ~125em x 94em plus panel), so scaling off only cqw or only cqh
+   (~1.54/1 — tv-crt is ~125em x 94em plus tv-panel), so scaling off only cqw or only cqh
    can overflow the container in the other axis. Taking the min of both keeps the
    whole TV inside its box on either axis, at the cost of some empty space on the
    other — the caller must set `container-type: size` on an ancestor for cqw/cqh to
@@ -40,24 +40,24 @@
   font-size: clamp(1.6px, min(0.52cqw, 0.8cqh), 7px);
 }
 
-content *,
-content *:before,
-content *:after,
-content:before,
-content:after {
+tv-content *,
+tv-content *:before,
+tv-content *:after,
+tv-content:before,
+tv-content:after {
   position: absolute;
 }
 
-crt div,
-screen > u,
-light,
+tv-crt div,
+tv-screen > u,
+tv-light,
 effects,
-test {
+tv-test {
   width: 100%;
   height: 100%;
 }
 
-content {
+tv-content {
   box-shadow: 0 0 0 2em var(--body), 0 0 5em 2em #000;
   width: inherit;
   border-radius: 4em;
@@ -93,16 +93,16 @@ content {
   overflow: hidden;
 }
 
-content {
-  set,
-  crt,
-  panel,
-  knobs,
-  grill,
-  knobs div,
+tv-content {
+  tv-set,
+  tv-crt,
+  tv-panel,
+  tv-knobs,
+  tv-grill,
+  tv-knobs div,
   .badge,
   span,
-  flex {
+  tv-flex {
     position: relative;
   }
 }
@@ -116,7 +116,7 @@ content {
   display: block;
 }
 
-flex {
+tv-flex {
   flex: 1 1 auto;
 }
 
@@ -138,7 +138,7 @@ flex {
   text-shadow: -0.1em 0.1em 0 var(--body), 0.05em -0.05em 0 #fff;
 }
 
-set {
+tv-set {
   display: flex;
   padding: 2em;
   gap: 4em;
@@ -146,7 +146,7 @@ set {
   width: 100%;
   filter: drop-shadow(0.2em 0 0 #00ff0033) drop-shadow(-0.2em 0 0 #ff00ff33);
 
-  panel {
+  tv-panel {
     flex: 1 1 auto;
   }
 
@@ -170,7 +170,7 @@ set {
   }
 }
 
-panel {
+tv-panel {
   display: flex;
   flex-direction: column;
   gap: 1em;
@@ -186,8 +186,8 @@ panel {
   }
 }
 
-grill,
-knobs {
+tv-grill,
+tv-knobs {
   display: flex;
   flex: 1 1 auto;
   justify-content: center;
@@ -212,7 +212,7 @@ knobs {
     opacity: 0.1;
   }
 
-  speaker {
+  tv-speaker {
     max-width: 80%;
     max-height: 80%;
     background: var(--body);
@@ -241,7 +241,7 @@ knobs {
   }
 }
 
-knobs {
+tv-knobs {
   div {
     border-radius: 0.5em;
     background: repeating-linear-gradient(
@@ -506,8 +506,8 @@ knobs {
   }
 }
 
-dial,
-dialvol {
+tv-dial,
+tv-dialvol {
   width: 10em;
   aspect-ratio: 1/1;
   display: flex;
@@ -521,7 +521,7 @@ dialvol {
   }
 }
 
-dialvol {
+tv-dialvol {
   width: 6em;
   top: 0;
 }
@@ -536,17 +536,17 @@ dialvol {
   }
 }
 
-.retro-tv-widget:has(dialvol label:nth-of-type(1):hover),
-.retro-tv-widget:has(dialvol label:nth-of-type(2):hover),
-.retro-tv-widget:has(dialvol label:nth-of-type(3):hover),
-.retro-tv-widget:has(dialvol label:nth-of-type(4):hover) {
+.retro-tv-widget:has(tv-dialvol label:nth-of-type(1):hover),
+.retro-tv-widget:has(tv-dialvol label:nth-of-type(2):hover),
+.retro-tv-widget:has(tv-dialvol label:nth-of-type(3):hover),
+.retro-tv-widget:has(tv-dialvol label:nth-of-type(4):hover) {
   .vol u:before {
     filter: brightness(1.2) contrast(1.2);
   }
 }
 
 .retro-tv-widget:has(#vol1:checked),
-.retro-tv-widget:has(dialvol label:nth-of-type(1):hover) {
+.retro-tv-widget:has(tv-dialvol label:nth-of-type(1):hover) {
   .vol u u {
     transform: rotate(315deg);
 
@@ -561,7 +561,7 @@ dialvol {
 }
 
 .retro-tv-widget:has(#vol2:checked),
-.retro-tv-widget:has(dialvol label:nth-of-type(2):hover) {
+.retro-tv-widget:has(tv-dialvol label:nth-of-type(2):hover) {
   .vol u u {
     transform: rotate(45deg);
 
@@ -576,7 +576,7 @@ dialvol {
 }
 
 .retro-tv-widget:has(#vol4:checked),
-.retro-tv-widget:has(dialvol label:nth-of-type(4):hover) {
+.retro-tv-widget:has(tv-dialvol label:nth-of-type(4):hover) {
   .vol u u {
     transform: rotate(135deg);
 
@@ -591,7 +591,7 @@ dialvol {
 }
 
 .retro-tv-widget:has(#vol3:checked),
-.retro-tv-widget:has(dialvol label:nth-of-type(3):hover) {
+.retro-tv-widget:has(tv-dialvol label:nth-of-type(3):hover) {
   .vol u u {
     transform: rotate(225deg);
 
@@ -605,16 +605,16 @@ dialvol {
   }
 }
 
-.retro-tv-widget:has(dial label:nth-of-type(1):hover),
-.retro-tv-widget:has(dial label:nth-of-type(2):hover),
-.retro-tv-widget:has(dial label:nth-of-type(3):hover),
-.retro-tv-widget:has(dial label:nth-of-type(4):hover) {
+.retro-tv-widget:has(tv-dial label:nth-of-type(1):hover),
+.retro-tv-widget:has(tv-dial label:nth-of-type(2):hover),
+.retro-tv-widget:has(tv-dial label:nth-of-type(3):hover),
+.retro-tv-widget:has(tv-dial label:nth-of-type(4):hover) {
   .tuning u:before {
     filter: brightness(1.2) contrast(1.2);
   }
 }
 
-tune {
+tv-tune {
   width: calc(100% - 2em);
   height: calc(100% - 2em);
   display: none;
@@ -622,7 +622,7 @@ tune {
 }
 
 .retro-tv-widget:has(#on-off:checked) {
-  tune {
+  tv-tune {
     opacity: 1;
   }
 }
@@ -641,7 +641,7 @@ tune {
 }
 
 .retro-tv-widget:has(#tune1:checked),
-.retro-tv-widget:has(dial label:nth-of-type(1):hover) {
+.retro-tv-widget:has(tv-dial label:nth-of-type(1):hover) {
   .tuning u u {
     transform: rotate(315deg);
 
@@ -650,12 +650,12 @@ tune {
     }
   }
 
-  tune {
+  tv-tune {
     animation: channel 0.2s forwards;
     display: block;
   }
 
-  crt div > div {
+  tv-crt div > div {
     filter: contrast(10);
   }
 
@@ -664,7 +664,7 @@ tune {
     animation: wobble-hard 0.03s steps(2) infinite;
   }
 
-  crt test {
+  tv-crt tv-test {
     opacity: 0.25;
     transform: translate3d(0, 0, 0);
   }
@@ -677,7 +677,7 @@ tune {
 }
 
 .retro-tv-widget:has(#tune2:checked),
-.retro-tv-widget:has(dial label:nth-of-type(2):hover) {
+.retro-tv-widget:has(tv-dial label:nth-of-type(2):hover) {
   .tuning u u {
     transform: rotate(45deg);
 
@@ -686,7 +686,7 @@ tune {
     }
   }
 
-  tune {
+  tv-tune {
     animation: channel 0.2s forwards;
     display: block;
   }
@@ -695,13 +695,13 @@ tune {
     filter: contrast(2);
   }
 
-  crt test {
+  tv-crt tv-test {
     opacity: 0.5;
   }
 }
 
 .retro-tv-widget:has(#tune4:checked),
-.retro-tv-widget:has(dial label:nth-of-type(4):hover) {
+.retro-tv-widget:has(tv-dial label:nth-of-type(4):hover) {
   .tuning u u {
     transform: rotate(135deg);
 
@@ -710,7 +710,7 @@ tune {
     }
   }
 
-  tune {
+  tv-tune {
     animation: channel 0.2s forwards;
     display: block;
   }
@@ -724,7 +724,7 @@ tune {
     }
   }
 
-  crt div > div {
+  tv-crt div > div {
     animation: tuning 0.1s ease-in-out infinite !important;
     filter: contrast(2);
   }
@@ -741,23 +741,23 @@ tune {
 }
 
 @media (orientation: portrait) {
-  panel {
+  tv-panel {
     font-size: 2em;
   }
 
-  grill {
+  tv-grill {
     flex-grow: 3;
   }
 }
 
 @media (orientation: landscape) {
-  grill > u:nth-of-type(n + 23) {
+  tv-grill > u:nth-of-type(n + 23) {
     display: none;
   }
 }
 
 .retro-tv-widget:has(#tunex:checked),
-.retro-tv-widget:has(dial label:nth-of-type(x):hover) {
+.retro-tv-widget:has(tv-dial label:nth-of-type(x):hover) {
   .tuning u u {
     transform: rotate(225deg);
 
@@ -766,7 +766,7 @@ tune {
     }
   }
 
-  tune {
+  tv-tune {
     animation: channel 0.2s forwards;
     display: block;
   }
@@ -781,7 +781,7 @@ tune {
     }
   }
 
-  crt > div {
+  tv-crt > div {
     filter: contrast(2);
   }
 
@@ -849,7 +849,7 @@ tune {
 }
 
 .retro-tv-widget:has(#tune3:checked),
-.retro-tv-widget:has(dial label:nth-of-type(3):hover) {
+.retro-tv-widget:has(tv-dial label:nth-of-type(3):hover) {
   .tuning u u {
     transform: rotate(225deg);
 
@@ -858,12 +858,12 @@ tune {
     }
   }
 
-  crt test {
+  tv-crt tv-test {
     opacity: 1;
   }
 }
 
-crt test {
+tv-crt tv-test {
   opacity: 0;
   width: 100%;
   height: 100%;
@@ -992,7 +992,7 @@ crt test {
   }
 }
 
-/* The video fills the CRT's screen box but paints underneath the original
+/* The video fills the CRT's tv-screen box but paints underneath the original
    glass, reflections and bezel. The TV's own layers therefore provide the
    mask/edge in both power states instead of recreating that frame on video. */
 .retro-tv-widget .tv-logo-video {
@@ -1014,12 +1014,12 @@ crt test {
   z-index: 1;
 }
 
-.retro-tv-widget screen {
+.retro-tv-widget tv-screen {
   z-index: 2;
   pointer-events: none;
 }
 
-.retro-tv-widget light,
+.retro-tv-widget tv-light,
 .retro-tv-widget effects {
   z-index: 3;
 }
@@ -1335,7 +1335,7 @@ y2 {
 }
 
 .retro-tv-widget:has(#tune3:checked),
-.retro-tv-widget:has(dial label:nth-of-type(3):hover) {
+.retro-tv-widget:has(tv-dial label:nth-of-type(3):hover) {
   .tuning u u {
     transform: rotate(225deg);
 
@@ -1357,11 +1357,11 @@ y2 {
     filter: opacity(0.3);
   }
 
-  crt > div {
+  tv-crt > div {
     perspective: 90em;
   }
 
-  crt test {
+  tv-crt tv-test {
     transform: translateZ(-12em) scaleX(1.08) scaleY(1.14);
 
     u u {
@@ -1454,7 +1454,7 @@ y2 {
   }
 }
 
-crt {
+tv-crt {
   aspect-ratio: 4/3;
   margin: 1em;
   border: 1em solid #dad9b3;
@@ -1465,8 +1465,8 @@ crt {
   z-index: 3;
 
   > div,
-  screen,
-  light,
+  tv-screen,
+  tv-light,
   effects {
     transform-style: preserve-3d;
     perspective: 500em;
@@ -1510,7 +1510,7 @@ crt {
   }
 }
 
-crt > div {
+tv-crt > div {
   width: 80%;
   height: 75%;
   overflow: hidden;
@@ -1518,7 +1518,7 @@ crt > div {
   inset: 0;
 }
 
-crt div,
+tv-crt div,
 .tv-logo-video,
 effects {
   transform: scaleY(0) scaleX(0);
@@ -1526,7 +1526,7 @@ effects {
 }
 
 .retro-tv-widget:has(#on-off:checked) {
-  crt div,
+  tv-crt div,
   .tv-logo-video,
   effects {
     animation: on 2s ease-in-out forwards;
@@ -1591,7 +1591,7 @@ effects {
   }
 }
 
-screen {
+tv-screen {
   width: calc(100% - 2em);
   height: calc(100% - 2em);
   overflow: hidden;
@@ -1684,7 +1684,7 @@ screen {
   }
 }
 
-crt effects {
+tv-crt effects {
   width: calc(100% - 2em);
   height: calc(100% - 2em);
   filter: contrast(1);
@@ -1761,7 +1761,7 @@ crt effects {
   }
 }
 
-light {
+tv-light {
   filter: blur(0.2em);
 
   &:before {

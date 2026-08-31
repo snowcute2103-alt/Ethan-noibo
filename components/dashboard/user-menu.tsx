@@ -9,6 +9,7 @@ import type { Department, Tier } from '@/lib/roles';
 import { departmentLabel, tierLabel } from '@/lib/roles';
 import { updateOwnAvatarAction } from '@/app/dashboard/actions';
 import LogoutButton from '@/components/logout-button';
+import ThemeToggle from '@/components/theme-toggle';
 import avatarPlaceholder from '@/public/images/avatar-placeholder.jpg';
 
 export interface UserMenuInfo {
@@ -185,6 +186,10 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
               <InfoRow label="Email cá nhân" value={user.personalEmail ?? '—'} />
             </div>
             <div className="gradient-divider my-4" aria-hidden="true" />
+            <div className="mb-3 flex min-h-12 items-center justify-between gap-4">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Giao diện</span>
+              <ThemeToggle />
+            </div>
             <LogoutButton className="w-full border border-navy/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-navy transition hover:border-navy hover:bg-navy hover:text-white" />
           </div>,
           document.body

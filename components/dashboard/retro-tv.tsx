@@ -37,10 +37,10 @@ export default function RetroTv() {
 
   return (
     <div className="retro-tv-widget d-flex">
-      <content>
-        <set>
-          <crt>
-            <screen>
+      <tv-content>
+        <tv-set>
+          <tv-crt>
+            <tv-screen>
               <u>
                 <u></u> <u></u> <u></u> <u></u>
               </u>
@@ -54,21 +54,21 @@ export default function RetroTv() {
                 playsInline
                 src={LOGO_VIDEO_SRC}
               />
-            </screen>
+            </tv-screen>
             <Image src={ethanLogo} alt="Ethan Ecom" className="tv-standby-logo" priority />
             <div>
               <div>
-                <test className="squircle">
+                <tv-test className="squircle">
                   <u>
                     {Array.from({ length: TEST_BARS }).map((_, i) => (
                       <u key={i}></u>
                     ))}
                   </u>
-                </test>
+                </tv-test>
               </div>
             </div>
-            <tune className="squircle"></tune>
-            <light>
+            <tv-tune className="squircle"></tv-tune>
+            <tv-light>
               <u></u>
               <u></u>
               <u></u>
@@ -90,35 +90,35 @@ export default function RetroTv() {
                 <u></u>
                 <u></u>
               </u>
-            </light>
-          </crt>
-          <panel>
-            <grill>
-              <speaker> </speaker>
+            </tv-light>
+          </tv-crt>
+          <tv-panel>
+            <tv-grill>
+              <tv-speaker> </tv-speaker>
               {Array.from({ length: GRILL_HOLES }).map((_, i) => (
                 <u key={i}></u>
               ))}
-            </grill>
-            <knobs>
+            </tv-grill>
+            <tv-knobs>
               <div className="power d-flex">
-                <flex>
+                <tv-flex>
                   <span className="my-md d-block text-center text-white">Power</span>
                   <label htmlFor="on-off" title="Power"></label>
-                </flex>
-                <flex className="vol">
+                </tv-flex>
+                <tv-flex className="vol">
                   <span className="my-md d-block text-center text-white">Volume</span>
                   <u>
                     <u>
                       <u></u>
                     </u>
-                    <dialvol>
+                    <tv-dialvol>
                       <label htmlFor="vol1"></label>
                       <label htmlFor="vol2"></label>
                       <label htmlFor="vol3"></label>
                       <label htmlFor="vol4"></label>
-                    </dialvol>
+                    </tv-dialvol>
                   </u>
-                </flex>
+                </tv-flex>
               </div>
               <div className="tuning">
                 <span className="my-md d-block text-center text-white">Tuning</span>
@@ -126,12 +126,12 @@ export default function RetroTv() {
                   <u>
                     <u></u>
                   </u>
-                  <dial>
+                  <tv-dial>
                     <label htmlFor="tune1"></label>
                     <label htmlFor="tune2"></label>
                     <label htmlFor="tune3"></label>
                     <label htmlFor="tune4"></label>
-                  </dial>
+                  </tv-dial>
                   <label htmlFor="unclick"></label>
                 </u>
               </div>
@@ -142,10 +142,10 @@ export default function RetroTv() {
                   </u>
                 </a>
               </div>
-            </knobs>
-          </panel>
-        </set>
-      </content>
+            </tv-knobs>
+          </tv-panel>
+        </tv-set>
+      </tv-content>
 
       <input ref={powerRef} type="checkbox" name="tv" id="on-off" />
       <input type="radio" name="tv" id="tune1" />

@@ -9,4 +9,5 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/rule', label: 'SOP & Quy trình' },
   { href: '/dashboard/khenthuong', label: 'Khen thưởng' },
   { href: '/dashboard/van-hoa', label: 'Văn hoá' },
+  { href: '/dashboard/bao-cao', label: 'Báo cáo' },
 ];
