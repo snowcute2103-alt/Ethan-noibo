@@ -144,6 +144,134 @@ body {
   .animate-balloon-float {
     animation: balloon-float 4.5s ease-in-out infinite;
   }
+
+  .birthday-balloon-flight {
+    animation: birthday-balloon-rise 6s var(--theme-ease) var(--birthday-delay) infinite both;
+    will-change: transform, opacity;
+  }
+
+  .birthday-balloon-pop {
+    animation: birthday-balloon-pop 6s var(--theme-ease) var(--birthday-delay) infinite both;
+    transform-origin: 50% 30%;
+  }
+
+  .birthday-balloon-particle {
+    animation: birthday-balloon-particle 6s var(--theme-ease) var(--birthday-delay) infinite both;
+  }
+
+  .birthday-balloon-flash {
+    animation: birthday-balloon-flash 6s var(--theme-ease) var(--birthday-delay) infinite both;
+  }
+}
+
+@media (min-width: 640px) {
+  .birthday-balloon-flight {
+    --birthday-rise: var(--birthday-rise-desktop);
+  }
+}
+
+@keyframes birthday-balloon-rise {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  18% {
+    opacity: 1;
+  }
+  66%,
+  86% {
+    opacity: 1;
+    transform: translate3d(var(--birthday-drift), var(--birthday-rise), 0);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--birthday-drift), var(--birthday-rise), 0);
+  }
+}
+
+@keyframes birthday-balloon-pop {
+  0%,
+  68% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.14);
+  }
+  72%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+@keyframes birthday-balloon-particle {
+  0%,
+  70% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  84%,
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--birthday-particle-x)),
+        calc(-50% + var(--birthday-particle-y))
+      )
+      scale(0.2);
+  }
+}
+
+@keyframes birthday-balloon-flash {
+  0%,
+  70% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+  72% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  78%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+}
+
+@keyframes birthday-cta-arrow-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .birthday-cta-arrow {
+    animation: birthday-cta-arrow-bob 1.8s var(--theme-ease) infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .birthday-balloon-flight {
+    opacity: 0.72;
+    transform: translate3d(0, -176px, 0);
+  }
+
+  .birthday-balloon-particle,
+  .birthday-balloon-flash {
+    display: none;
+  }
 }
 
 @keyframes fade-up-in {

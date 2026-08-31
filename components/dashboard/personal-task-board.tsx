@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from 'react';
 import Image from 'next/image';
+import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Check, MoreVertical, Plus, StickyNote, X } from 'lucide-react';
 import type { Task, TaskStatus, MonthDayCategoryCount } from '@/lib/tasks';
 import TaskCalendar from '@/components/dashboard/task-calendar';
@@ -93,6 +94,13 @@ const KANBAN_BOARD_COLUMNS: { status: TaskStatus; label: string; dot: string }[]
   { status: 'done', label: 'Hoàn thành', dot: 'bg-emerald-500' },
 ];
 
+// GIF 1x1 trong suốt — thay cho ảnh "bóng mờ" mặc định của trình duyệt khi kéo
+// thả kiểu HTML5 DnD, để nhường chỗ cho thẻ nổi (floating preview) tự vẽ bên
+// dưới bám theo con trỏ, giống hiệu ứng "nhấc thẻ lên" của Trello.
+const TRANSPARENT_DRAG_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7';
+
+const SPRING_TRANSITION = { type: 'spring', stiffness: 500, damping: 34, mass: 0.7 } as const;
+
 export default function PersonalTaskBoard({ today, ownerUserId, viewerIsBgd, ownerName, onBack }: PersonalTaskBoardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [anchorDate, setAnchorDate] = useState(today);
@@ -154,6 +162,23 @@ export default function PersonalTaskBoard({ today, ownerUserId, viewerIsBgd, own
     });
   }
 
+  // Đổi trạng thái (kéo-thả sang cột khác, hoặc bấm checkbox) cập nhật `tasks`
+  // ngay tại chỗ trước khi gọi server — nếu đợi round-trip rồi mới refresh thì
+  // thẻ chỉ "nhảy" cột sau một nhịp trễ mạng, hiệu ứng kéo-thả mượt (Trello)
+  // sẽ mất tác dụng. Lỗi thì hoàn tác lại state cũ.
+  function changeStatus(task: Task, status: TaskStatus) {
+    const previous = tasks;
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status } : t)));
+    startTransition(() => {
+      updatePersonalTaskAction(ownerUserId, task.id, { status })
+        .then(() => void refresh({ silent: true }))
+        .catch((err) => {
+          setTasks(previous);
+          setError(err instanceof Error ? err.message : 'Có lỗi xảy ra.');
+        });
+    });
+  }
+
   const rangeLabel =
     viewMode === 'day'
       ? anchorDate === today
@@ -197,7 +222,7 @@ export default function PersonalTaskBoard({ today, ownerUserId, viewerIsBgd, own
             showTodayButton={anchorDate !== today}
             onGoToday={() => setAnchorDate(today)}
             onCreate={(input) => runAction(() => createPersonalTaskAction(ownerUserId, input))}
-            onStatusChange={(task, status) => runAction(() => updatePersonalTaskAction(ownerUserId, task.id, { status }))}
+            onStatusChange={changeStatus}
             onTitleChange={(task, title) => runAction(() => updatePersonalTaskAction(ownerUserId, task.id, { title }))}
             onDelete={(task) => runAction(() => deletePersonalTaskAction(ownerUserId, task.id))}
             onDuplicate={(task, toDate) => runAction(() => duplicatePersonalTaskAction(ownerUserId, task.id, toDate))}
@@ -268,14 +293,30 @@ function PersonalKanban({
   onDuplicate: (task: Task, toDate: string) => void;
 }) {
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
+  // Thẻ đang được kéo + toạ độ con trỏ — dùng để vẽ 1 thẻ nổi bám theo chuột
+  // (render ở cuối JSX bên dưới), thay cho ảnh bóng mờ mặc định của trình
+  // duyệt, giống hiệu ứng "nhấc thẻ lên" mượt mà của Trello.
+  const [draggingTask, setDraggingTask] = useState<Task | null>(null);
+  const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
   const tasksById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
 
   function handleDrop(status: TaskStatus, e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
+    // Dọn thẻ nổi ngay tại đây (không đợi sự kiện `dragend` của thẻ nguồn) —
+    // sau khi đổi trạng thái, thẻ nguồn có thể bị unmount khỏi cột cũ trước
+    // khi trình duyệt kịp bắn `dragend`, khiến thẻ nổi bị kẹt lại trên màn hình.
     setDragOverStatus(null);
+    setDraggingTask(null);
+    setDragPoint(null);
     const taskId = Number(e.dataTransfer.getData('text/plain'));
     const task = tasksById.get(taskId);
     if (task && task.status !== status) onStatusChange(task, status);
+  }
+
+  function endDrag() {
+    setDraggingTask(null);
+    setDragPoint(null);
+    setDragOverStatus(null);
   }
 
   // Task do người khác (BGĐ xem hộ) tạo hộ — hiện riêng ở cột "Task Sếp đưa"
@@ -321,25 +362,46 @@ function PersonalKanban({
       </div>
 
       <div className="flex gap-3 overflow-x-auto">
-      <div className="flex w-72 shrink-0 flex-col rounded-[14px] bg-navy-deep p-2.5 shadow-[0_10px_24px_-16px_rgba(0,0,0,0.7)]">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOverStatus('not_started');
+        }}
+        onDragLeave={() => setDragOverStatus((s) => (s === 'not_started' ? null : s))}
+        onDrop={(e) => handleDrop('not_started', e)}
+        className={`flex w-72 shrink-0 flex-col rounded-[14px] p-2.5 shadow-[0_10px_24px_-16px_rgba(0,0,0,0.7)] transition-all duration-200 ${
+          dragOverStatus === 'not_started'
+            ? 'scale-[1.015] bg-navy-2 ring-2 ring-inset ring-white/30'
+            : 'scale-100 bg-navy-deep ring-2 ring-inset ring-transparent'
+        }`}
+      >
         <div className="mb-2 flex items-center gap-2 px-1">
           <span className="h-2 w-2 rounded-full bg-gold" aria-hidden="true" />
           <strong className="font-heading text-sm text-white">Task Sếp đưa</strong>
           <span className="ml-auto text-xs font-bold text-white/60">{bossTasks.length}</span>
         </div>
         <div className="flex flex-1 flex-col gap-2">
-          {bossTasks.map((task) => (
-            <PersonalKanbanCard
-              key={task.id}
-              task={task}
-              today={today}
-              ownerUserId={ownerUserId}
-              onStatusChange={(status) => onStatusChange(task, status)}
-              onTitleChange={(title) => onTitleChange(task, title)}
-              onDelete={() => onDelete(task)}
-              onDuplicate={(toDate) => onDuplicate(task, toDate)}
-            />
-          ))}
+          <AnimatePresence initial={false}>
+            {bossTasks.map((task) => (
+              <PersonalKanbanCard
+                key={task.id}
+                task={task}
+                today={today}
+                ownerUserId={ownerUserId}
+                isDragging={draggingTask?.id === task.id}
+                onDragLift={(x, y) => {
+                  setDraggingTask(task);
+                  setDragPoint({ x, y });
+                }}
+                onDragMove={(x, y) => setDragPoint({ x, y })}
+                onDragRelease={endDrag}
+                onStatusChange={(status) => onStatusChange(task, status)}
+                onTitleChange={(title) => onTitleChange(task, title)}
+                onDelete={() => onDelete(task)}
+                onDuplicate={(toDate) => onDuplicate(task, toDate)}
+              />
+            ))}
+          </AnimatePresence>
           {bossTasks.length === 0 && <p className="px-1 py-2 text-xs text-white/50">Không có task.</p>}
         </div>
         <div className="mt-2">
@@ -357,8 +419,10 @@ function PersonalKanban({
             }}
             onDragLeave={() => setDragOverStatus((s) => (s === col.status ? null : s))}
             onDrop={(e) => handleDrop(col.status, e)}
-            className={`flex w-72 shrink-0 flex-col rounded-[14px] p-2.5 shadow-[0_10px_24px_-16px_rgba(0,0,0,0.7)] transition-colors ${
-              dragOverStatus === col.status ? 'bg-navy-2' : 'bg-navy-deep'
+            className={`flex w-72 shrink-0 flex-col rounded-[14px] p-2.5 shadow-[0_10px_24px_-16px_rgba(0,0,0,0.7)] transition-all duration-200 ${
+              dragOverStatus === col.status
+                ? 'scale-[1.015] bg-navy-2 ring-2 ring-inset ring-white/30'
+                : 'scale-100 bg-navy-deep ring-2 ring-inset ring-transparent'
             }`}
           >
             <div className="mb-2 flex items-center gap-2 px-1">
@@ -367,18 +431,27 @@ function PersonalKanban({
               <span className="ml-auto text-xs font-bold text-white/60">{colTasks.length}</span>
             </div>
             <div className="flex flex-1 flex-col gap-2">
-              {colTasks.map((task) => (
-                <PersonalKanbanCard
-                  key={task.id}
-                  task={task}
-                  today={today}
-                  ownerUserId={ownerUserId}
-                  onStatusChange={(status) => onStatusChange(task, status)}
-                  onTitleChange={(title) => onTitleChange(task, title)}
-                  onDelete={() => onDelete(task)}
-                  onDuplicate={(toDate) => onDuplicate(task, toDate)}
-                />
-              ))}
+              <AnimatePresence initial={false}>
+                {colTasks.map((task) => (
+                  <PersonalKanbanCard
+                    key={task.id}
+                    task={task}
+                    today={today}
+                    ownerUserId={ownerUserId}
+                    isDragging={draggingTask?.id === task.id}
+                    onDragLift={(x, y) => {
+                      setDraggingTask(task);
+                      setDragPoint({ x, y });
+                    }}
+                    onDragMove={(x, y) => setDragPoint({ x, y })}
+                    onDragRelease={endDrag}
+                    onStatusChange={(status) => onStatusChange(task, status)}
+                    onTitleChange={(title) => onTitleChange(task, title)}
+                    onDelete={() => onDelete(task)}
+                    onDuplicate={(toDate) => onDuplicate(task, toDate)}
+                  />
+                ))}
+              </AnimatePresence>
               {colTasks.length === 0 && <p className="px-1 py-2 text-xs text-white/50">Không có task.</p>}
             </div>
             <div className="mt-2">
@@ -392,6 +465,31 @@ function PersonalKanban({
         );
       })}
       </div>
+
+      {/* Thẻ nổi bám theo con trỏ trong lúc kéo — che ảnh bóng mờ mặc định của
+          trình duyệt (đã vô hiệu bằng TRANSPARENT_DRAG_IMAGE ở PersonalKanbanCard),
+          tạo cảm giác "nhấc thẻ lên" mượt như Trello. */}
+      <AnimatePresence>
+        {draggingTask && dragPoint && (
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none fixed z-[999] w-64 rounded-[10px] bg-navy-2 p-3 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.6)]"
+            style={{ left: dragPoint.x, top: dragPoint.y }}
+            initial={{ opacity: 0, scale: 1, rotate: 0, x: '-50%', y: '-50%' }}
+            animate={{ opacity: 0.96, scale: 1.05, rotate: -3, x: '-50%', y: '-50%' }}
+            exit={{ opacity: 0, scale: 0.95, rotate: 0 }}
+            transition={SPRING_TRANSITION}
+          >
+            <p className="truncate text-sm font-semibold text-white">{draggingTask.title}</p>
+            {draggingTask.note && (
+              <p className="mt-1 flex items-center gap-1 truncate text-xs text-white/50">
+                <StickyNote className="h-3 w-3 shrink-0" aria-hidden="true" />
+                {draggingTask.note}
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -405,6 +503,10 @@ function PersonalKanbanCard({
   task,
   today,
   ownerUserId,
+  isDragging,
+  onDragLift,
+  onDragMove,
+  onDragRelease,
   onStatusChange,
   onTitleChange,
   onDelete,
@@ -413,6 +515,10 @@ function PersonalKanbanCard({
   task: Task;
   today: string;
   ownerUserId: number;
+  isDragging: boolean;
+  onDragLift: (x: number, y: number) => void;
+  onDragMove: (x: number, y: number) => void;
+  onDragRelease: () => void;
   onStatusChange: (status: TaskStatus) => void;
   onTitleChange: (title: string) => void;
   onDelete: () => void;
@@ -461,18 +567,41 @@ function PersonalKanbanCard({
           : 'bg-surface-2 text-muted';
 
   return (
+    <motion.div
+      layout
+      layoutId={`ptask-${task.id}`}
+      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.12 } }}
+      transition={SPRING_TRANSITION}
+    >
     <div
       ref={cardRef}
       draggable={!editing}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', String(task.id));
         e.dataTransfer.effectAllowed = 'move';
+        // Ẩn ảnh bóng mờ mặc định của trình duyệt — thẻ nổi tự vẽ ở PersonalKanban
+        // sẽ đảm nhiệm phần bám theo con trỏ, mượt hơn nhiều.
+        const dragImg = new window.Image();
+        dragImg.src = TRANSPARENT_DRAG_IMAGE;
+        e.dataTransfer.setDragImage(dragImg, 0, 0);
+        onDragLift(e.clientX, e.clientY);
       }}
+      onDrag={(e) => {
+        // Sự kiện `drag` cuối cùng (khi thả) trình duyệt trả toạ độ (0,0) — bỏ
+        // qua để thẻ nổi không giật về góc màn hình ngay trước khi biến mất.
+        if (e.clientX === 0 && e.clientY === 0) return;
+        onDragMove(e.clientX, e.clientY);
+      }}
+      onDragEnd={onDragRelease}
       onClick={() => {
         if (!editing) setDetailOpen(true);
       }}
       title="Bấm để xem chi tiết task"
-      className="group flex cursor-grab gap-2.5 rounded-[10px] bg-white/[0.07] p-3 transition-colors hover:bg-white/[0.12] active:cursor-grabbing"
+      className={`group flex cursor-grab gap-2.5 rounded-[10px] bg-white/[0.07] p-3 transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/[0.12] hover:shadow-[0_10px_20px_-10px_rgba(0,0,0,0.5)] active:cursor-grabbing ${
+        isDragging ? 'opacity-30 ring-2 ring-inset ring-white/30' : ''
+      }`}
     >
       <button
         type="button"
@@ -507,7 +636,7 @@ function PersonalKanbanCard({
               onChange={(e) => setTitle(e.target.value)}
               onBlur={commitTitle}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') commitTitle();
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitTitle();
                 if (e.key === 'Escape') {
                   setTitle(task.title);
                   setEditing(false);
@@ -639,6 +768,7 @@ function PersonalKanbanCard({
         <TaskDetailModal task={task} isFromBoss={isFromBoss} onClose={() => setDetailOpen(false)} />
       )}
     </div>
+    </motion.div>
   );
 }
 
@@ -738,6 +868,10 @@ function PersonalKanbanQuickAdd({
   const [title, setTitle] = useState('');
   const [taskDate, setTaskDate] = useState(defaultDate);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Bàn phím ảo/IME trên điện thoại có thể bắn 2 sự kiện Enter liên tiếp cho
+  // 1 lượt gõ (từ cuối cùng bị gõ lại rồi gửi thành task riêng) — khoá gửi
+  // trong 400ms sau lần gửi trước để chặn phát trùng, bất kể vì sao nó xảy ra.
+  const lastSubmitAtRef = useRef(0);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -749,6 +883,9 @@ function PersonalKanbanQuickAdd({
       setOpen(false);
       return;
     }
+    const now = Date.now();
+    if (now - lastSubmitAtRef.current < 400) return;
+    lastSubmitAtRef.current = now;
     onCreate({ taskDate, title: trimmed, status });
     setTitle('');
     inputRef.current?.focus();
@@ -777,7 +914,10 @@ function PersonalKanbanQuickAdd({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
+          // Bỏ qua Enter khi bộ gõ tiếng Việt (IME) đang ghép dấu (isComposing)
+          // — nếu không, Enter để chốt âm/dấu cũng bị hiểu nhầm là gửi task,
+          // tạo 2 task từ 1 câu gõ dở (vd "test thử" + "hệ thống" tách rời).
+          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             submit();
           }

@@ -36,10 +36,25 @@ const AVATAR_STACK_ACCENTS = ['#FF6F91', '#00D2FF', '#F5A623', '#7C6CF0'];
 const AVATAR_STACK_Z = ['z-40', 'z-30', 'z-20', 'z-10'];
 
 const BIRTHDAY_BALLOONS = [
-  { color: '#FF6F91', size: 46, rotate: -8, delay: '0ms' },
-  { color: '#00D2FF', size: 34, rotate: 6, delay: '400ms' },
-  { color: '#F5A623', size: 40, rotate: -4, delay: '800ms' },
-  { color: '#7C6CF0', size: 30, rotate: 10, delay: '1200ms' },
+  { color: '#FF6F91', size: 46, rotate: -8, delay: '0ms', right: '44%', rise: '-152px', mobileRise: '-272px', drift: '-18px' },
+  { color: '#00D2FF', size: 34, rotate: 6, delay: '1200ms', right: '32%', rise: '-140px', mobileRise: '-252px', drift: '12px' },
+  { color: '#F5A623', size: 40, rotate: -4, delay: '2400ms', right: '20%', rise: '-160px', mobileRise: '-280px', drift: '-10px' },
+  { color: '#7C6CF0', size: 30, rotate: 10, delay: '3600ms', right: '9%', rise: '-132px', mobileRise: '-244px', drift: '16px' },
+];
+
+const BALLOON_PARTICLES = [
+  { x: '-52px', y: '-34px' },
+  { x: '-30px', y: '-52px' },
+  { x: '0px', y: '-60px' },
+  { x: '32px', y: '-50px' },
+  { x: '54px', y: '-28px' },
+  { x: '60px', y: '4px' },
+  { x: '48px', y: '36px' },
+  { x: '22px', y: '54px' },
+  { x: '-12px', y: '58px' },
+  { x: '-42px', y: '42px' },
+  { x: '-60px', y: '14px' },
+  { x: '-62px', y: '-14px' },
 ];
 
 /** Bong bóng bay trang trí — thân oval + nút thắt + dây buộc lượn nhẹ. */
@@ -128,10 +143,128 @@ export default function DashboardBento({
   const coreValues = visionArticle?.blocks.find((b) => b.heading === '5 giá trị cốt lõi')?.list;
   const cultureArticle = findArticle(culture, 'van-hoa-gan-ket-dai-ngo');
 
-  const hasTopRow = Boolean((headcount && orgArticle) || latestRecognition);
   const hasCoreValues = Boolean(visionArticle && coreValues && coreValues.length > 0);
-  // Thẻ Chương trình sinh nhật là tĩnh (không phụ thuộc culture content) nên hàng dưới luôn hiện.
-  const hasBottomRow = true;
+  // Thẻ sinh nhật là nội dung tĩnh nên hàng trên luôn hiện; hàng dưới chứa Vinh danh và Đời sống Ethan.
+  const hasTopRow = true;
+  const hasBottomRow = Boolean(latestRecognition || cultureArticle);
+
+  const birthdayPanel = (
+    <BorderBeamPanel
+      beams={2}
+      thickness={2}
+      radius={0}
+      glow
+      onMouseEnter={() => {
+        if (birthdayHoveredRef.current) return;
+        birthdayHoveredRef.current = true;
+        setBirthdayFirework((n) => n + 1);
+      }}
+      onMouseLeave={() => {
+        birthdayHoveredRef.current = false;
+      }}
+      className="animate-fade-up flex min-h-[340px] flex-col justify-start border-navy/10 bg-white p-8 text-navy"
+      style={{ animationDelay: '80ms' }}
+    >
+      <FireworkBurst autoPlay={false} trigger={birthdayFirework} burstCount={3} particlesPerBurst={28} lifetimeMs={2200} />
+      <div className="relative z-30">
+        <h3 className="font-heading text-xl font-light uppercase tracking-wide text-navy sm:text-2xl">
+          Chương trình sinh nhật
+        </h3>
+        <p className="mt-2 text-base leading-relaxed text-muted sm:w-[46%] sm:max-w-[45ch] sm:text-[13px]">
+          Ethan luôn đồng hành và gửi lời chúc đến từng thành viên trong ngày đặc biệt của bạn. Và sẽ có những
+          món quà đặc biệt bất ngờ dành cho bạn.
+        </p>
+      </div>
+      <div className="birthday-balloon-stage pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden="true">
+        {BIRTHDAY_BALLOONS.map((balloon) => (
+          <span
+            key={balloon.color}
+            className="birthday-balloon-flight absolute bottom-[5%]"
+            style={{
+              right: balloon.right,
+              '--birthday-delay': balloon.delay,
+              '--birthday-rise': balloon.mobileRise,
+              '--birthday-rise-desktop': balloon.rise,
+              '--birthday-drift': balloon.drift,
+            } as React.CSSProperties}
+          >
+            <span className="birthday-balloon-pop relative block">
+              <Balloon color={balloon.color} size={balloon.size} rotate={balloon.rotate} />
+            </span>
+            <span
+              className="birthday-balloon-flash absolute left-1/2 top-[30%] h-8 w-8 rounded-full border-2"
+              style={{ borderColor: balloon.color }}
+            />
+            {BALLOON_PARTICLES.map((particle) => (
+              <span
+                key={`${particle.x}-${particle.y}`}
+                className="birthday-balloon-particle absolute left-1/2 top-[30%] h-3 w-1 rounded-full"
+                style={{
+                  backgroundColor: balloon.color,
+                  '--birthday-particle-x': particle.x,
+                  '--birthday-particle-y': particle.y,
+                } as React.CSSProperties}
+              />
+            ))}
+          </span>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => setBirthdayOpen(true)}
+        className="group/more relative z-30 mt-4 flex min-h-11 w-fit cursor-pointer items-center gap-2 border border-gold/50 bg-navy-deep px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_-18px_rgba(16,26,48,0.85)] transition-[background-color,border-color] duration-200 hover:border-gold-2 hover:bg-navy active:bg-navy-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
+      >
+        Xem ai sinh nhật tháng này
+        <ArrowUpRight size={16} strokeWidth={2.5} className="birthday-cta-arrow text-gold-2" aria-hidden="true" />
+      </button>
+      <div className="pointer-events-none relative z-20 mt-4 h-64 w-full sm:absolute sm:bottom-[8%] sm:right-[1%] sm:mt-0 sm:h-[64%] sm:w-[48%]">
+        <Image
+          src={birthdayCelebration}
+          alt="Minh hoạ chương trình sinh nhật của Ethan"
+          fill
+          sizes="(min-width: 640px) 24vw, calc(100vw - 64px)"
+          className="object-contain object-center"
+        />
+      </div>
+    </BorderBeamPanel>
+  );
+
+  const recognitionPanel = latestRecognition ? (
+    <BorderBeamPanel
+      beams={2}
+      thickness={2}
+      radius={0}
+      glow
+      colors={['#00D2FF', '#F5A623']}
+      className="animate-fade-up flex min-h-[340px] flex-col justify-between p-8"
+      style={{ animationDelay: '240ms' }}
+    >
+      <TextBlockAnimation blockColor="#101A30" duration={0.6} stagger={0.04} delay={0.1}>
+        <h3 className="font-heading text-xl font-light uppercase tracking-wide text-white">{latestRecognition.title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-white/70">
+          Vinh danh {latestRecognitionCount} thành viên tiêu biểu — những gương mặt nổi bật nhất, ghi nhận đóng góp xuất sắc trong tháng.
+        </p>
+      </TextBlockAnimation>
+      <Image
+        src={moneyBill}
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[58%] w-40 -translate-x-1/2 -translate-y-1/2 -rotate-[8deg] opacity-90 drop-shadow-2xl sm:w-56"
+      />
+      <Link
+        href={latestRecognition.href}
+        className="group/more relative z-10 mt-6 flex w-fit items-center gap-2 text-sm font-semibold text-white/70 transition-colors hover:text-white"
+      >
+        Xem thêm
+        <ArrowUpRight
+          size={16}
+          strokeWidth={2.5}
+          className="transition-transform duration-300 group-hover/more:translate-x-1 group-hover/more:-translate-y-1"
+          aria-hidden="true"
+        />
+      </Link>
+    </BorderBeamPanel>
+  ) : null;
 
   if (!hasTopRow && !hasCoreValues && !hasBottomRow) return null;
 
@@ -210,36 +343,7 @@ export default function DashboardBento({
               </BentoCard>
             )}
 
-            {latestRecognition && (
-              <BorderBeamPanel
-                beams={2}
-                thickness={2}
-                radius={0}
-                glow
-                colors={['#00D2FF', '#F5A623']}
-                className="animate-fade-up flex min-h-[280px] flex-col justify-between p-8"
-                style={{ animationDelay: '80ms' }}
-              >
-                <TextBlockAnimation blockColor="#101A30" duration={0.6} stagger={0.04} delay={0.1}>
-                  <h3 className="font-heading text-xl font-light uppercase tracking-wide text-white">{latestRecognition.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-white/70">
-                    Vinh danh {latestRecognitionCount} thành viên tiêu biểu — những gương mặt nổi bật nhất, ghi nhận đóng góp xuất sắc trong tháng.
-                  </p>
-                </TextBlockAnimation>
-                <Link
-                  href={latestRecognition.href}
-                  className="group/more mt-6 flex w-fit items-center gap-2 text-sm font-semibold text-white/70 transition-colors hover:text-white"
-                >
-                  Xem thêm
-                  <ArrowUpRight
-                    size={16}
-                    strokeWidth={2.5}
-                    className="transition-transform duration-300 group-hover/more:translate-x-1 group-hover/more:-translate-y-1"
-                    aria-hidden="true"
-                  />
-                </Link>
-              </BorderBeamPanel>
-            )}
+            {birthdayPanel}
           </div>
         )}
 
@@ -272,75 +376,7 @@ export default function DashboardBento({
 
         {hasBottomRow && (
           <div className="mt-20 grid grid-cols-1 gap-16 sm:grid-cols-2">
-            <BorderBeamPanel
-              beams={2}
-              thickness={2}
-              radius={0}
-              glow
-              onMouseEnter={() => {
-                if (birthdayHoveredRef.current) return;
-                birthdayHoveredRef.current = true;
-                setBirthdayFirework((n) => n + 1);
-              }}
-              onMouseLeave={() => {
-                birthdayHoveredRef.current = false;
-              }}
-              className="animate-fade-up flex min-h-[340px] flex-col justify-between border-navy/10 bg-white p-8 text-navy"
-              style={{ animationDelay: '240ms' }}
-            >
-              <FireworkBurst autoPlay={false} trigger={birthdayFirework} burstCount={3} particlesPerBurst={28} lifetimeMs={2200} />
-              <Image
-                src={moneyBill}
-                alt=""
-                aria-hidden="true"
-                className="pointer-events-none absolute left-[4%] top-[43%] w-48 -rotate-[10deg] opacity-90 drop-shadow-xl"
-              />
-              <div className="relative z-10">
-                <h3 className="font-heading text-xl font-light uppercase tracking-wide text-navy sm:text-2xl">
-                  Chương trình sinh nhật
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
-                  Ethan luôn đồng hành và gửi lời chúc đến từng thành viên trong ngày đặc biệt của bạn. Và sẽ có những
-                  món quà đặc biệt bất ngờ dành cho bạn.
-                </p>
-              </div>
-              <div
-                className="relative z-20 mt-3 flex h-20 items-start justify-end gap-3 pr-2 sm:absolute sm:right-8 sm:top-[34%] sm:mt-0 sm:h-24 sm:gap-4 sm:pr-0"
-                aria-hidden="true"
-              >
-                {BIRTHDAY_BALLOONS.map((balloon) => (
-                  <span
-                    key={balloon.color}
-                    className="animate-balloon-float pointer-events-none opacity-80"
-                    style={{ animationDelay: balloon.delay }}
-                  >
-                    <Balloon color={balloon.color} size={balloon.size} rotate={balloon.rotate} />
-                  </span>
-                ))}
-              </div>
-              <div className="pointer-events-none relative z-10 mt-2 h-44 w-full overflow-hidden border border-navy/10 bg-surface-2 sm:absolute sm:bottom-6 sm:right-6 sm:mt-0 sm:h-[38%] sm:w-[42%]">
-                <Image
-                  src={birthdayCelebration}
-                  alt="Minh hoạ chương trình sinh nhật của Ethan"
-                  fill
-                  sizes="(min-width: 640px) 21vw, calc(100vw - 64px)"
-                  className="object-contain"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setBirthdayOpen(true)}
-                className="group/more relative z-20 mt-6 flex min-h-11 w-fit cursor-pointer items-center gap-2 border border-navy/15 px-4 py-2 text-sm font-semibold text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 sm:mt-auto"
-              >
-                Xem ai sinh nhật tháng này
-                <ArrowUpRight
-                  size={16}
-                  strokeWidth={2.5}
-                  className="transition-transform duration-300 group-hover/more:translate-x-1 group-hover/more:-translate-y-1"
-                  aria-hidden="true"
-                />
-              </button>
-            </BorderBeamPanel>
+            {recognitionPanel}
 
             {cultureArticle && (() => {
               const extraCount = Math.max(0, latestRecognitionCount - latestRecognitionNames.length);

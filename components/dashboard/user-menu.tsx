@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Camera } from 'lucide-react';
+import { Camera, X } from 'lucide-react';
 import type { Department, Tier } from '@/lib/roles';
 import { departmentLabel, tierLabel } from '@/lib/roles';
 import { updateOwnAvatarAction } from '@/app/dashboard/actions';
@@ -55,10 +55,12 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const avatarModalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function openMenu() {
@@ -84,6 +86,12 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       });
+  }
+
+  function openAvatarModal() {
+    setAvatarError(null);
+    setOpen(false);
+    setAvatarModalOpen(true);
   }
 
   // Panel portals to document.body — header dùng overflow-hidden để chứa
@@ -113,6 +121,18 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!avatarModalOpen) return;
+
+    avatarModalRef.current?.focus();
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !uploading) setAvatarModalOpen(false);
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [avatarModalOpen, uploading]);
+
   return (
     <div className="hidden sm:block">
       <button
@@ -135,6 +155,14 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
         <Avatar url={avatarUrl} alt={user.fullName} size={40} />
       </button>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleAvatarChange}
+      />
+
       {open &&
         coords &&
         createPortal(
@@ -149,20 +177,13 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
                 <Avatar url={avatarUrl} alt={user.fullName} size={56} />
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={openAvatarModal}
                   disabled={uploading}
-                  aria-label="Đổi ảnh đại diện"
+                  aria-label="Xem và chỉnh sửa ảnh đại diện"
                   className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full border border-white bg-navy text-white transition hover:bg-blue disabled:opacity-50"
                 >
                   <Camera size={13} strokeWidth={2.25} aria-hidden="true" />
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleAvatarChange}
-                />
               </div>
               <div className="min-w-0">
                 <p className="font-heading text-base font-medium text-navy">{user.fullName}</p>
@@ -191,6 +212,64 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
               <ThemeToggle />
             </div>
             <LogoutButton className="w-full border border-navy/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-navy transition hover:border-navy hover:bg-navy hover:text-white" />
+          </div>,
+          document.body
+        )}
+
+      {avatarModalOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[60] grid place-items-center bg-navy-deep/65 p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !uploading) setAvatarModalOpen(false);
+            }}
+          >
+            <div
+              ref={avatarModalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="avatar-modal-title"
+              tabIndex={-1}
+              className="relative w-full max-w-md border border-navy/10 bg-white p-6 text-ink shadow-[0_28px_70px_-24px_rgba(16,26,48,0.55)] focus:outline-none"
+            >
+              <button
+                type="button"
+                onClick={() => setAvatarModalOpen(false)}
+                disabled={uploading}
+                aria-label="Đóng cửa sổ ảnh đại diện"
+                className="absolute right-3 top-3 grid h-11 w-11 cursor-pointer place-items-center text-muted transition-colors hover:bg-surface-2 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+
+              <div className="pr-12">
+                <h2 id="avatar-modal-title" className="font-heading text-xl font-medium text-navy">
+                  Ảnh đại diện
+                </h2>
+                <p className="mt-1 text-sm text-muted">Xem trước ảnh vuông trước khi chỉnh sửa hoặc thay đổi.</p>
+              </div>
+
+              <div className="relative mt-5 aspect-square w-full overflow-hidden bg-surface-2">
+                <Image
+                  src={avatarUrl || avatarPlaceholder}
+                  alt={`Ảnh đại diện của ${user.fullName}`}
+                  fill
+                  sizes="(max-width: 640px) calc(100vw - 80px), 384px"
+                  className="object-cover"
+                />
+              </div>
+
+              {avatarError && <p className="mt-3 text-sm text-red-600" role="alert">{avatarError}</p>}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="mt-5 flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 bg-navy px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+              >
+                <Camera size={17} strokeWidth={2.25} aria-hidden="true" />
+                {uploading ? 'Đang tải ảnh…' : 'Chỉnh sửa / Thay đổi ảnh'}
+              </button>
+            </div>
           </div>,
           document.body
         )}

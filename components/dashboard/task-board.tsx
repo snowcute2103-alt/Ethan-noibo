@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { MoreVertical, TriangleAlert, ListChecks, CircleDot, CheckCircle2, ArrowLeft, Plus, X, StickyNote, Video, LayoutGrid, Rows3, Grid2x2 } from 'lucide-react';
+import { MoreVertical, TriangleAlert, ListChecks, CircleDot, CheckCircle2, Check, ArrowLeft, Plus, X, StickyNote, Video, LayoutGrid, Rows3, Grid2x2, Search } from 'lucide-react';
 import { useCheckboxConfetti } from '@/components/dashboard/checkbox-confetti';
 import DepartmentOverview from '@/components/dashboard/department-overview';
 import TaskCalendar from '@/components/dashboard/task-calendar';
@@ -38,6 +38,7 @@ import {
 const POLL_INTERVAL_MS = 150_000;
 
 type ViewMode = 'day' | 'week' | 'month';
+type TaskStatusFilter = 'all' | 'open' | 'done';
 
 interface DateRange {
   fromDate: string;
@@ -175,6 +176,9 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   const [board, setBoard] = useState<BoardData | null>(initialBoard);
   const [overview, setOverview] = useState<OverviewData | null>(initialOverview);
   const [error, setError] = useState<string | null>(null);
+  const [taskQuery, setTaskQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
+  const [statusPendingTaskIds, setStatusPendingTaskIds] = useState<Set<number>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   const [isAddingTask, setIsAddingTask] = useState(false);
@@ -183,16 +187,41 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   const [dayCategoryCounts, setDayCategoryCounts] = useState<MonthDayCategoryCount[]>([]);
 
   const didMount = useRef(false);
+  // Giữ trạng thái vừa bấm xuyên qua mọi lần đồng bộ nền. Đồng thời đánh số
+  // request để một response cũ không thể ghi đè dữ liệu mới hơn.
+  const optimisticStatusesRef = useRef<Map<number, TaskStatus>>(new Map());
+  const refreshBoardRequestRef = useRef(0);
   const range = useMemo(() => rangeFor(viewMode, anchorDate), [viewMode, anchorDate]);
 
   // Tab Media/Support lọc task theo nhóm của NGƯỜI PHỤ TRÁCH (member.categoryId
   // xếp ở sidebar), không theo category_id riêng của task — khớp với việc
   // "gom nhóm thành viên" quyết định task hiện ở tab nào.
-  const visibleTasks = useMemo(() => {
+  const categoryTasks = useMemo(() => {
     if (!board) return [];
     const memberCategoryById = new Map(board.team.members.map((m) => [m.userId, m.categoryId]));
     return board.tasks.filter((t) => t.assigneeUserId != null && memberCategoryById.get(t.assigneeUserId) === categoryId);
   }, [board, categoryId]);
+
+  const deferredTaskQuery = useDeferredValue(taskQuery.trim().toLocaleLowerCase('vi'));
+  const visibleTasks = useMemo(() => {
+    return categoryTasks.filter((task) => {
+      if (statusFilter === 'open' && task.status === 'done') return false;
+      if (statusFilter === 'done' && task.status !== 'done') return false;
+      if (!deferredTaskQuery) return true;
+      return [task.title, task.assigneeFullName, task.accountName, task.product, task.channel, task.note]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase('vi').includes(deferredTaskQuery));
+    });
+  }, [categoryTasks, deferredTaskQuery, statusFilter]);
+
+  const taskStatusCounts = useMemo(
+    () => ({
+      all: categoryTasks.length,
+      open: categoryTasks.filter((task) => task.status !== 'done').length,
+      done: categoryTasks.filter((task) => task.status === 'done').length,
+    }),
+    [categoryTasks]
+  );
 
   // Thêm task ngay trên tab nào thì chỉ gán được cho người đang ở đúng nhóm
   // đó — tránh tình huống vừa lưu xong task đã biến mất khỏi tab đang xem.
@@ -223,6 +252,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   // banner đỏ ra cho người dùng vì lần polling kế tiếp (150s sau) sẽ tự khỏi.
   // Chỉ hành động do người dùng chủ động bấm mới cần báo lỗi rõ ràng.
   async function refreshBoard(opts?: { silent?: boolean }) {
+    const requestId = ++refreshBoardRequestRef.current;
     if (activeTeamId == null) {
       // Trang tổng quan (không có team ban đầu) — không có đội nào để tải,
       // giữ board rỗng để OverviewPanel hiện ra (điều kiện render là !board).
@@ -231,10 +261,16 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     }
     try {
       const result = isBgd ? await getTeamBoardAsBgdAction(activeTeamId, range) : await getMyTeamBoardAction(range);
+      if (requestId !== refreshBoardRequestRef.current) return;
       if ('needsBgdOverview' in result) return;
-      setBoard({ ...result, range });
+      const tasks = result.tasks.map((task) => {
+        const optimisticStatus = optimisticStatusesRef.current.get(task.id);
+        return optimisticStatus == null ? task : { ...task, status: optimisticStatus };
+      });
+      setBoard({ ...result, tasks, range });
       setError(null);
     } catch (err) {
+      if (requestId !== refreshBoardRequestRef.current) return;
       if (opts?.silent) {
         console.error('refreshBoard (nền) lỗi:', err);
         return;
@@ -300,6 +336,53 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           void refreshOverview({ silent: true });
         })
         .catch((err) => setError(err instanceof Error ? err.message : 'Có lỗi xảy ra.'));
+    });
+  }
+
+  function updateTaskStatusOptimistically(task: Task, status: TaskStatus) {
+    if (!board || statusPendingTaskIds.has(task.id) || task.status === status) return;
+
+    const previousStatus = task.status;
+    setError(null);
+    optimisticStatusesRef.current.set(task.id, status);
+    setBoard((current) =>
+      current
+        ? { ...current, tasks: current.tasks.map((item) => (item.id === task.id ? { ...item, status } : item)) }
+        : current
+    );
+    setStatusPendingTaskIds((current) => new Set(current).add(task.id));
+
+    startTransition(() => {
+      updateTaskAction(board.team.id, task.id, { status })
+        .then(async () => {
+          // Lần tải sau khi server xác nhận sẽ hủy hiệu lực mọi response cũ.
+          // Vẫn ghép trạng thái lạc quan trong lúc tải để dấu tick không nháy.
+          await Promise.all([refreshBoard({ silent: true }), refreshOverview({ silent: true })]);
+          optimisticStatusesRef.current.delete(task.id);
+        })
+        .catch((err) => {
+          optimisticStatusesRef.current.delete(task.id);
+          // Không cho response đang bay về áp lại trạng thái lạc quan đã lỗi.
+          refreshBoardRequestRef.current += 1;
+          setBoard((current) =>
+            current
+              ? {
+                  ...current,
+                  tasks: current.tasks.map((item) =>
+                    item.id === task.id && item.status === status ? { ...item, status: previousStatus } : item
+                  ),
+                }
+              : current
+          );
+          setError(err instanceof Error ? err.message : 'Không thể lưu trạng thái task.');
+        })
+        .finally(() => {
+          setStatusPendingTaskIds((current) => {
+            const next = new Set(current);
+            next.delete(task.id);
+            return next;
+          });
+        });
     });
   }
 
@@ -416,6 +499,15 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             </div>
           </div>
 
+          <TaskFilterBar
+            query={taskQuery}
+            onQueryChange={setTaskQuery}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            counts={taskStatusCounts}
+            visibleCount={visibleTasks.length}
+          />
+
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="min-w-0">
               {boardView === 'table' ? (
@@ -433,7 +525,9 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   onBulkDuplicatePattern={(taskIds, pattern, assigneeUserIds) =>
                     runAction(() => bulkDuplicateTasksAction(board.team.id, taskIds, pattern, assigneeUserIds))
                   }
-                  onStatusChange={(task, status) => runAction(() => updateTaskAction(board.team.id, task.id, { status }))}
+                  onStatusChange={updateTaskStatusOptimistically}
+                  statusPendingTaskIds={statusPendingTaskIds}
+                  emptyMessage={taskQuery || statusFilter !== 'all' ? 'Không tìm thấy task phù hợp.' : 'Chưa có task nào trong khoảng thời gian này.'}
                   isAdding={isAddingTask}
                   assignableMembers={assignableMembers}
                   defaultDate={anchorDate}
@@ -446,7 +540,8 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   assignableMembers={assignableMembers}
                   defaultDate={anchorDate}
                   today={today}
-                  onStatusChange={(task, status) => runAction(() => updateTaskAction(board.team.id, task.id, { status }))}
+                  onStatusChange={updateTaskStatusOptimistically}
+                  statusPendingTaskIds={statusPendingTaskIds}
                   onCreate={(input) => runAction(() => createTaskAction(board.team.id, input))}
                   onDelete={(task) => runAction(() => deleteTaskAction(board.team.id, task.id))}
                 />
@@ -455,7 +550,9 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   tasks={visibleTasks}
                   today={today}
                   members={board.team.members}
-                  onStatusChange={(task, status) => runAction(() => updateTaskAction(board.team.id, task.id, { status }))}
+                  onStatusChange={updateTaskStatusOptimistically}
+                  statusPendingTaskIds={statusPendingTaskIds}
+                  emptyMessage={taskQuery || statusFilter !== 'all' ? 'Không tìm thấy task phù hợp.' : 'Chưa có task nào trong khoảng thời gian này.'}
                   onDelete={(task) => runAction(() => deleteTaskAction(board.team.id, task.id))}
                 />
               )}
@@ -502,7 +599,6 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
               <TeamRosterCard
                 team={board.team}
                 categories={board.categories}
-                activeCategoryId={categoryId}
                 isManager={board.isManager}
                 onAddMember={() => setAddingMember(true)}
                 onRemoveMember={(userId) => runAction(() => removeTeamMemberAction(board.team.id, userId))}
@@ -800,6 +896,77 @@ function OverviewPanel({
   );
 }
 
+function TaskFilterBar({
+  query,
+  onQueryChange,
+  statusFilter,
+  onStatusFilterChange,
+  counts,
+  visibleCount,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  statusFilter: TaskStatusFilter;
+  onStatusFilterChange: (value: TaskStatusFilter) => void;
+  counts: Record<TaskStatusFilter, number>;
+  visibleCount: number;
+}) {
+  const filters: { value: TaskStatusFilter; label: string }[] = [
+    { value: 'all', label: 'Tất cả' },
+    { value: 'open', label: 'Chưa xong' },
+    { value: 'done', label: 'Hoàn thành' },
+  ];
+
+  return (
+    <div className="mb-4 flex flex-col gap-3 border-y border-[var(--theme-border)] bg-[var(--surface)] py-3 sm:flex-row sm:items-center">
+      <label className="relative block min-w-0 flex-1 sm:max-w-md">
+        <span className="sr-only">Tìm task</span>
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Tìm chủ đề, thành viên, sản phẩm..."
+          className="h-11 w-full rounded-[10px] border border-[var(--theme-border)] bg-[var(--surface)] pl-10 pr-10 text-base text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-muted focus:border-blue focus:ring-2 focus:ring-blue/15"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => onQueryChange('')}
+            aria-label="Xoá nội dung tìm kiếm"
+            className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-[10px] text-muted transition-colors duration-150 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
+      </label>
+
+      <div className="flex min-w-0 gap-1 overflow-x-auto rounded-[10px] bg-surface-2 p-1" aria-label="Lọc trạng thái task">
+        {filters.map((filter) => (
+          <button
+            key={filter.value}
+            type="button"
+            aria-pressed={statusFilter === filter.value}
+            onClick={() => onStatusFilterChange(filter.value)}
+            className={`flex h-11 shrink-0 items-center gap-2 rounded-[8px] px-3 text-xs font-semibold transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue ${
+              statusFilter === filter.value ? 'bg-white text-navy shadow-sm' : 'text-muted hover:bg-white/70 hover:text-navy'
+            }`}
+          >
+            {filter.label}
+            <span className="font-variant-numeric-tabular rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold">
+              {counts[filter.value]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <p className="shrink-0 text-xs font-semibold text-muted" aria-live="polite">
+        Hiện {visibleCount} task
+      </p>
+    </div>
+  );
+}
+
 function TaskTable({
   tasks,
   visibleColumns,
@@ -811,6 +978,8 @@ function TaskTable({
   onBulkDuplicateDates,
   onBulkDuplicatePattern,
   onStatusChange,
+  statusPendingTaskIds,
+  emptyMessage,
   isAdding,
   assignableMembers,
   defaultDate,
@@ -827,6 +996,8 @@ function TaskTable({
   onBulkDuplicateDates: (taskIds: number[], dates: string[], assigneeUserIds: number[]) => void;
   onBulkDuplicatePattern: (taskIds: number[], pattern: BulkDuplicatePattern, assigneeUserIds: number[]) => void;
   onStatusChange: (task: Task, status: TaskStatus) => void;
+  statusPendingTaskIds: Set<number>;
+  emptyMessage: string;
   isAdding: boolean;
   assignableMembers: TeamMember[];
   defaultDate: string;
@@ -920,7 +1091,7 @@ function TaskTable({
             {tasks.length === 0 && !isAdding && (
               <tr>
                 <td colSpan={columns.length + 6} className="px-4 py-6 text-center text-muted">
-                  Chưa có task nào trong khoảng thời gian này.
+                  {emptyMessage}
                 </td>
               </tr>
             )}
@@ -996,18 +1167,27 @@ function TaskTable({
                   </td>
                 ))}
                 <td className="px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={task.status === 'done'}
-                    onChange={(e) => onStatusChange(task, e.target.checked ? 'done' : 'not_started')}
-                    onClick={(e) => {
-                      if (!e.currentTarget.checked) return;
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      fireConfetti(e.clientX || rect.left + rect.width / 2, e.clientY || rect.top + rect.height / 2);
+                  <button
+                    type="button"
+                    disabled={statusPendingTaskIds.has(task.id)}
+                    aria-pressed={task.status === 'done'}
+                    aria-busy={statusPendingTaskIds.has(task.id)}
+                    aria-label={task.status === 'done' ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
+                    onClick={(event) => {
+                      const nextStatus = task.status === 'done' ? 'not_started' : 'done';
+                      onStatusChange(task, nextStatus);
+                      if (nextStatus !== 'done') return;
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      fireConfetti(event.clientX || rect.left + rect.width / 2, event.clientY || rect.top + rect.height / 2);
                     }}
-                    aria-label={task.status === 'done' ? 'Hoàn thành' : 'Chưa hoàn thành'}
-                    className="h-4 w-4 cursor-pointer accent-[#2ECC85]"
-                  />
+                    className={`grid h-6 w-6 cursor-pointer place-items-center rounded-[5px] border transition-[background-color,border-color,transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
+                      task.status === 'done'
+                        ? 'border-[#20C978] bg-[#20C978] text-white shadow-[0_5px_12px_-7px_rgba(32,201,120,0.9)]'
+                        : 'border-navy/30 bg-white text-transparent hover:scale-105 hover:border-[#20C978]'
+                    } ${statusPendingTaskIds.has(task.id) ? 'cursor-wait opacity-80' : ''}`}
+                  >
+                    <Check size={16} strokeWidth={3} aria-hidden="true" />
+                  </button>
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right text-xs">
                   <TaskRowMenu onEdit={() => setEditingTaskId(task.id)} onDelete={() => onDelete(task)} />
@@ -1065,6 +1245,7 @@ function TaskKanban({
   defaultDate,
   today,
   onStatusChange,
+  statusPendingTaskIds,
   onCreate,
   onDelete,
 }: {
@@ -1073,6 +1254,7 @@ function TaskKanban({
   defaultDate: string;
   today: string;
   onStatusChange: (task: Task, status: TaskStatus) => void;
+  statusPendingTaskIds: Set<number>;
   onCreate: (input: TaskInput) => void;
   onDelete: (task: Task) => void;
 }) {
@@ -1084,7 +1266,7 @@ function TaskKanban({
     setDragOverStatus(null);
     const taskId = Number(e.dataTransfer.getData('text/plain'));
     const task = tasksById.get(taskId);
-    if (task && task.status !== status) onStatusChange(task, status);
+    if (task && !statusPendingTaskIds.has(task.id) && task.status !== status) onStatusChange(task, status);
   }
 
   return (
@@ -1111,7 +1293,13 @@ function TaskKanban({
             </div>
             <div className="flex flex-col gap-2">
               {colTasks.map((task) => (
-                <KanbanCard key={task.id} task={task} today={today} onDelete={onDelete} />
+                <KanbanCard
+                  key={task.id}
+                  task={task}
+                  today={today}
+                  pending={statusPendingTaskIds.has(task.id)}
+                  onDelete={onDelete}
+                />
               ))}
               {colTasks.length === 0 && <p className="px-1 py-2 text-xs text-muted">Không có task.</p>}
             </div>
@@ -1134,7 +1322,17 @@ function TaskKanban({
  *  menu "⋮" chỉ để xoá; sửa chi tiết chuyển qua Bảng (xem ghi chú ở
  *  TaskKanban). Đóng menu khi bấm ra ngoài, cùng khuôn mẫu với các menu
  *  dropdown khác trong file (TeamRosterCard, MemberPickerCell). */
-function KanbanCard({ task, today, onDelete }: { task: Task; today: string; onDelete: (task: Task) => void }) {
+function KanbanCard({
+  task,
+  today,
+  pending,
+  onDelete,
+}: {
+  task: Task;
+  today: string;
+  pending: boolean;
+  onDelete: (task: Task) => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -1166,12 +1364,15 @@ function KanbanCard({ task, today, onDelete }: { task: Task; today: string; onDe
   return (
     <div
       ref={cardRef}
-      draggable
+      draggable={!pending}
+      aria-busy={pending}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', String(task.id));
         e.dataTransfer.effectAllowed = 'move';
       }}
-      className="group cursor-grab rounded-[10px] border border-[#e8edf5] bg-white p-3 shadow-[0_6px_16px_-12px_rgba(16,26,48,0.35)] active:cursor-grabbing"
+      className={`group rounded-[10px] border border-[#e8edf5] bg-white p-3 shadow-[0_6px_16px_-12px_rgba(16,26,48,0.35)] transition-opacity duration-150 ${
+        pending ? 'cursor-wait opacity-75' : 'cursor-grab active:cursor-grabbing'
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-navy">{task.title}</p>
@@ -1259,6 +1460,10 @@ function KanbanQuickAdd({
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Bàn phím ảo/IME trên điện thoại có thể bắn 2 sự kiện Enter liên tiếp cho
+  // 1 lượt gõ (từ cuối cùng bị gõ lại rồi gửi thành task riêng) — khoá gửi
+  // trong 400ms sau lần gửi trước để chặn phát trùng, bất kể vì sao nó xảy ra.
+  const lastSubmitAtRef = useRef(0);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -1270,6 +1475,9 @@ function KanbanQuickAdd({
       setOpen(false);
       return;
     }
+    const now = Date.now();
+    if (now - lastSubmitAtRef.current < 400) return;
+    lastSubmitAtRef.current = now;
     onCreate({
       taskDate: defaultDate,
       assigneeUserId: assignableMembers[0]?.userId ?? null,
@@ -1301,7 +1509,10 @@ function KanbanQuickAdd({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
+          // Bỏ qua Enter khi bộ gõ tiếng Việt (IME) đang ghép dấu (isComposing)
+          // — nếu không, Enter để chốt âm/dấu cũng bị hiểu nhầm là gửi task,
+          // tạo 2 task từ 1 câu gõ dở.
+          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             submit();
           }
@@ -1350,18 +1561,22 @@ function TaskCardGrid({
   today,
   members,
   onStatusChange,
+  statusPendingTaskIds,
+  emptyMessage,
   onDelete,
 }: {
   tasks: Task[];
   today: string;
   members: TeamMember[];
   onStatusChange: (task: Task, status: TaskStatus) => void;
+  statusPendingTaskIds: Set<number>;
+  emptyMessage: string;
   onDelete: (task: Task) => void;
 }) {
   if (tasks.length === 0) {
     return (
       <div className="rounded-[16px] border-2 border-navy/15 bg-white p-10 text-center text-sm text-muted shadow-[0_16px_40px_-24px_rgba(16,26,48,0.35)]">
-        Chưa có task nào trong khoảng thời gian này.
+        {emptyMessage}
       </div>
     );
   }
@@ -1404,7 +1619,14 @@ function TaskCardGrid({
             </div>
             <div className="flex flex-col gap-3">
               {groupTasks.map((task) => (
-                <TaskCard key={task.id} task={task} today={today} onStatusChange={onStatusChange} onDelete={onDelete} />
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  today={today}
+                  pending={statusPendingTaskIds.has(task.id)}
+                  onStatusChange={onStatusChange}
+                  onDelete={onDelete}
+                />
               ))}
             </div>
           </div>
@@ -1422,11 +1644,13 @@ const STATUS_ORDER: TaskStatus[] = ['not_started', 'in_progress', 'done'];
 function TaskCard({
   task,
   today,
+  pending,
   onStatusChange,
   onDelete,
 }: {
   task: Task;
   today: string;
+  pending: boolean;
   onStatusChange: (task: Task, status: TaskStatus) => void;
   onDelete: (task: Task) => void;
 }) {
@@ -1453,6 +1677,7 @@ function TaskCard({
   const statusTextTone = task.status === 'done' ? 'text-emerald-600' : task.status === 'in_progress' ? 'text-blue' : 'text-muted';
 
   function cycleStatus() {
+    if (pending) return;
     const next = STATUS_ORDER[(STATUS_ORDER.indexOf(task.status) + 1) % STATUS_ORDER.length];
     onStatusChange(task, next);
   }
@@ -1474,9 +1699,13 @@ function TaskCard({
       <div className="flex items-start justify-between gap-2">
         <button
           type="button"
+          disabled={pending}
+          aria-busy={pending}
           onClick={cycleStatus}
           title="Bấm để đổi trạng thái"
-          className={`flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${statusTextTone}`}
+          className={`flex min-h-11 items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-[transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
+            pending ? 'cursor-wait opacity-70' : 'hover:-translate-y-0.5 active:translate-y-0'
+          } ${statusTextTone}`}
         >
           <span className={`h-2 w-2 rounded-full ${statusMeta.dot}`} aria-hidden="true" />
           {statusMeta.label}
@@ -1917,6 +2146,9 @@ function TaskRowEditor({
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? 'not_started');
   const titleInputRef = useRef<HTMLInputElement>(null);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
+  // Bàn phím ảo/IME trên điện thoại có thể bắn 2 sự kiện Enter liên tiếp cho
+  // 1 lượt gõ — khoá gửi trong 400ms sau lần gửi trước để chặn tạo trùng task.
+  const lastSaveAtRef = useRef(0);
 
   useEffect(() => {
     titleInputRef.current?.focus();
@@ -1930,6 +2162,9 @@ function TaskRowEditor({
       titleInputRef.current?.focus();
       return;
     }
+    const now = Date.now();
+    if (now - lastSaveAtRef.current < 400) return;
+    lastSaveAtRef.current = now;
     onSubmit({
       taskDate,
       assigneeUserId,
@@ -1986,7 +2221,7 @@ function TaskRowEditor({
           ref={titleInputRef}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSave()}
           placeholder="Chủ đề, đầu việc"
           className={cellInputClass}
         />
@@ -2050,7 +2285,6 @@ function MonthProgressCard({ done, total, monthLabel }: { done: number; total: n
 function TeamRosterCard({
   team,
   categories,
-  activeCategoryId,
   isManager,
   onAddMember,
   onRemoveMember,
@@ -2060,7 +2294,6 @@ function TeamRosterCard({
 }: {
   team: TeamWithRoster;
   categories: TeamTaskCategory[];
-  activeCategoryId: number | undefined;
   isManager: boolean;
   onAddMember: () => void;
   onRemoveMember: (userId: number) => void;
@@ -2087,8 +2320,6 @@ function TeamRosterCard({
     };
   }, [openMenuUserId]);
 
-  const activeCategory = categories.find((c) => c.id === activeCategoryId);
-  const shownMembers = team.members.filter((m) => m.categoryId === activeCategoryId);
   const unassignedMembers = team.members.filter((m) => m.categoryId === null);
 
   function renderMember(member: TeamMember) {
@@ -2189,17 +2420,26 @@ function TeamRosterCard({
 
   return (
     <div ref={cardRef} className="rounded-[16px] border border-[#e8edf5] bg-white p-4">
-      <p className="mb-3 font-heading text-xs font-bold uppercase tracking-wider text-muted">
-        Thành viên {activeCategory ? `· ${activeCategory.name}` : 'đội'}
-      </p>
-      <div className="flex flex-col gap-2">
-        {shownMembers.length === 0 && <p className="text-sm text-muted">Chưa có ai trong nhóm này.</p>}
-        {shownMembers.map(renderMember)}
-      </div>
+      <p className="mb-3 font-heading text-xs font-bold uppercase tracking-wider text-muted">Thành viên đội</p>
+
+      {categories.map((cat) => {
+        const catMembers = team.members.filter((m) => m.categoryId === cat.id);
+        return (
+          <div key={cat.id} className="mb-4">
+            <p className="mb-2 font-heading text-xs font-bold uppercase tracking-wider" style={{ color: categoryColor(categories, cat.id) }}>
+              {cat.name}
+            </p>
+            <div className="flex flex-col gap-2">
+              {catMembers.length === 0 && <p className="text-sm text-muted">Chưa có ai trong nhóm này.</p>}
+              {catMembers.map(renderMember)}
+            </div>
+          </div>
+        );
+      })}
 
       {unassignedMembers.length > 0 && (
         <>
-          <p className="mb-2 mt-4 font-heading text-xs font-bold uppercase tracking-wider text-muted">Chưa phân nhóm</p>
+          <p className="mb-2 font-heading text-xs font-bold uppercase tracking-wider text-muted">Chưa phân nhóm</p>
           <div className="flex flex-col gap-2">{unassignedMembers.map(renderMember)}</div>
         </>
       )}
