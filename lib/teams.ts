@@ -167,10 +167,11 @@ export async function listUsersOutsideTeamsByDepartment(yearMonth: string): Prom
   const { from, to } = monthRange(yearMonth);
   const rows = await sql.query(
     `SELECT u.id AS user_id, u.full_name, u.avatar_url, u.department,
-            count(t.*) FILTER (WHERE t.status = 'done' AND t.task_date >= $1 AND t.task_date < $2)::int AS done,
-            count(t.*) FILTER (WHERE t.task_date >= $1 AND t.task_date < $2)::int AS total
+            count(t.*) FILTER (WHERE t.status = 'done')::int AS done,
+            count(t.*)::int AS total
      FROM users u
      LEFT JOIN tasks t ON t.owner_user_id = u.id
+       AND t.task_date >= $1 AND t.task_date < $2
      WHERE u.is_active = true AND u.department != 'bgd'
        AND NOT EXISTS (SELECT 1 FROM team_members tm WHERE tm.user_id = u.id)
      GROUP BY u.id, u.department

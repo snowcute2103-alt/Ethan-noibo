@@ -1,7 +1,7 @@
 import 'server-only';
 import { sql } from './db';
 import { TASK_COLUMN_KEYS } from './task-columns';
-import { monthRange } from './date';
+import { monthRange, previousYearMonth } from './date';
 
 export type TaskStatus = 'not_started' | 'in_progress' | 'done';
 export type TaskPriority = 'low' | 'normal' | 'high';
@@ -42,6 +42,7 @@ export interface Task {
   createdBy: number | null;
   createdByFullName: string | null;
   createdByAvatarUrl: string | null;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -104,14 +105,23 @@ export interface PersonalTaskDetail {
   history: PersonalTaskHistoryEntry[];
 }
 
-const TASK_SELECT = `
+const TASK_SELECT_CORE = `
   t.id, t.team_id, t.owner_user_id, t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.assignee_user_id,
   u.full_name AS assignee_full_name, u.avatar_url AS assignee_avatar_url, t.account_name, t.title, t.channel, t.video_count,
   t.product, t.option_tag, t.reference_link, t.note, t.status, t.duplicated_from_task_id,
   t.description, t.image_url, t.priority, t.original_task_date::text AS original_task_date, t.rolled_over_at,
-  t.created_by, cb.full_name AS created_by_full_name, cb.avatar_url AS created_by_avatar_url,
-  t.created_at, t.updated_at
+  t.created_by, cb.full_name AS created_by_full_name, cb.avatar_url AS created_by_avatar_url
 `;
+
+/** Task đội không có comment cá nhân: trả 0 theo contract mà không chạy một
+ * correlated subquery vô ích cho từng dòng task. */
+const TEAM_TASK_SELECT = `${TASK_SELECT_CORE}, 0::int AS comment_count, t.created_at, t.updated_at`;
+
+/** Personal card cần badge số bình luận; index
+ * personal_task_comments(task_id, created_at) hỗ trợ probe theo từng task. */
+const PERSONAL_TASK_SELECT = `${TASK_SELECT_CORE},
+  (SELECT count(*)::int FROM personal_task_comments pc WHERE pc.task_id = t.id) AS comment_count,
+  t.created_at, t.updated_at`;
 
 // Join dùng chung ở mọi query task (đội KD lẫn cá nhân) — cb (creator) cho biết
 // AI thực sự tạo dòng task này, khác owner_user_id/assignee_user_id. Task cá
@@ -149,6 +159,7 @@ function mapTaskRow(row: any): Task {
     createdBy: row.created_by,
     createdByFullName: row.created_by_full_name,
     createdByAvatarUrl: row.created_by_avatar_url,
+    commentCount: row.comment_count ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -174,7 +185,7 @@ export async function listTasksForTeam(teamId: number, filter: ListTasksFilter):
   }
 
   const rows = await sql.query(
-    `SELECT ${TASK_SELECT}
+    `SELECT ${TEAM_TASK_SELECT}
      FROM tasks t ${TASK_JOINS}
      WHERE t.team_id = $1 AND t.task_date BETWEEN $2 AND $3 ${categoryClause}
      ORDER BY t.task_date ASC, t.id ASC`,
@@ -196,7 +207,7 @@ export async function createTask(teamId: number, input: TaskInput, createdBy: nu
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *
      )
-     SELECT ${TASK_SELECT} FROM ins t ${TASK_JOINS}`,
+     SELECT ${TEAM_TASK_SELECT} FROM ins t ${TASK_JOINS}`,
     [
       teamId,
       input.categoryId ?? null,
@@ -220,7 +231,7 @@ export async function createTask(teamId: number, input: TaskInput, createdBy: nu
 
 export async function getTaskById(taskId: number, teamId: number): Promise<Task | null> {
   const rows = await sql.query(
-    `SELECT ${TASK_SELECT} FROM tasks t ${TASK_JOINS}
+    `SELECT ${TEAM_TASK_SELECT} FROM tasks t ${TASK_JOINS}
      WHERE t.id = $1 AND t.team_id = $2`,
     [taskId, teamId]
   );
@@ -267,7 +278,7 @@ export async function updateTask(taskId: number, teamId: number, patch: TaskPatc
        WHERE id = $${params.length - 1} AND team_id = $${params.length}
        RETURNING *
      )
-     SELECT ${TASK_SELECT} FROM upd t ${TASK_JOINS}`,
+     SELECT ${TEAM_TASK_SELECT} FROM upd t ${TASK_JOINS}`,
     params
   );
   if (!rows[0]) throw new Error('Không tìm thấy task.');
@@ -311,7 +322,7 @@ export async function duplicateTask(
        FROM src
        RETURNING *
      )
-     SELECT ${TASK_SELECT} FROM ins t ${TASK_JOINS}`,
+     SELECT ${TEAM_TASK_SELECT} FROM ins t ${TASK_JOINS}`,
     [taskId, teamId, toDate, createdBy, assigneeUserId ?? null, overrideAssignee]
   );
   if (!rows[0]) throw new Error('Không tìm thấy task gốc.');
@@ -323,22 +334,6 @@ const MAX_BULK_DUPLICATE_OCCURRENCES = 60;
 export interface BulkDuplicatePattern {
   frequency: 'daily' | 'weekly' | 'monthly';
   occurrences: number;
-}
-
-function addInterval(dateStr: string, frequency: BulkDuplicatePattern['frequency'], times: number): string {
-  const date = new Date(`${dateStr}T00:00:00Z`);
-  if (frequency === 'daily') date.setUTCDate(date.getUTCDate() + times);
-  else if (frequency === 'weekly') date.setUTCDate(date.getUTCDate() + times * 7);
-  else date.setUTCMonth(date.getUTCMonth() + times);
-  return date.toISOString().slice(0, 10);
-}
-
-/** Danh sách người phụ trách rỗng => giữ nguyên người phụ trách của task gốc
- *  cho mỗi bản nhân bản; có chọn thì mỗi người trong danh sách ra 1 dòng
- *  riêng cho cùng 1 ngày đích (tích ngày × người). */
-function resolveAssigneeTargets(assigneeUserIds: number[]): (number | undefined)[] {
-  const unique = [...new Set(assigneeUserIds)];
-  return unique.length > 0 ? unique : [undefined];
 }
 
 /** Nhân bản nhiều task đã tick chọn theo chu kỳ lặp (tần suất + số lần) —
@@ -357,28 +352,57 @@ export async function bulkDuplicateTasks(
   }
   const uniqueTaskIds = [...new Set(taskIds)];
   if (uniqueTaskIds.length < 1) throw new Error('Chọn ít nhất 1 task.');
-  const targets = resolveAssigneeTargets(assigneeUserIds);
-  if (uniqueTaskIds.length * pattern.occurrences * targets.length > MAX_BULK_DUPLICATE_OCCURRENCES) {
+  const targets = [...new Set(assigneeUserIds)];
+  const targetCount = Math.max(1, targets.length);
+  if (uniqueTaskIds.length * pattern.occurrences * targetCount > MAX_BULK_DUPLICATE_OCCURRENCES) {
     throw new Error(`Số bản nhân bản (task × số lần lặp × số người) phải tối đa ${MAX_BULK_DUPLICATE_OCCURRENCES}.`);
   }
 
-  // Đọc song song task gốc của từng taskId (chỉ để lấy taskDate làm mốc lặp),
-  // rồi bắn toàn bộ lệnh nhân bản song song thay vì await tuần tự từng dòng —
-  // mỗi duplicateTask giờ là 1 round-trip độc lập nên gộp lại rất an toàn,
-  // tránh phải chờ tới hàng chục round-trip nối đuôi nhau như trước.
-  const sources = await Promise.all(uniqueTaskIds.map((taskId) => getTaskById(taskId, teamId)));
-  const jobs: Promise<Task>[] = [];
-  sources.forEach((source, index) => {
-    if (!source) throw new Error('Không tìm thấy task gốc.');
-    const taskId = uniqueTaskIds[index];
-    for (let i = 1; i <= pattern.occurrences; i += 1) {
-      const toDate = addInterval(source.taskDate, pattern.frequency, i);
-      for (const assigneeUserId of targets) {
-        jobs.push(duplicateTask(taskId, teamId, toDate, createdBy, assigneeUserId));
-      }
-    }
-  });
-  return Promise.all(jobs);
+  // Một statement tạo toàn bộ tích task × lần lặp × người phụ trách. CTE
+  // `valid` chặn INSERT hoàn toàn nếu chỉ một task gốc không thuộc đội, nên
+  // không thể sinh dữ liệu một phần rồi mới phát hiện lỗi ở application.
+  const rows = await sql.query(
+    `/* write */ WITH requested AS (
+       SELECT id, ord FROM unnest($2::int[]) WITH ORDINALITY AS r(id, ord)
+     ), src AS (
+       SELECT t.*, r.ord AS source_ord
+       FROM requested r JOIN tasks t ON t.id = r.id AND t.team_id = $1
+     ), valid AS (
+       SELECT count(*) = cardinality($2::int[]) AS ok FROM src
+     ), occurrences AS (
+       SELECT n FROM generate_series(1, $4::int) AS n
+     ), targets AS (
+       SELECT user_id, true AS override_assignee, ord
+       FROM unnest($5::int[]) WITH ORDINALITY AS a(user_id, ord)
+       UNION ALL
+       SELECT NULL::int, false, 1::bigint WHERE cardinality($5::int[]) = 0
+     ), ins AS (
+       INSERT INTO tasks
+         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel,
+          video_count, product, option_tag, reference_link, note, status, duplicated_from_task_id, created_by)
+       SELECT src.team_id, src.category_id,
+              CASE $3::text
+                WHEN 'daily' THEN src.task_date + occurrences.n
+                WHEN 'weekly' THEN src.task_date + occurrences.n * 7
+                ELSE (
+                  date_trunc('month', src.task_date)
+                  + make_interval(months => occurrences.n)
+                  + make_interval(days => extract(day FROM src.task_date)::int - 1)
+                )::date
+              END,
+              CASE WHEN targets.override_assignee THEN targets.user_id ELSE src.assignee_user_id END,
+              src.account_name, src.title, src.channel, src.video_count, src.product, src.option_tag,
+              src.reference_link, src.note, 'not_started', src.id, $6::int
+       FROM src CROSS JOIN occurrences CROSS JOIN targets CROSS JOIN valid
+       WHERE valid.ok
+       RETURNING *
+     )
+     SELECT ${TEAM_TASK_SELECT} FROM ins t ${TASK_JOINS} ORDER BY t.id`,
+    [teamId, uniqueTaskIds, pattern.frequency, pattern.occurrences, targets, createdBy]
+  );
+  const expectedCount = uniqueTaskIds.length * pattern.occurrences * targetCount;
+  if (rows.length !== expectedCount) throw new Error('Không tìm thấy task gốc.');
+  return rows.map(mapTaskRow);
 }
 
 /** Nhân bản nhiều task đã tick chọn sang nhiều ngày chọn tự do trên lịch
@@ -396,22 +420,44 @@ export async function duplicateTasksToDates(
   const uniqueDates = [...new Set(dates)];
   if (uniqueTaskIds.length < 1) throw new Error('Chọn ít nhất 1 task.');
   if (uniqueDates.length < 1) throw new Error('Chọn ít nhất 1 ngày đích.');
-  const targets = resolveAssigneeTargets(assigneeUserIds);
-  if (uniqueTaskIds.length * uniqueDates.length * targets.length > MAX_BULK_DUPLICATE_OCCURRENCES) {
+  const targets = [...new Set(assigneeUserIds)];
+  const targetCount = Math.max(1, targets.length);
+  if (uniqueTaskIds.length * uniqueDates.length * targetCount > MAX_BULK_DUPLICATE_OCCURRENCES) {
     throw new Error(`Số bản nhân bản (task × ngày × người) phải tối đa ${MAX_BULK_DUPLICATE_OCCURRENCES}.`);
   }
-  // Mỗi duplicateTask giờ tự đọc task gốc + insert trong 1 round-trip, nên
-  // toàn bộ tổ hợp (task × ngày × người) chạy song song được, không cần chờ
-  // tuần tự như trước.
-  const jobs: Promise<Task>[] = [];
-  for (const taskId of uniqueTaskIds) {
-    for (const toDate of uniqueDates) {
-      for (const assigneeUserId of targets) {
-        jobs.push(duplicateTask(taskId, teamId, toDate, createdBy, assigneeUserId));
-      }
-    }
-  }
-  return Promise.all(jobs);
+  const rows = await sql.query(
+    `/* write */ WITH requested AS (
+       SELECT id, ord FROM unnest($2::int[]) WITH ORDINALITY AS r(id, ord)
+     ), src AS (
+       SELECT t.*, r.ord AS source_ord
+       FROM requested r JOIN tasks t ON t.id = r.id AND t.team_id = $1
+     ), valid AS (
+       SELECT count(*) = cardinality($2::int[]) AS ok FROM src
+     ), dates AS (
+       SELECT task_date, ord FROM unnest($3::date[]) WITH ORDINALITY AS d(task_date, ord)
+     ), targets AS (
+       SELECT user_id, true AS override_assignee, ord
+       FROM unnest($4::int[]) WITH ORDINALITY AS a(user_id, ord)
+       UNION ALL
+       SELECT NULL::int, false, 1::bigint WHERE cardinality($4::int[]) = 0
+     ), ins AS (
+       INSERT INTO tasks
+         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel,
+          video_count, product, option_tag, reference_link, note, status, duplicated_from_task_id, created_by)
+       SELECT src.team_id, src.category_id, dates.task_date,
+              CASE WHEN targets.override_assignee THEN targets.user_id ELSE src.assignee_user_id END,
+              src.account_name, src.title, src.channel, src.video_count, src.product, src.option_tag,
+              src.reference_link, src.note, 'not_started', src.id, $5::int
+       FROM src CROSS JOIN dates CROSS JOIN targets CROSS JOIN valid
+       WHERE valid.ok
+       RETURNING *
+     )
+     SELECT ${TEAM_TASK_SELECT} FROM ins t ${TASK_JOINS} ORDER BY t.id`,
+    [teamId, uniqueTaskIds, uniqueDates, targets, createdBy]
+  );
+  const expectedCount = uniqueTaskIds.length * uniqueDates.length * targetCount;
+  if (rows.length !== expectedCount) throw new Error('Không tìm thấy task gốc.');
+  return rows.map(mapTaskRow);
 }
 
 export async function getMonthProgress(teamId: number, yearMonth: string): Promise<{ done: number; total: number }> {
@@ -436,7 +482,10 @@ export interface MonthDayCategoryCount {
  *  "Media: 5, Support: 3") ngay trên từng ô ngày. categoryId null nghĩa là
  *  task của người chưa được xếp vào nhóm nào. */
 export async function getMonthTaskCategoryCounts(teamId: number, yearMonth: string): Promise<MonthDayCategoryCount[]> {
-  const { from, to } = monthRange(yearMonth);
+  // Lịch mini hiện liền tháng đang chọn + tháng liền trước (xem TaskCalendar)
+  // — gộp khoảng ngày của cả 2 tháng trong 1 câu truy vấn thay vì gọi 2 lần.
+  const { from } = monthRange(previousYearMonth(yearMonth));
+  const { to } = monthRange(yearMonth);
   const rows = await sql.query(
     `SELECT t.task_date::text AS date, tm.category_id AS category_id, count(*)::int AS count
      FROM tasks t JOIN team_members tm ON tm.user_id = t.assignee_user_id AND tm.team_id = t.team_id
@@ -456,15 +505,19 @@ export interface DailyAssigneeCount {
   done: number;
 }
 
-export async function getDailyAssigneeBreakdown(teamId: number, fromDate: string, toDate: string): Promise<DailyAssigneeCount[]> {
+export async function getDailyAssigneeBreakdown(teamId: number, yearMonth: string): Promise<DailyAssigneeCount[]> {
+  // Biểu đồ cuối trang giờ hiện liền tháng đang chọn + tháng liền trước (xem
+  // MonthlyDailyChart) — gộp khoảng ngày của cả 2 tháng trong 1 câu truy vấn.
+  const { from } = monthRange(previousYearMonth(yearMonth));
+  const { to } = monthRange(yearMonth);
   const rows = await sql.query(
     `SELECT t.task_date::text AS date, t.assignee_user_id, u.full_name, count(*)::int AS count,
             count(*) FILTER (WHERE t.status = 'done')::int AS done
      FROM tasks t LEFT JOIN users u ON u.id = t.assignee_user_id
-     WHERE t.team_id = $1 AND t.task_date BETWEEN $2 AND $3
+     WHERE t.team_id = $1 AND t.task_date >= $2 AND t.task_date < $3
      GROUP BY t.task_date, t.assignee_user_id, u.full_name
      ORDER BY t.task_date ASC`,
-    [teamId, fromDate, toDate]
+    [teamId, from, to]
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return rows.map((row: any) => ({
@@ -537,7 +590,7 @@ export interface ListTasksOwnerFilter {
  *  owner_user_id, không có category/roster như task đội KD. */
 export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOwnerFilter): Promise<Task[]> {
   const rows = await sql.query(
-    `SELECT ${TASK_SELECT}
+    `SELECT ${PERSONAL_TASK_SELECT}
      FROM tasks t ${TASK_JOINS}
      WHERE t.owner_user_id = $1 AND t.task_date BETWEEN $2 AND $3
      ORDER BY
@@ -565,7 +618,7 @@ export async function createPersonalTask(ownerUserId: number, input: PersonalTas
        SELECT id, $8, 'created', jsonb_build_object('title', title, 'taskDate', task_date::text, 'dueDate', due_date::text, 'priority', priority)
        FROM ins
      )
-     SELECT ${TASK_SELECT} FROM ins t ${TASK_JOINS}`,
+     SELECT ${PERSONAL_TASK_SELECT} FROM ins t ${TASK_JOINS}`,
     [
       ownerUserId,
       input.taskDate,
@@ -581,9 +634,61 @@ export async function createPersonalTask(ownerUserId: number, input: PersonalTas
   return mapTaskRow(rows[0]);
 }
 
+/** Tạo cả chuỗi task lặp trong một statement. Payload đã được validate ở
+ * Server Action; DAL vẫn giới hạn số dòng để một caller nội bộ không thể vô
+ * tình tạo batch quá lớn. History và audit BGĐ cũng được ghi set-based trong
+ * cùng transaction ngầm của statement, nên không có trạng thái tạo task mà
+ * thiếu nhật ký tương ứng. */
+export async function createPersonalTasks(
+  ownerUserId: number,
+  inputs: PersonalTaskInput[],
+  createdBy: number
+): Promise<Task[]> {
+  if (inputs.length < 1 || inputs.length > 52) {
+    throw new Error('Số task tạo cùng lúc phải từ 1 đến 52.');
+  }
+  const payload = inputs.map((input, index) => ({
+    ordinal: index,
+    task_date: input.taskDate,
+    due_date: input.dueDate ?? null,
+    title: input.title,
+    description: input.description ?? null,
+    priority: input.priority ?? 'normal',
+    status: input.status ?? 'not_started',
+  }));
+  const rows = await sql.query(
+    `/* write */ WITH payload AS (
+       SELECT * FROM jsonb_to_recordset($2::jsonb) AS p(
+         ordinal int, task_date date, due_date date, title text, description text, priority text, status text
+       )
+     ), ins AS (
+       INSERT INTO tasks (owner_user_id, task_date, due_date, title, description, priority, status, created_by)
+       SELECT $1, task_date, due_date, title, description, priority, status, $3
+       FROM payload ORDER BY ordinal
+       RETURNING *
+     ), history AS (
+       INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
+       SELECT id, $3, 'created', jsonb_build_object(
+         'title', title,
+         'taskDate', task_date::text,
+         'dueDate', due_date::text,
+         'priority', priority
+       ) FROM ins
+     ), audit AS (
+       INSERT INTO admin_audit_log (actor_user_id, action, target_user_id, detail)
+       SELECT $3, 'personal_task.create', $1, jsonb_build_object('docId', id::text)
+       FROM ins WHERE $3::int <> $1::int
+     )
+     SELECT ${PERSONAL_TASK_SELECT} FROM ins t ${TASK_JOINS} ORDER BY t.id`,
+    [ownerUserId, JSON.stringify(payload), createdBy]
+  );
+  if (rows.length !== inputs.length) throw new Error('Không tạo đủ task.');
+  return rows.map(mapTaskRow);
+}
+
 export async function getPersonalTaskById(taskId: number, ownerUserId: number): Promise<Task | null> {
   const rows = await sql.query(
-    `SELECT ${TASK_SELECT} FROM tasks t ${TASK_JOINS}
+    `SELECT ${PERSONAL_TASK_SELECT} FROM tasks t ${TASK_JOINS}
      WHERE t.id = $1 AND t.owner_user_id = $2`,
     [taskId, ownerUserId]
   );
@@ -659,7 +764,7 @@ export async function updatePersonalTask(
          SELECT id, $${actorParam}, 'updated', ${changes} FROM upd
          WHERE (${changes}) != '{}'::jsonb
        )
-       SELECT ${TASK_SELECT} FROM upd t ${TASK_JOINS}`,
+       SELECT ${PERSONAL_TASK_SELECT} FROM upd t ${TASK_JOINS}`,
       params
     );
     if (!rows[0]) throw new Error('Không tìm thấy task sau khi cập nhật.');
@@ -699,7 +804,7 @@ export async function duplicatePersonalTask(
        SELECT id, $4::int, 'created', jsonb_build_object('duplicatedFromTaskId', $1, 'taskDate', task_date::text)
        FROM ins
      )
-     SELECT ${TASK_SELECT} FROM ins t ${TASK_JOINS}`,
+     SELECT ${PERSONAL_TASK_SELECT} FROM ins t ${TASK_JOINS}`,
     [taskId, ownerUserId, toDate, createdBy]
   );
   if (!rows[0]) throw new Error('Không tìm thấy task gốc.');
@@ -726,7 +831,7 @@ export async function setPersonalTaskImageUrl(
          'imageUrl', jsonb_build_object('from', old_image_url, 'to', image_url)
        ) FROM upd WHERE old_image_url IS DISTINCT FROM image_url
      )
-     SELECT ${TASK_SELECT} FROM upd t ${TASK_JOINS}`,
+     SELECT ${PERSONAL_TASK_SELECT} FROM upd t ${TASK_JOINS}`,
     [taskId, ownerUserId, imageUrl, actorUserId]
   );
   if (!rows[0]) throw new Error('Không tìm thấy task.');
@@ -858,7 +963,10 @@ export async function getPersonalMonthProgress(ownerUserId: number, yearMonth: s
  *  để tái dùng nguyên component TaskCalendar, nhưng categoryId luôn null vì
  *  task cá nhân không có khái niệm nhóm/category. */
 export async function getPersonalMonthDayCounts(ownerUserId: number, yearMonth: string): Promise<MonthDayCategoryCount[]> {
-  const { from, to } = monthRange(yearMonth);
+  // Lịch mini hiện liền tháng đang chọn + tháng liền trước (xem TaskCalendar)
+  // — gộp khoảng ngày của cả 2 tháng trong 1 câu truy vấn thay vì gọi 2 lần.
+  const { from } = monthRange(previousYearMonth(yearMonth));
+  const { to } = monthRange(yearMonth);
   const rows = await sql.query(
     `SELECT task_date::text AS date, count(*)::int AS count
      FROM tasks WHERE owner_user_id = $1 AND task_date >= $2 AND task_date < $3

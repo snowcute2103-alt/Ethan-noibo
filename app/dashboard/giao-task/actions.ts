@@ -2,7 +2,6 @@
 
 import { put, del } from '@vercel/blob';
 import { getSession } from '@/lib/auth';
-import { todayIso } from '@/lib/date';
 import { findUserById } from '@/lib/users';
 import { logAdminAction } from '@/lib/audit';
 import {
@@ -40,6 +39,7 @@ import {
   getAllTeamsMonthProgress,
   listTasksForOwner,
   createPersonalTask,
+  createPersonalTasks,
   getPersonalTaskById,
   updatePersonalTask,
   deletePersonalTask,
@@ -49,7 +49,6 @@ import {
   getPersonalTaskDetail,
   addPersonalTaskComment,
   setPersonalTaskImageUrl,
-  rolloverOverduePersonalTasks,
   hasPersonalTasks,
   type Task,
   type TaskInput,
@@ -123,80 +122,111 @@ async function requirePersonalTaskContext(ownerUserId: number): Promise<{ sessio
   return { session };
 }
 
-export interface MyTeamBoard {
-  team: TeamWithRoster;
-  categories: TeamTaskCategory[];
-  tasks: Task[];
-  isManager: boolean;
-  monthProgress: { done: number; total: number };
-  chart: DailyAssigneeCount[];
-  products: string[];
-  needsBgdOverview?: false;
-}
-
 export interface NeedsBgdOverview {
   needsBgdOverview: true;
 }
 
-/** Thành viên/quản lý xem đúng đội của mình; BGĐ chưa gắn đội nào thì báo
- *  cho UI tự chuyển sang view gộp thay vì throw. */
-export async function getMyTeamBoardAction(
+/** Phần dữ liệu đổi theo range/category — không có team/categories vì roster
+ * và danh sách nhóm gần như không đổi giữa 2 lần đồng bộ (poll 150s, đổi
+ * range/ngày). Dùng cho refresh định kỳ, xem getTeamRosterAction cho phần
+ * roster/category riêng. */
+export interface TeamBoardTasks {
+  tasks: Task[];
+  monthProgress: { done: number; total: number };
+  chart: DailyAssigneeCount[];
+  products: string[];
+  dayCategoryCounts: MonthDayCategoryCount[];
+  needsBgdOverview?: false;
+}
+
+/** `calendarYearMonth` tách khỏi `range` — lịch mini/biểu đồ/tiến độ tháng
+ *  giờ hiển thị đúng tháng đang XEM trên lịch (chỉ đổi khi bấm ‹/›), có thể
+ *  khác tháng của `range` (ngày đang chọn để xem task, đổi khi bấm 1 ngày
+ *  bất kỳ) — xem TaskCalendar/task-board.tsx. */
+async function loadTeamBoardTasks(
+  teamId: number,
   range: DateRange,
+  calendarYearMonth: string,
   categoryId?: number | null
-): Promise<MyTeamBoard | NeedsBgdOverview> {
+): Promise<TeamBoardTasks> {
+  const yearMonth = calendarYearMonth;
+  const [tasks, monthProgress, chart, products, dayCategoryCounts] = await Promise.all([
+    listTasksForTeam(teamId, { fromDate: range.fromDate, toDate: range.toDate, categoryId: categoryId ?? undefined }),
+    getMonthProgress(teamId, yearMonth),
+    // Biểu đồ luôn theo cả tháng chứa range đang xem — không theo đúng range
+    // (ngày lẻ) — vì "1 ngày" trên bảng vẫn cần "1 tháng" trên biểu đồ cuối
+    // bảng (xem AssigneeBarChart ở task-board.tsx).
+    getDailyAssigneeBreakdown(teamId, yearMonth),
+    getDistinctProductsForTeam(teamId),
+    getMonthTaskCategoryCounts(teamId, yearMonth),
+  ]);
+  return { tasks, monthProgress, chart, products, dayCategoryCounts };
+}
+
+/** Thành viên/quản lý đồng bộ lại đúng đội của mình; BGĐ chưa gắn đội nào thì
+ *  báo cho UI tự chuyển sang view gộp thay vì throw. */
+export async function getMyTeamBoardTasksAction(
+  range: DateRange,
+  calendarYearMonth: string,
+  categoryId?: number | null
+): Promise<TeamBoardTasks | NeedsBgdOverview> {
   const session = await requireSession();
   assertValidRange(range);
+  assertValidYearMonth(calendarYearMonth);
   const teamId = await findTeamIdByUserId(session.userId);
 
   if (!teamId) {
     if (session.tier === 'full') return { needsBgdOverview: true };
     throw new Error('Bạn chưa thuộc đội nào.');
   }
+  return loadTeamBoardTasks(teamId, range, calendarYearMonth, categoryId);
+}
 
-  // team không phụ thuộc các query còn lại (chỉ cần teamId) — gộp chung 1
-  // Promise.all thay vì await riêng trước rồi mới chạy song song phần sau,
-  // tránh round-trip của team chặn cả chuỗi tải trang.
-  const [team, categories, tasks, isManager, monthProgress, chart, products] = await Promise.all([
-    getTeamWithRoster(teamId),
-    listTeamCategories(teamId),
-    listTasksForTeam(teamId, { fromDate: range.fromDate, toDate: range.toDate, categoryId: categoryId ?? undefined }),
-    isTeamManager(teamId, session.userId),
-    getMonthProgress(teamId, range.fromDate.slice(0, 7)),
-    getDailyAssigneeBreakdown(teamId, range.fromDate, range.toDate),
-    getDistinctProductsForTeam(teamId),
-  ]);
+export interface TeamRosterAndCategories {
+  team: TeamWithRoster;
+  categories: TeamTaskCategory[];
+  isManager: boolean;
+}
+
+/** Roster + danh sách nhóm của 1 đội — chỉ cần đồng bộ lại sau thao tác
+ *  thêm/xoá thành viên, đổi vai trò/nhóm hoặc CRUD category, không phải mỗi
+ *  lần poll board. */
+export async function getTeamRosterAction(explicitTeamId: number): Promise<TeamRosterAndCategories> {
+  const { userId, teamId, isBgd } = await requireTeamContext(explicitTeamId);
+  const [team, categories] = await Promise.all([getTeamWithRoster(teamId), listTeamCategories(teamId)]);
   if (!team) throw new Error('Không tìm thấy đội.');
-
-  return { team, categories, tasks, isManager, monthProgress, chart, products };
+  const isManager = isBgd || team.members.some((member) => member.userId === userId && member.role === 'manager');
+  return { team, categories, isManager };
 }
 
 export interface AllTeamsOverview {
   teams: TeamSummary[];
   monthProgress: TeamMonthProgress[];
+  departments: DepartmentGroup[];
 }
 
 export async function getAllTeamsOverviewAction(yearMonth: string, today: string): Promise<AllTeamsOverview> {
   await requireBgd();
   assertValidYearMonth(yearMonth);
-  const [teams, monthProgress] = await Promise.all([listAllTeamsSummary(), getAllTeamsMonthProgress(yearMonth, today)]);
-  return { teams, monthProgress };
+  const [teams, monthProgress, departments] = await Promise.all([
+    listAllTeamsSummary(),
+    getAllTeamsMonthProgress(yearMonth, today),
+    listUsersOutsideTeamsByDepartment(yearMonth),
+  ]);
+  return { teams, monthProgress, departments };
 }
 
 /** Xem bảng 1 đội cụ thể với tư cách BGĐ (không đổi đội của chính BGĐ). */
-export async function getTeamBoardAsBgdAction(teamId: number, range: DateRange, categoryId?: number | null): Promise<MyTeamBoard> {
+export async function getTeamBoardTasksAsBgdAction(
+  teamId: number,
+  range: DateRange,
+  calendarYearMonth: string,
+  categoryId?: number | null
+): Promise<TeamBoardTasks> {
   await requireBgd();
   assertValidRange(range);
-  const [team, categories, tasks, monthProgress, chart, products] = await Promise.all([
-    getTeamWithRoster(teamId),
-    listTeamCategories(teamId),
-    listTasksForTeam(teamId, { fromDate: range.fromDate, toDate: range.toDate, categoryId: categoryId ?? undefined }),
-    getMonthProgress(teamId, range.fromDate.slice(0, 7)),
-    getDailyAssigneeBreakdown(teamId, range.fromDate, range.toDate),
-    getDistinctProductsForTeam(teamId),
-  ]);
-  if (!team) throw new Error('Không tìm thấy đội.');
-
-  return { team, categories, tasks, isManager: true, monthProgress, chart, products };
+  assertValidYearMonth(calendarYearMonth);
+  return loadTeamBoardTasks(teamId, range, calendarYearMonth, categoryId);
 }
 
 function assertValidRange(range: DateRange) {
@@ -236,49 +266,39 @@ function assertValidDateString(value: string, label: string) {
 export interface PersonalBoard {
   tasks: Task[];
   monthProgress: { done: number; total: number };
+  monthDayCounts: MonthDayCategoryCount[];
 }
 
 /** Người tự quản lý task cá nhân của chính mình — owner luôn là
  *  session.userId, KHÔNG nhận từ client (khác board đội KD, tránh 1 lớp có
  *  thể bị giả mạo). */
-export async function getMyPersonalBoardAction(range: DateRange): Promise<PersonalBoard> {
+export async function getMyPersonalBoardAction(range: DateRange, calendarYearMonth: string): Promise<PersonalBoard> {
   const session = await requireSession();
   assertValidRange(range);
-  await rolloverOverduePersonalTasks(session.userId, todayIso());
-  const [tasks, monthProgress] = await Promise.all([
+  assertValidYearMonth(calendarYearMonth);
+  const [tasks, monthProgress, monthDayCounts] = await Promise.all([
     listTasksForOwner(session.userId, range),
-    getPersonalMonthProgress(session.userId, range.fromDate.slice(0, 7)),
+    getPersonalMonthProgress(session.userId, calendarYearMonth),
+    getPersonalMonthDayCounts(session.userId, calendarYearMonth),
   ]);
-  return { tasks, monthProgress };
+  return { tasks, monthProgress, monthDayCounts };
 }
 
 /** BGĐ xem board cá nhân của 1 người khác (xem hộ). */
-export async function getPersonalBoardAsBgdAction(ownerUserId: number, range: DateRange): Promise<PersonalBoard> {
+export async function getPersonalBoardAsBgdAction(
+  ownerUserId: number,
+  range: DateRange,
+  calendarYearMonth: string
+): Promise<PersonalBoard> {
   await requirePersonalTaskContext(ownerUserId);
   assertValidRange(range);
-  await rolloverOverduePersonalTasks(ownerUserId, todayIso());
-  const [tasks, monthProgress] = await Promise.all([
+  assertValidYearMonth(calendarYearMonth);
+  const [tasks, monthProgress, monthDayCounts] = await Promise.all([
     listTasksForOwner(ownerUserId, range),
-    getPersonalMonthProgress(ownerUserId, range.fromDate.slice(0, 7)),
+    getPersonalMonthProgress(ownerUserId, calendarYearMonth),
+    getPersonalMonthDayCounts(ownerUserId, calendarYearMonth),
   ]);
-  return { tasks, monthProgress };
-}
-
-/** Số task theo ngày trong tháng cho lịch mini ở board cá nhân — cùng vai trò
- *  với getMonthTaskCategoryCountsAction bên đội KD, dùng chung component
- *  TaskCalendar. Owner luôn qua requirePersonalTaskContext (chính chủ hoặc
- *  BGĐ xem hộ), không nhận trực tiếp từ client. */
-export async function getMyPersonalMonthDayCountsAction(ownerUserId: number, yearMonth: string): Promise<MonthDayCategoryCount[]> {
-  await requirePersonalTaskContext(ownerUserId);
-  assertValidYearMonth(yearMonth);
-  return getPersonalMonthDayCounts(ownerUserId, yearMonth);
-}
-
-/** Danh sách người ngoài 6 đội gom theo bộ phận, chỉ BGĐ xem được. */
-export async function getDepartmentsOverviewAction(yearMonth: string): Promise<DepartmentGroup[]> {
-  await requireBgd();
-  assertValidYearMonth(yearMonth);
-  return listUsersOutsideTeamsByDepartment(yearMonth);
+  return { tasks, monthProgress, monthDayCounts };
 }
 
 /** Patch: chỉ validate field thực sự có mặt (title/taskDate/status đều optional
@@ -333,15 +353,36 @@ export async function createPersonalTaskAction(ownerUserId: number, input: Perso
   return created;
 }
 
+/** Tạo task thường hoặc cả chuỗi lặp qua đúng một Server Action và một câu
+ * SQL set-based. `createPersonalTasks` tự ghi history + audit BGĐ cùng câu. */
+export async function createPersonalTasksAction(ownerUserId: number, inputs: PersonalTaskInput[]): Promise<Task[]> {
+  const { session } = await requirePersonalTaskContext(ownerUserId);
+  if (inputs.length < 1 || inputs.length > 52) {
+    throw new Error('Số task tạo cùng lúc phải từ 1 đến 52.');
+  }
+  inputs.forEach(assertValidPersonalTaskCreateInput);
+  return createPersonalTasks(ownerUserId, inputs, session.userId);
+}
+
 export async function updatePersonalTaskAction(ownerUserId: number, taskId: number, patch: PersonalTaskPatch): Promise<Task> {
   const { session } = await requirePersonalTaskContext(ownerUserId);
   assertValidPersonalTaskInput(patch);
-  const before = await getPersonalTaskById(taskId, ownerUserId);
-  if (!before) throw new Error('Không tìm thấy task.');
-  const effectiveTaskDate = patch.taskDate ?? before.taskDate;
-  const effectiveDueDate = patch.dueDate !== undefined ? patch.dueDate : before.dueDate;
-  if (effectiveDueDate && effectiveDueDate < effectiveTaskDate) {
-    throw new Error('Ngày kết thúc phải sau ngày bắt đầu.');
+  // Chỉ cần đọc hàng hiện tại khi patch đổi đúng một trong hai đầu mút ngày.
+  // Đổi title/status/priority phổ biến đi thẳng vào UPDATE CTE, bớt 1 round-trip.
+  const changesTaskDate = patch.taskDate !== undefined;
+  const changesDueDate = patch.dueDate !== undefined;
+  if (changesTaskDate || changesDueDate) {
+    let effectiveTaskDate = patch.taskDate;
+    let effectiveDueDate = patch.dueDate;
+    if (changesTaskDate !== changesDueDate) {
+      const before = await getPersonalTaskById(taskId, ownerUserId);
+      if (!before) throw new Error('Không tìm thấy task.');
+      effectiveTaskDate ??= before.taskDate;
+      if (!changesDueDate) effectiveDueDate = before.dueDate;
+    }
+    if (effectiveDueDate && effectiveTaskDate && effectiveDueDate < effectiveTaskDate) {
+      throw new Error('Ngày kết thúc phải sau ngày bắt đầu.');
+    }
   }
   const updated = await updatePersonalTask(taskId, ownerUserId, patch, session.userId);
   if (session.userId !== ownerUserId) {
@@ -461,13 +502,6 @@ export async function removePersonalTaskImageAction(ownerUserId: number, taskId:
     await del(previousImageUrl).catch(() => {});
   }
   return updated;
-}
-
-/** Số task theo ngày, chia theo từng nhóm — cho lịch mini ở sidebar vừa tô
- *  màu vừa hiện số lượng riêng từng nhóm (Media/Support...) trên mỗi ô ngày. */
-export async function getMonthTaskCategoryCountsAction(teamId: number, yearMonth: string): Promise<MonthDayCategoryCount[]> {
-  const actor = await requireTeamContext(teamId);
-  return getMonthTaskCategoryCounts(actor.teamId, yearMonth);
 }
 
 export async function addTeamMemberAction(teamId: number, userId: number): Promise<void> {

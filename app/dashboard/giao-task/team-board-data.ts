@@ -1,13 +1,28 @@
 import 'server-only';
-import { getTeamWithRoster, listAllTeamsSummary, listTeamCategories, type TeamTaskCategory, type TeamWithRoster, type TeamSummary } from '@/lib/teams';
 import {
-  listTasksForTeam,
-  getMonthProgress,
+  getTeamWithRoster,
+  listAllTeamsSummary,
+  listTeamCategories,
+  listUsersOutsideTeamsByDepartment,
+  type DepartmentGroup,
+  type TeamTaskCategory,
+  type TeamWithRoster,
+  type TeamSummary,
+} from '@/lib/teams';
+import {
   getDailyAssigneeBreakdown,
+  listTasksForTeam,
+  listTasksForOwner,
+  getMonthProgress,
   getAllTeamsMonthProgress,
   getDistinctProductsForTeam,
+  getMonthTaskCategoryCounts,
+  getPersonalMonthProgress,
+  getPersonalMonthDayCounts,
+  rolloverOverduePersonalTasks,
   type Task,
   type DailyAssigneeCount,
+  type MonthDayCategoryCount,
   type TeamMonthProgress,
 } from '@/lib/tasks';
 
@@ -23,12 +38,21 @@ export interface TeamBoardCore {
   monthProgress: { done: number; total: number };
   chart: DailyAssigneeCount[];
   products: string[];
+  dayCategoryCounts: MonthDayCategoryCount[];
   range: DateRange;
 }
 
 export interface TeamsOverview {
   teams: TeamSummary[];
   monthProgress: TeamMonthProgress[];
+  departments: DepartmentGroup[];
+}
+
+export interface PersonalBoardCore {
+  tasks: Task[];
+  monthProgress: { done: number; total: number };
+  monthDayCounts: MonthDayCategoryCount[];
+  range: DateRange;
 }
 
 /** Dữ liệu board của 1 đội trong ngày `today`, dùng chung cho trang đội của
@@ -39,21 +63,47 @@ export async function loadTeamBoardCore(teamId: number, today: string): Promise<
   const yearMonth = today.slice(0, 7);
   const range: DateRange = { fromDate: today, toDate: today };
 
-  const [team, categories, tasks, monthProgress, chart, products] = await Promise.all([
+  const [team, categories, tasks, monthProgress, chart, products, dayCategoryCounts] = await Promise.all([
     getTeamWithRoster(teamId),
     listTeamCategories(teamId),
     listTasksForTeam(teamId, range),
     getMonthProgress(teamId, yearMonth),
-    getDailyAssigneeBreakdown(teamId, today, today),
+    getDailyAssigneeBreakdown(teamId, yearMonth),
     getDistinctProductsForTeam(teamId),
+    getMonthTaskCategoryCounts(teamId, yearMonth),
   ]);
 
   if (!team) return null;
-  return { team, categories, tasks, monthProgress, chart, products, range };
+  return {
+    team,
+    categories,
+    tasks,
+    monthProgress,
+    chart,
+    products,
+    dayCategoryCounts,
+    range,
+  };
 }
 
 export async function loadTeamsOverview(today: string): Promise<TeamsOverview> {
   const yearMonth = today.slice(0, 7);
-  const [teams, monthProgress] = await Promise.all([listAllTeamsSummary(), getAllTeamsMonthProgress(yearMonth, today)]);
-  return { teams, monthProgress };
+  const [teams, monthProgress, departments] = await Promise.all([
+    listAllTeamsSummary(),
+    getAllTeamsMonthProgress(yearMonth, today),
+    listUsersOutsideTeamsByDepartment(yearMonth),
+  ]);
+  return { teams, monthProgress, departments };
+}
+
+export async function loadPersonalBoardCore(ownerUserId: number, today: string): Promise<PersonalBoardCore> {
+  const range = { fromDate: today, toDate: today };
+  const yearMonth = today.slice(0, 7);
+  await rolloverOverduePersonalTasks(ownerUserId, today);
+  const [tasks, monthProgress, monthDayCounts] = await Promise.all([
+    listTasksForOwner(ownerUserId, range),
+    getPersonalMonthProgress(ownerUserId, yearMonth),
+    getPersonalMonthDayCounts(ownerUserId, yearMonth),
+  ]);
+  return { tasks, monthProgress, monthDayCounts, range };
 }

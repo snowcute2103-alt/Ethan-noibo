@@ -31,6 +31,10 @@ function startOfMonth(dateStr: string): string {
 }
 function endOfMonth(dateStr: string): string {
   const date = parseISO(dateStr);
+  // Chuẩn hoá về ngày 1 trước khi cộng tháng — nếu không, dateStr có ngày
+  // 29/30/31 mà tháng kế tiếp ngắn hơn sẽ khiến Date tự tràn tiếp sang tháng
+  // sau nữa (vd 31/08 cộng lên tháng 9 chỉ có 30 ngày, ra nhầm 30/09).
+  date.setUTCDate(1);
   date.setUTCMonth(date.getUTCMonth() + 1);
   date.setUTCDate(0);
   return toISO(date);

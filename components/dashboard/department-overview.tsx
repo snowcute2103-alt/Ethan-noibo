@@ -1,31 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { DepartmentGroup } from '@/lib/teams';
-import { getDepartmentsOverviewAction } from '@/app/dashboard/giao-task/actions';
+import { nameSlug } from '@/lib/name-slug';
 
 interface DepartmentOverviewProps {
-  today: string;
-  onSelectMember: (userId: number, fullName: string) => void;
+  groups: DepartmentGroup[];
 }
 
 /** Khối "Bộ phận khác" — luôn hiện ngay dưới bảng 6 đội KD trên cùng trang
  *  Tổng quan (không phải màn riêng phải chọn dropdown mới thấy), theo đúng
- *  yêu cầu gộp chung 1 trang. Chỉ là danh sách chọn người — bấm 1 người gọi
- *  onSelectMember để component cha (TaskBoard) thay hẳn nội dung trang bằng
- *  Kanban cá nhân của họ, giống cách chọn 1 đội KD. */
-export default function DepartmentOverview({ today, onSelectMember }: DepartmentOverviewProps) {
-  const [groups, setGroups] = useState<DepartmentGroup[]>([]);
-  const [error, setError] = useState<string | null>(null);
+ *  yêu cầu gộp chung 1 trang. Chỉ là danh sách chọn người — bấm 1 người điều
+ *  hướng thẳng tới URL Kanban cá nhân của họ (giống cách chọn 1 đội KD), giữ
+ *  được bookmark/back-forward thay vì đổi state ở component cha. Dùng chung
+ *  thanh chọn tháng với bảng 6 đội phía trên (yearMonth do cha truyền xuống
+ *  qua `groups`). */
+export default function DepartmentOverview({ groups }: DepartmentOverviewProps) {
+  const router = useRouter();
+  if (groups.length === 0) return null;
 
-  useEffect(() => {
-    getDepartmentsOverviewAction(today.slice(0, 7))
-      .then(setGroups)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải danh sách bộ phận.'));
-  }, [today]);
-
-  if (!error && groups.length === 0) return null;
+  // Danh sách có thể dài (mọi nhân sự ngoài 6 đội) — prefetch theo intent
+  // (hover/focus/touch) thay vì để Next tự prefetch mọi route khi cuộn vào
+  // viewport, tránh tải trước hàng loạt board cá nhân không ai mở tới.
+  const prefetchMember = (fullName: string) => router.prefetch(`/dashboard/giao-task/${nameSlug(fullName)}`);
 
   return (
     <div className="mt-8">
@@ -34,10 +33,6 @@ export default function DepartmentOverview({ today, onSelectMember }: Department
       <p className="mt-0.5 text-xs text-muted">
         Nhân sự không thuộc 6 đội kinh doanh — mỗi người tự quản lý task cá nhân của mình.
       </p>
-
-      {error && (
-        <div className="mt-3 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">{error}</div>
-      )}
 
       <div className="mt-4 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {groups.map((group) => (
@@ -48,9 +43,12 @@ export default function DepartmentOverview({ today, onSelectMember }: Department
                 const pct = member.monthProgress.total > 0 ? Math.round((member.monthProgress.done / member.monthProgress.total) * 100) : 0;
                 return (
                   <li key={member.userId}>
-                    <button
-                      type="button"
-                      onClick={() => onSelectMember(member.userId, member.fullName)}
+                    <Link
+                      href={`/dashboard/giao-task/${nameSlug(member.fullName)}`}
+                      prefetch={false}
+                      onMouseEnter={() => prefetchMember(member.fullName)}
+                      onFocus={() => prefetchMember(member.fullName)}
+                      onTouchStart={() => prefetchMember(member.fullName)}
                       className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left hover:bg-surface-2"
                     >
                       {member.avatarUrl ? (
@@ -75,7 +73,7 @@ export default function DepartmentOverview({ today, onSelectMember }: Department
                       <span className="shrink-0 text-xs font-semibold text-muted">
                         {member.monthProgress.done}/{member.monthProgress.total}
                       </span>
-                    </button>
+                    </Link>
                   </li>
                 );
               })}

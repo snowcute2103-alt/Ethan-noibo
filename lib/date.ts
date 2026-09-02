@@ -49,3 +49,13 @@ export function monthRange(yearMonth: string): { from: string; to: string } {
   const to = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
   return { from, to };
 }
+
+/** Tháng liền trước của `yearMonth` (dạng "YYYY-MM") — dùng để gộp khoảng
+ *  ngày của 2 tháng liền nhau (vd lịch mini hiện tháng đang chọn + tháng
+ *  trước) trong 1 câu truy vấn thay vì gọi 2 lần. */
+export function previousYearMonth(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-').map(Number);
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  return `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+}

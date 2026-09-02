@@ -116,6 +116,7 @@ export default function PersonalTaskDetailDrawer({
       getPersonalTaskDetailAction(ownerUserId, task.id)
         .then((next) => {
           setDetail(next);
+          onTaskUpdated(next.task);
           setTitle(next.task.title);
           setDescription(next.task.description ?? next.task.note ?? '');
           setTaskDate(next.task.taskDate);

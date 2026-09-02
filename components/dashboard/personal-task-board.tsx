@@ -1,24 +1,27 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent, type FormEvent } from 'react';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Check, Flag, ImagePlus, MoreVertical, Plus, StickyNote, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Flag, ImagePlus, MessageCircle, MoreVertical, Plus, StickyNote, Trash2, X } from 'lucide-react';
 import type { Task, TaskStatus, TaskPriority, MonthDayCategoryCount } from '@/lib/tasks';
 import TaskCalendar from '@/components/dashboard/task-calendar';
-import PersonalTaskDetailDrawer from '@/components/dashboard/personal-task-detail-drawer';
+// Chỉ mở theo intent (bấm 1 task) — tách khỏi chunk ban đầu của board thay
+// vì import thẳng, giảm initial JS mà không đổi hành vi (đã 'use client').
+const PersonalTaskDetailDrawer = dynamic(() => import('@/components/dashboard/personal-task-detail-drawer'));
 import TaskDateRangePicker, { type TaskRecurrence } from '@/components/dashboard/task-date-range-picker';
 import { useCheckboxConfetti } from '@/components/dashboard/checkbox-confetti';
 import {
   getMyPersonalBoardAction,
   getPersonalBoardAsBgdAction,
-  getMyPersonalMonthDayCountsAction,
-  createPersonalTaskAction,
+  createPersonalTasksAction,
   updatePersonalTaskAction,
   deletePersonalTaskAction,
   duplicatePersonalTaskAction,
   uploadPersonalTaskImageAction,
 } from '@/app/dashboard/giao-task/actions';
+import type { PersonalBoardCore } from '@/app/dashboard/giao-task/team-board-data';
 
 // Cùng khoảng polling đã có tiền lệ ở task-board.tsx / sticky-board.tsx.
 const POLL_INTERVAL_MS = 150_000;
@@ -37,6 +40,7 @@ interface PersonalTaskBoardProps {
   ownerName?: string;
   ownerAvatarUrl?: string | null;
   onBack?: () => void;
+  initialBoard: PersonalBoardCore;
 }
 
 function parseISO(dateStr: string): Date {
@@ -69,6 +73,10 @@ function startOfMonth(dateStr: string): string {
 }
 function endOfMonth(dateStr: string): string {
   const date = parseISO(dateStr);
+  // Chuẩn hoá về ngày 1 trước khi cộng tháng — nếu không, dateStr có ngày
+  // 29/30/31 mà tháng kế tiếp ngắn hơn sẽ khiến Date tự tràn tiếp sang tháng
+  // sau nữa (vd 31/08 cộng lên tháng 9 chỉ có 30 ngày, ra nhầm 30/09).
+  date.setUTCDate(1);
   date.setUTCMonth(date.getUTCMonth() + 1);
   date.setUTCDate(0);
   return toISO(date);
@@ -85,6 +93,10 @@ function shiftAnchor(mode: ViewMode, anchor: string, direction: 1 | -1): string 
   if (mode === 'day') return addDays(anchor, direction);
   if (mode === 'week') return addDays(anchor, direction * 7);
   const date = parseISO(anchor);
+  // Về ngày 1 trước khi đổi tháng — nếu không, anchor có ngày 29/30/31 mà
+  // tháng kế tiếp ngắn hơn sẽ khiến Date tự tràn thêm 1 tháng nữa (vd bấm
+  // "tháng sau" từ 31/08 nhảy thẳng sang 01/10, bỏ qua cả tháng 9).
+  date.setUTCDate(1);
   date.setUTCMonth(date.getUTCMonth() + direction);
   return toISO(date);
 }
@@ -123,29 +135,44 @@ export default function PersonalTaskBoard({
   ownerName,
   ownerAvatarUrl,
   onBack,
+  initialBoard,
 }: PersonalTaskBoardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [anchorDate, setAnchorDate] = useState(today);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [monthProgress, setMonthProgress] = useState({ done: 0, total: 0 });
-  const [monthDayCounts, setMonthDayCounts] = useState<MonthDayCategoryCount[]>([]);
+  // Tháng đang XEM trên lịch mini — tách khỏi anchorDate (ngày đang chọn để
+  // xem task) để bấm chọn 1 ngày ở lưới tháng dưới không làm cặp tháng đang
+  // hiện bị dịch theo; chỉ nút ‹/› trên lịch mini mới dịch state này (xem
+  // task-board.tsx, cùng cách xử lý cho board đội KD).
+  const [calendarMonthAnchor, setCalendarMonthAnchor] = useState(today);
+  const [tasks, setTasks] = useState<Task[]>(initialBoard.tasks);
+  const [monthProgress, setMonthProgress] = useState(initialBoard.monthProgress);
+  const [monthDayCounts, setMonthDayCounts] = useState<MonthDayCategoryCount[]>(initialBoard.monthDayCounts);
   const [error, setError] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [createRequest, setCreateRequest] = useState<TaskStatus | null>(null);
   const [isPending, startTransition] = useTransition();
+  const didMount = useRef(false);
+  const refreshRequestRef = useRef(0);
 
   const range = useMemo(() => rangeFor(viewMode, anchorDate), [viewMode, anchorDate]);
-  const calendarYearMonth = anchorDate.slice(0, 7);
-
+  const calendarYearMonth = calendarMonthAnchor.slice(0, 7);
+  const previousMonthYearMonth = useMemo(
+    () => addMonths(startOfMonth(calendarMonthAnchor), -1).slice(0, 7),
+    [calendarMonthAnchor]
+  );
   async function refresh(opts?: { silent?: boolean }) {
+    const requestId = ++refreshRequestRef.current;
     try {
       const result = viewerIsBgd
-        ? await getPersonalBoardAsBgdAction(ownerUserId, range)
-        : await getMyPersonalBoardAction(range);
+        ? await getPersonalBoardAsBgdAction(ownerUserId, range, calendarYearMonth)
+        : await getMyPersonalBoardAction(range, calendarYearMonth);
+      if (requestId !== refreshRequestRef.current) return;
       setTasks(result.tasks);
       setMonthProgress(result.monthProgress);
+      setMonthDayCounts(result.monthDayCounts);
       setError(null);
     } catch (err) {
+      if (requestId !== refreshRequestRef.current) return;
       if (opts?.silent) {
         console.error('refresh board cá nhân (nền) lỗi:', err);
         return;
@@ -155,33 +182,93 @@ export default function PersonalTaskBoard({
   }
 
   useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true;
+      return;
+    }
     startTransition(() => {
       void refresh();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerUserId, range.fromDate, range.toDate]);
+  }, [ownerUserId, range.fromDate, range.toDate, calendarYearMonth]);
 
   useEffect(() => {
-    const pollId = window.setInterval(() => void refresh({ silent: true }), POLL_INTERVAL_MS);
-    return () => window.clearInterval(pollId);
+    let refreshInFlight = false;
+    let lastSyncAt = 0;
+    const syncWhenVisible = () => {
+      const now = Date.now();
+      if (document.visibilityState !== 'visible' || refreshInFlight || now - lastSyncAt < 1_000) return;
+      lastSyncAt = now;
+      refreshInFlight = true;
+      void refresh({ silent: true }).finally(() => {
+        refreshInFlight = false;
+      });
+    };
+    const pollId = window.setInterval(syncWhenVisible, POLL_INTERVAL_MS);
+    const onVisibilityChange = () => syncWhenVisible();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', syncWhenVisible);
+    return () => {
+      window.clearInterval(pollId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', syncWhenVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerUserId, range.fromDate, range.toDate]);
+  }, [ownerUserId, range.fromDate, range.toDate, calendarYearMonth]);
 
-  // Lịch mini tô màu theo tháng — độc lập với viewMode/range đang chọn, cùng
-  // cách KD board tải dayCategoryCounts cho TaskCalendar (task-board.tsx).
-  useEffect(() => {
-    getMyPersonalMonthDayCountsAction(ownerUserId, calendarYearMonth)
-      .then(setMonthDayCounts)
-      .catch(() => setMonthDayCounts([]));
-  }, [ownerUserId, calendarYearMonth]);
+  function reconcileTasks(changes: Array<{ previous: Task | null; next: Task | null }>) {
+    const inRange = (task: Task) => task.taskDate >= range.fromDate && task.taskDate <= range.toDate;
+    const inMonth = (task: Task) => task.taskDate.startsWith(calendarYearMonth);
+    // monthDayCounts (lịch mini) phủ cả calendarYearMonth lẫn tháng liền
+    // trước (xem getPersonalMonthDayCounts) — khác monthProgress (thẻ "Tiến
+    // độ tháng") chỉ tính riêng calendarYearMonth.
+    const inTrackedMonths = (task: Task) => inMonth(task) || task.taskDate.startsWith(previousMonthYearMonth);
 
-  function runAction<T>(fn: () => Promise<T>, after?: () => void) {
+    setTasks((current) => {
+      const nextById = new Map(current.map((task) => [task.id, task]));
+      for (const change of changes) {
+        if (change.previous) nextById.delete(change.previous.id);
+        if (change.next && inRange(change.next)) nextById.set(change.next.id, change.next);
+      }
+      return [...nextById.values()];
+    });
+    setMonthProgress((current) => {
+      let done = current.done;
+      let total = current.total;
+      for (const { previous, next } of changes) {
+        if (previous && inMonth(previous)) {
+          total -= 1;
+          if (previous.status === 'done') done -= 1;
+        }
+        if (next && inMonth(next)) {
+          total += 1;
+          if (next.status === 'done') done += 1;
+        }
+      }
+      return { done: Math.max(0, done), total: Math.max(0, total) };
+    });
+    setMonthDayCounts((current) => {
+      const counts = new Map(current.map((item) => [`${item.date}:${item.categoryId ?? 'none'}`, { ...item }]));
+      const adjust = (task: Task, delta: number) => {
+        if (!inTrackedMonths(task)) return;
+        const key = `${task.taskDate}:none`;
+        const existing = counts.get(key) ?? { date: task.taskDate, categoryId: null, count: 0 };
+        const count = existing.count + delta;
+        if (count > 0) counts.set(key, { ...existing, count });
+        else counts.delete(key);
+      };
+      for (const { previous, next } of changes) {
+        if (previous) adjust(previous, -1);
+        if (next) adjust(next, 1);
+      }
+      return [...counts.values()];
+    });
+  }
+
+  function runAction<T>(fn: () => Promise<T>, after?: (result: T) => void) {
     startTransition(() => {
       fn()
-        .then(() => {
-          after?.();
-          void refresh({ silent: true });
-        })
+        .then((result) => after?.(result))
         .catch((err) => setError(err instanceof Error ? err.message : 'Có lỗi xảy ra.'));
     });
   }
@@ -191,13 +278,14 @@ export default function PersonalTaskBoard({
   // thẻ chỉ "nhảy" cột sau một nhịp trễ mạng, hiệu ứng kéo-thả mượt (Trello)
   // sẽ mất tác dụng. Lỗi thì hoàn tác lại state cũ.
   function changeStatus(task: Task, status: TaskStatus) {
-    const previous = tasks;
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status } : t)));
     startTransition(() => {
       updatePersonalTaskAction(ownerUserId, task.id, { status })
-        .then(() => void refresh({ silent: true }))
+        .then((updated) => reconcileTasks([{ previous: task, next: updated }]))
         .catch((err) => {
-          setTasks(previous);
+          setTasks((current) =>
+            current.map((item) => (item.id === task.id && item.status === status ? task : item))
+          );
           setError(err instanceof Error ? err.message : 'Có lỗi xảy ra.');
         });
     });
@@ -266,16 +354,31 @@ export default function PersonalTaskBoard({
             onGoToday={() => setAnchorDate(today)}
             onRequestCreate={(status) => setCreateRequest(status)}
             onStatusChange={changeStatus}
-            onTitleChange={(task, title) => runAction(() => updatePersonalTaskAction(ownerUserId, task.id, { title }))}
-            onDelete={(task) => runAction(() => deletePersonalTaskAction(ownerUserId, task.id))}
-            onDuplicate={(task, toDate) => runAction(() => duplicatePersonalTaskAction(ownerUserId, task.id, toDate))}
+            onTitleChange={(task, title) =>
+              runAction(
+                () => updatePersonalTaskAction(ownerUserId, task.id, { title }),
+                (updated) => reconcileTasks([{ previous: task, next: updated }])
+              )
+            }
+            onDelete={(task) =>
+              runAction(() => deletePersonalTaskAction(ownerUserId, task.id), () =>
+                reconcileTasks([{ previous: task, next: null }])
+              )
+            }
+            onDuplicate={(task, toDate) =>
+              runAction(
+                () => duplicatePersonalTaskAction(ownerUserId, task.id, toDate),
+                (created) => reconcileTasks([{ previous: null, next: created }])
+              )
+            }
             onOpenDetail={(task) => setSelectedTaskId(task.id)}
           />
         </div>
 
         <div className="flex flex-col gap-4">
           <TaskCalendar
-            anchorDate={anchorDate}
+            viewAnchor={calendarMonthAnchor}
+            selectedDate={anchorDate}
             today={today}
             categories={[]}
             dayCategoryCounts={monthDayCounts}
@@ -283,10 +386,13 @@ export default function PersonalTaskBoard({
               setAnchorDate(date);
               setViewMode('day');
             }}
-            onShiftMonth={(direction) => setAnchorDate(shiftAnchor('month', anchorDate, direction))}
+            onShiftMonth={(direction) => {
+              setAnchorDate(shiftAnchor('month', anchorDate, direction));
+              setCalendarMonthAnchor(shiftAnchor('month', calendarMonthAnchor, direction));
+            }}
           />
           <div className="rounded-[14px] border border-[#e8edf5] bg-white px-4 py-3">
-            <p className="text-xs font-semibold text-muted">Tiến độ tháng {anchorDate.slice(5, 7)}</p>
+            <p className="text-xs font-semibold text-muted">Tiến độ tháng {calendarYearMonth.slice(5, 7)}</p>
             <p className="mt-1 font-heading text-lg font-bold text-navy">
               {monthProgress.done}/{monthProgress.total} <span className="text-xs font-normal text-muted">hoàn thành</span>
             </p>
@@ -306,7 +412,8 @@ export default function PersonalTaskBoard({
           today={today}
           onClose={() => setSelectedTaskId(null)}
           onTaskUpdated={(updated) => {
-            setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+            const previous = tasks.find((item) => item.id === updated.id) ?? null;
+            reconcileTasks([{ previous, next: updated }]);
           }}
         />
       )}
@@ -318,9 +425,8 @@ export default function PersonalTaskBoard({
           defaultDate={anchorDate}
           onClose={() => setCreateRequest(null)}
           onCreated={(created) => {
-            setTasks((current) => [...current, ...created]);
+            reconcileTasks(created.map((task) => ({ previous: null, next: task })));
             setCreateRequest(null);
-            void refresh({ silent: true });
           }}
         />
       )}
@@ -791,6 +897,12 @@ function PersonalKanbanCard({
             aria-label={task.priority === 'high' ? 'Ưu tiên cao' : task.priority === 'low' ? 'Ưu tiên thấp' : 'Ưu tiên bình thường'}
             className={`h-3.5 w-3.5 shrink-0 ${task.priority === 'high' ? 'fill-amber-500 text-amber-500' : task.priority === 'low' ? 'fill-slate-400 text-slate-400' : 'fill-blue text-blue'}`}
           />
+          {task.commentCount > 0 && (
+            <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-muted" aria-label={`${task.commentCount} bình luận`}>
+              <MessageCircle className="h-3 w-3" aria-hidden="true" />
+              ({task.commentCount})
+            </span>
+          )}
         </div>
         {duplicating && (
         <div
@@ -958,19 +1070,16 @@ function PersonalTaskCreateDrawer({
     const stepper = recurrence.unit === 'weekly' ? (d: string, i: number) => addDays(d, i * 7)
       : recurrence.unit === 'monthly' ? (d: string, i: number) => addMonths(d, i)
       : (d: string, i: number) => addDays(d, i);
+    const inputs = Array.from({ length: occurrences }, (_, i) => ({
+      taskDate: stepper(taskDate, i),
+      dueDate: dueDate ? stepper(dueDate, i) : null,
+      title: trimmed,
+      status: taskStatus,
+      priority,
+      description: description.trim() || null,
+    }));
     startTransition(() => {
-      Promise.all(
-        Array.from({ length: occurrences }, (_, i) =>
-          createPersonalTaskAction(ownerUserId, {
-            taskDate: stepper(taskDate, i),
-            dueDate: dueDate ? stepper(dueDate, i) : null,
-            title: trimmed,
-            status: taskStatus,
-            priority,
-            description: description.trim() || null,
-          })
-        )
-      )
+      createPersonalTasksAction(ownerUserId, inputs)
         .then((created) => {
           if (!stagedImage) return created;
           // Ảnh chỉ upload được sau khi task đã có id thật — giữ tạm ở client

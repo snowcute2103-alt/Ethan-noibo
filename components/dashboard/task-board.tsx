@@ -3,19 +3,19 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { MoreVertical, TriangleAlert, ListChecks, CircleDot, CheckCircle2, Check, ArrowLeft, X, StickyNote, Video, Rows3, Grid2x2 } from 'lucide-react';
+import Link from 'next/link';
+import { MoreVertical, TriangleAlert, ListChecks, CircleDot, CheckCircle2, Check, ArrowLeft, X, StickyNote, Video, Rows3, Grid2x2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCheckboxConfetti } from '@/components/dashboard/checkbox-confetti';
 import DepartmentOverview from '@/components/dashboard/department-overview';
 import TaskCalendar from '@/components/dashboard/task-calendar';
-import { nameSlug } from '@/lib/name-slug';
-import type { TeamWithRoster, TeamSummary, TeamTaskCategory, TeamMemberRole, TeamMember } from '@/lib/teams';
+import type { DepartmentGroup, TeamWithRoster, TeamSummary, TeamTaskCategory, TeamMemberRole, TeamMember } from '@/lib/teams';
 import type { Task, TaskInput, TaskStatus, DailyAssigneeCount, TeamMonthProgress, BulkDuplicatePattern, MonthDayCategoryCount } from '@/lib/tasks';
 import { TASK_COLUMN_KEYS, type TaskColumnKey } from '@/lib/task-columns';
 import { shopsForTeamCode, type ShopEntry } from '@/lib/shops';
 import {
-  getMyTeamBoardAction,
-  getTeamBoardAsBgdAction,
+  getMyTeamBoardTasksAction,
+  getTeamBoardTasksAsBgdAction,
+  getTeamRosterAction,
   getAllTeamsOverviewAction,
   createTaskAction,
   updateTaskAction,
@@ -30,14 +30,11 @@ import {
   setMemberRoleAction,
   setMemberCategoryAction,
   listAddableUsersAction,
-  getMonthTaskCategoryCountsAction,
 } from '@/app/dashboard/giao-task/actions';
 
 // Site không có hạ tầng WebSocket/pub-sub — khớp khoảng polling đã có tiền lệ
 // ở sticky-board.tsx (2.5 phút) thay vì bịa một con số mới không nhất quán.
 const POLL_INTERVAL_MS = 150_000;
-
-type ViewMode = 'day' | 'week' | 'month';
 
 interface DateRange {
   fromDate: string;
@@ -52,12 +49,14 @@ interface BoardData {
   monthProgress: { done: number; total: number };
   chart: DailyAssigneeCount[];
   products: string[];
+  dayCategoryCounts: MonthDayCategoryCount[];
   range: DateRange;
 }
 
 interface OverviewData {
   teams: TeamSummary[];
   monthProgress: TeamMonthProgress[];
+  departments: DepartmentGroup[];
 }
 
 interface TaskBoardProps {
@@ -75,6 +74,20 @@ const COLUMN_LABELS: Record<TaskColumnKey, string> = {
   optionTag: 'Nhãn phụ',
   referenceLink: 'Link mẫu',
   note: 'Ghi chú',
+};
+
+/** Độ rộng cố định (px) cho từng cột tuỳ chọn — dùng với table-layout: fixed
+ *  để bảng không bị lệch cột (cột chứa URL/text dài nuốt hết chỗ, cột trống
+ *  teo lại) như khi để trình duyệt tự co giãn theo nội dung. Cột "Chủ đề"
+ *  là cột duy nhất không khai độ rộng nên nó nhận hết phần còn lại. */
+const COLUMN_WIDTH_PX: Record<TaskColumnKey, number> = {
+  accountName: 130,
+  channel: 110,
+  videoCount: 80,
+  product: 130,
+  optionTag: 140,
+  referenceLink: 180,
+  note: 180,
 };
 
 // Né hẳn dải màu xanh dương (trùng với --blue thương hiệu dùng cho nút/link
@@ -162,24 +175,22 @@ function startOfMonth(dateStr: string): string {
 
 function endOfMonth(dateStr: string): string {
   const date = parseISO(dateStr);
+  // Chuẩn hoá về ngày 1 trước khi cộng tháng — nếu không, dateStr có ngày
+  // 29/30/31 mà tháng kế tiếp ngắn hơn (vd 31/08 cộng lên tháng 9 chỉ có 30
+  // ngày) sẽ khiến Date tự tràn tiếp sang tháng sau nữa (ra 30/09 thay vì
+  // đúng 31/08 của tháng gốc).
+  date.setUTCDate(1);
   date.setUTCMonth(date.getUTCMonth() + 1);
   date.setUTCDate(0);
   return toISO(date);
 }
 
-function rangeFor(mode: ViewMode, anchor: string): DateRange {
-  if (mode === 'day') return { fromDate: anchor, toDate: anchor };
-  if (mode === 'week') {
-    const start = startOfWeek(anchor);
-    return { fromDate: start, toDate: addDays(start, 6) };
-  }
-  return { fromDate: startOfMonth(anchor), toDate: endOfMonth(anchor) };
-}
-
-function shiftAnchor(mode: ViewMode, anchor: string, direction: 1 | -1): string {
-  if (mode === 'day') return addDays(anchor, direction);
-  if (mode === 'week') return addDays(anchor, direction * 7);
+function shiftMonth(anchor: string, direction: 1 | -1): string {
   const date = parseISO(anchor);
+  // Luôn về ngày 1 của tháng đích — nếu giữ nguyên ngày gốc (vd 31) mà tháng
+  // kế tiếp ngắn hơn (tháng 9 chỉ có 30 ngày), Date sẽ tự tràn thêm 1 tháng
+  // nữa (bấm "tháng sau" từ 31/08 nhảy thẳng sang 01/10, bỏ qua cả tháng 9).
+  date.setUTCDate(1);
   date.setUTCMonth(date.getUTCMonth() + direction);
   return toISO(date);
 }
@@ -203,14 +214,38 @@ function givenNameOf(fullName: string): string {
   return last.charAt(0).toLocaleUpperCase('vi') + last.slice(1).toLocaleLowerCase('vi');
 }
 
+function buildChartFromTasks(tasks: Task[]): DailyAssigneeCount[] {
+  const counts = new Map<string, DailyAssigneeCount>();
+  for (const task of tasks) {
+    const key = `${task.taskDate}:${task.assigneeUserId ?? 'none'}`;
+    const existing = counts.get(key) ?? {
+      date: task.taskDate,
+      assigneeUserId: task.assigneeUserId,
+      fullName: task.assigneeFullName,
+      count: 0,
+      done: 0,
+    };
+    existing.count += 1;
+    if (task.status === 'done') existing.done += 1;
+    counts.set(key, existing);
+  }
+  return [...counts.values()].sort(
+    (a, b) => a.date.localeCompare(b.date) || (a.assigneeUserId ?? 0) - (b.assigneeUserId ?? 0)
+  );
+}
+
 export default function TaskBoard({ isBgd, today, overview: initialOverview, board: initialBoard }: TaskBoardProps) {
-  const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
   // Thẻ chỉ là 1 cách trình bày khác của cùng dữ liệu task (bấm để đổi trạng
   // thái) — song song với bảng cũ, không thay thế, giữ nguyên mọi thao tác
   // nhân bản/sửa nhanh vốn chỉ có ở bảng.
   const [boardView, setBoardView] = useState<'table' | 'card'>('table');
   const [anchorDate, setAnchorDate] = useState(today);
+  // Tháng đang XEM trên lịch mini (2 lưới: calendarMonthAnchor + tháng liền
+  // trước) — tách khỏi anchorDate (ngày đang chọn để xem task) để bấm chọn 1
+  // ngày ở lưới tháng dưới không làm cặp tháng đang hiện bị dịch theo; chỉ
+  // nút ‹/› trên lịch mini mới dịch state này (cùng lúc với anchorDate, xem
+  // TaskCalendar onShiftMonth bên dưới).
+  const [calendarMonthAnchor, setCalendarMonthAnchor] = useState(today);
   // Chuyển đội giờ đi qua điều hướng URL thật (/dashboard/giao-task/[code],
   // xem OverviewPanel bên dưới) thay vì đổi state — mỗi đội/màn tổng quan là
   // 1 lượt mount TaskBoard mới (page.tsx truyền `key` khác nhau), nên giá trị
@@ -228,7 +263,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [managingCategories, setManagingCategories] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
-  const [dayCategoryCounts, setDayCategoryCounts] = useState<MonthDayCategoryCount[]>([]);
+  const [dayCategoryCounts, setDayCategoryCounts] = useState<MonthDayCategoryCount[]>(initialBoard?.dayCategoryCounts ?? []);
 
   const didMount = useRef(false);
   // Giữ trạng thái vừa bấm xuyên qua mọi lần đồng bộ nền. Đồng thời đánh số
@@ -237,7 +272,11 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   const optimisticTasksRef = useRef<Map<number, Task>>(new Map());
   const optimisticCreatedTasksRef = useRef<Map<number, Task>>(new Map());
   const refreshBoardRequestRef = useRef(0);
-  const range = useMemo(() => rangeFor(viewMode, anchorDate), [viewMode, anchorDate]);
+  const refreshOverviewRequestRef = useRef(0);
+  const refreshRosterRequestRef = useRef(0);
+  // Giao task 6 đội chỉ còn xem theo từng ngày — không có bảng chuyển
+  // Ngày/Tuần/Tháng nữa (biểu đồ tháng ở cuối bảng đã thay thế chế độ Tháng cũ).
+  const range = useMemo<DateRange>(() => ({ fromDate: anchorDate, toDate: anchorDate }), [anchorDate]);
 
   // Tab Media/Support lọc task theo nhóm của NGƯỜI PHỤ TRÁCH (member.categoryId
   // xếp ở sidebar), không theo category_id riêng của task — khớp với việc
@@ -260,23 +299,121 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     return board.team.members.filter((m) => m.categoryId === categoryId);
   }, [board, categoryId]);
 
-  const calendarYearMonth = anchorDate.slice(0, 7);
+  const calendarYearMonth = calendarMonthAnchor.slice(0, 7);
+  // Cột thứ 2 của lịch mini + biểu đồ cuối trang (xem TaskCalendar/
+  // MonthlyDailyChart) — chart/dayCategoryCounts từ server đã phủ đủ cả 2
+  // tháng này, nên các bản vá lạc quan bên dưới cũng phải cộng/trừ đúng
+  // trong cả 2 tháng, không chỉ riêng calendarYearMonth.
+  const previousMonthAnchor = useMemo(() => addDays(startOfMonth(calendarMonthAnchor), -1), [calendarMonthAnchor]);
+  const previousMonthYearMonth = previousMonthAnchor.slice(0, 7);
 
-  function refreshDayCategoryCounts() {
-    if (!board) return;
-    getMonthTaskCategoryCountsAction(board.team.id, calendarYearMonth)
-      .then(setDayCategoryCounts)
-      .catch(() => setDayCategoryCounts([]));
+  // board.tasks luôn là task của đúng 1 ngày đang chọn (range = anchorDate)
+  // — gộp lại theo người phụ trách để làm thẻ "Task theo người" của riêng
+  // ngày đó, tách khỏi bản tổng cả tháng nằm trên biểu đồ cuối trang.
+  // board.range phản ánh đúng range của board.tasks HIỆN CÓ trong state — đổi
+  // ngày/tháng cập nhật anchorDate ngay lập tức (đồng bộ) nhưng board.tasks
+  // chỉ cập nhật sau khi refreshBoard() tải xong (bất đồng bộ). Không kiểm
+  // tra range khớp thì trong lúc chờ, thẻ sẽ hiện nhãn ngày MỚI (từ
+  // anchorDate) đi kèm dữ liệu người của ngày CŨ (từ board.tasks còn chưa kịp
+  // đổi) — sai lệch gây hiểu nhầm ai đó có task hôm nay trong khi đó là task
+  // của ngày trước đó.
+  const dayChart = useMemo(
+    () => (board && board.range.fromDate === anchorDate && board.range.toDate === anchorDate ? buildChartFromTasks(board.tasks) : []),
+    [board, anchorDate]
+  );
+  const anchorMonthChart = useMemo(
+    () => (board ? board.chart.filter((c) => c.date.startsWith(calendarYearMonth)) : []),
+    [board, calendarYearMonth]
+  );
+  const previousMonthChart = useMemo(
+    () => (board ? board.chart.filter((c) => c.date.startsWith(previousMonthYearMonth)) : []),
+    [board, previousMonthYearMonth]
+  );
+
+  function reconcileBoardTasks(
+    changes: Array<{
+      previous: Task | null;
+      next: Task | null;
+      removeId?: number;
+      previousWasCounted?: boolean;
+    }>
+  ) {
+    const monthPrefix = calendarYearMonth;
+    const inMonth = (task: Task) => task.taskDate.startsWith(monthPrefix);
+    // Tiến độ tháng (monthProgress) vẫn chỉ tính riêng calendarYearMonth (thẻ
+    // "Tiến độ tháng" không mở rộng theo cặp 2 tháng) — nhưng chart/
+    // dayCategoryCounts thì có, nên cần kiểm cả 2 tháng khi vá lạc quan.
+    const inTrackedMonths = (task: Task) => inMonth(task) || task.taskDate.startsWith(previousMonthYearMonth);
+    const inRange = (task: Task) => task.taskDate >= range.fromDate && task.taskDate <= range.toDate;
+
+    setBoard((current) => {
+      if (!current) return current;
+      const nextById = new Map(current.tasks.map((task) => [task.id, task]));
+      let done = current.monthProgress.done;
+      let total = current.monthProgress.total;
+      const products = new Set(current.products);
+      const chartCounts = new Map(current.chart.map((item) => [`${item.date}:${item.assigneeUserId ?? 'none'}`, { ...item }]));
+      const adjustChart = (task: Task, delta: number) => {
+        if (!inTrackedMonths(task)) return;
+        const key = `${task.taskDate}:${task.assigneeUserId ?? 'none'}`;
+        const existing = chartCounts.get(key) ?? {
+          date: task.taskDate,
+          assigneeUserId: task.assigneeUserId,
+          fullName: task.assigneeFullName,
+          count: 0,
+          done: 0,
+        };
+        const count = existing.count + delta;
+        const doneCount = existing.done + (task.status === 'done' ? delta : 0);
+        if (count > 0) chartCounts.set(key, { ...existing, count, done: Math.max(0, doneCount) });
+        else chartCounts.delete(key);
+      };
+      for (const change of changes) {
+        const removeId = change.removeId ?? change.previous?.id;
+        if (removeId !== undefined) nextById.delete(removeId);
+        if (change.next && inRange(change.next)) nextById.set(change.next.id, change.next);
+        if (change.previous && change.previousWasCounted !== false && inMonth(change.previous)) {
+          total -= 1;
+          if (change.previous.status === 'done') done -= 1;
+        }
+        if (change.next && inMonth(change.next)) {
+          total += 1;
+          if (change.next.status === 'done') done += 1;
+        }
+        if (change.previous && change.previousWasCounted !== false) adjustChart(change.previous, -1);
+        if (change.next) adjustChart(change.next, 1);
+        if (change.next?.product) products.add(change.next.product);
+      }
+      const tasks = [...nextById.values()];
+      return {
+        ...current,
+        tasks,
+        monthProgress: { done: Math.max(0, done), total: Math.max(0, total) },
+        chart: [...chartCounts.values()],
+        products: [...products].sort((a, b) => a.localeCompare(b, 'vi')),
+      };
+    });
+
+    setDayCategoryCounts((current) => {
+      const members = board?.team.members ?? [];
+      const categoryByUserId = new Map(members.map((member) => [member.userId, member.categoryId]));
+      const counts = new Map(current.map((item) => [`${item.date}:${item.categoryId ?? 'none'}`, { ...item }]));
+      const adjust = (task: Task, delta: number) => {
+        if (!inTrackedMonths(task) || task.assigneeUserId == null || !categoryByUserId.has(task.assigneeUserId)) return;
+        const categoryId = categoryByUserId.get(task.assigneeUserId) ?? null;
+        const key = `${task.taskDate}:${categoryId ?? 'none'}`;
+        const existing = counts.get(key) ?? { date: task.taskDate, categoryId, count: 0 };
+        const count = existing.count + delta;
+        if (count > 0) counts.set(key, { ...existing, count });
+        else counts.delete(key);
+      };
+      for (const change of changes) {
+        if (change.previous && change.previousWasCounted !== false) adjust(change.previous, -1);
+        if (change.next) adjust(change.next, 1);
+      }
+      return [...counts.values()];
+    });
   }
-
-  // Lịch mini tô màu theo tháng — độc lập với viewMode/range đang chọn. Lấy
-  // số task theo TỪNG nhóm (không lọc theo tab đang xem) để mỗi ô ngày vừa
-  // tô màu "có hoạt động" vừa hiện số lượng riêng từng nhóm (Media/Support...).
-  useEffect(() => {
-    if (!board) return;
-    refreshDayCategoryCounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board?.team.id, calendarYearMonth]);
 
   // Tab Media/Support lọc theo nhóm của người phụ trách (client-side, xem
   // visibleTasks bên dưới) — không phải theo category riêng của từng task,
@@ -295,7 +432,9 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       return;
     }
     try {
-      const result = isBgd ? await getTeamBoardAsBgdAction(activeTeamId, range) : await getMyTeamBoardAction(range);
+      const result = isBgd
+        ? await getTeamBoardTasksAsBgdAction(activeTeamId, range, calendarYearMonth)
+        : await getMyTeamBoardTasksAction(range, calendarYearMonth);
       if (requestId !== refreshBoardRequestRef.current) return;
       if ('needsBgdOverview' in result) return;
       const tasks = result.tasks.map((task) => {
@@ -304,7 +443,22 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
         const mergedTask = optimisticTask ?? task;
         return optimisticStatus == null ? mergedTask : { ...mergedTask, status: optimisticStatus };
       });
-      setBoard({ ...result, tasks: [...tasks, ...optimisticCreatedTasksRef.current.values()], range });
+      // Không spread `result` đè cả object — team/categories/isManager không
+      // nằm trong response nhẹ này nữa (xem refreshRoster), chỉ cập nhật đúng
+      // phần đổi theo range/category.
+      setBoard((current) =>
+        current
+          ? {
+              ...current,
+              tasks: [...tasks, ...optimisticCreatedTasksRef.current.values()],
+              monthProgress: result.monthProgress,
+              chart: result.chart,
+              products: result.products,
+              range,
+            }
+          : current
+      );
+      setDayCategoryCounts(result.dayCategoryCounts);
       setError(null);
     } catch (err) {
       if (requestId !== refreshBoardRequestRef.current) return;
@@ -316,13 +470,33 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     }
   }
 
+  // Roster/category gần như không đổi theo poll — chỉ đồng bộ lại sau thao
+  // tác thêm/xoá thành viên, đổi vai trò/nhóm hoặc CRUD category (runAction
+  // mặc định gọi hàm này), không nằm trong chu kỳ poll 150s.
+  async function refreshRoster() {
+    if (!board) return;
+    const requestId = ++refreshRosterRequestRef.current;
+    try {
+      const result = await getTeamRosterAction(board.team.id);
+      if (requestId !== refreshRosterRequestRef.current) return;
+      setBoard((current) => (current ? { ...current, ...result } : current));
+      setError(null);
+    } catch (err) {
+      if (requestId !== refreshRosterRequestRef.current) return;
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải dữ liệu.');
+    }
+  }
+
   async function refreshOverview(opts?: { silent?: boolean }) {
-    if (!isBgd) return;
+    if (!isBgd || activeTeamId !== null) return;
+    const requestId = ++refreshOverviewRequestRef.current;
     try {
       const data = await getAllTeamsOverviewAction(anchorDate.slice(0, 7), today);
+      if (requestId !== refreshOverviewRequestRef.current) return;
       setOverview(data);
       setError(null);
     } catch (err) {
+      if (requestId !== refreshOverviewRequestRef.current) return;
       if (opts?.silent) {
         console.error('refreshOverview (nền) lỗi:', err);
         return;
@@ -338,9 +512,12 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     }
     startTransition(() => {
       void refreshBoard();
+      // Trang tổng quan (không có team) không có board để tải — nhưng đổi
+      // tháng ở đây vẫn cần tải lại overview theo tháng mới.
+      if (activeTeamId == null) void refreshOverview();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, anchorDate, activeTeamId]);
+  }, [anchorDate, calendarMonthAnchor, activeTeamId]);
 
   // Nếu nhóm đang chọn không còn tồn tại (đổi đội, nhóm bị xoá, hoặc nhóm đầu
   // tiên vừa được tạo) thì tự chuyển sang nhóm đầu — trừ khi đang ở tab "Tất cả".
@@ -354,25 +531,44 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   }, [board?.categories]);
 
   useEffect(() => {
-    const pollId = window.setInterval(() => {
-      void refreshBoard({ silent: true });
-      void refreshOverview({ silent: true });
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(pollId);
+    let refreshInFlight = false;
+    let lastSyncAt = 0;
+    const syncWhenVisible = () => {
+      const now = Date.now();
+      if (document.visibilityState !== 'visible' || refreshInFlight || now - lastSyncAt < 1_000) return;
+      lastSyncAt = now;
+      refreshInFlight = true;
+      const request = activeTeamId == null
+        ? refreshOverview({ silent: true })
+        : refreshBoard({ silent: true });
+      void request.finally(() => {
+        refreshInFlight = false;
+      });
+    };
+    const pollId = window.setInterval(syncWhenVisible, POLL_INTERVAL_MS);
+    const onVisibilityChange = () => syncWhenVisible();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', syncWhenVisible);
+    return () => {
+      window.clearInterval(pollId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', syncWhenVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTeamId, range.fromDate, range.toDate]);
 
-  function runAction<T>(fn: () => Promise<T>, after?: () => void) {
+  // Mọi call site còn dùng refreshAfter mặc định (true) đều là thao tác
+  // roster/category (thêm/xoá thành viên, đổi vai trò/nhóm, CRUD category) —
+  // mutation task đã tự reconcile từ response nên luôn truyền refreshAfter=false.
+  function runAction<T>(fn: () => Promise<T>, after?: (result: T) => void, refreshAfter = true) {
     startTransition(() => {
       fn()
-        .then(() => {
-          after?.();
-          // Đồng bộ lại dữ liệu sau khi thao tác đã thành công — nếu bước
-          // đồng bộ này thoáng lỗi thì không có nghĩa thao tác của người
+        .then((result) => {
+          after?.(result);
+          // Đồng bộ lại roster/category sau khi thao tác đã thành công — nếu
+          // bước đồng bộ này thoáng lỗi thì không có nghĩa thao tác của người
           // dùng thất bại, nên không đẩy banner đỏ gây hiểu lầm.
-          void refreshBoard({ silent: true });
-          void refreshOverview({ silent: true });
-          refreshDayCategoryCounts();
+          if (refreshAfter) void refreshRoster();
         })
         .catch((err) => setError(err instanceof Error ? err.message : 'Có lỗi xảy ra.'));
     });
@@ -393,11 +589,8 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
 
     startTransition(() => {
       updateTaskAction(board.team.id, task.id, { status })
-        .then(async () => {
-          // Lần tải sau khi server xác nhận sẽ hủy hiệu lực mọi response cũ.
-          // Vẫn ghép trạng thái lạc quan trong lúc tải để dấu tick không nháy.
-          await Promise.all([refreshBoard({ silent: true }), refreshOverview({ silent: true })]);
-          refreshDayCategoryCounts();
+        .then((savedTask) => {
+          reconcileBoardTasks([{ previous: task, next: savedTask }]);
           optimisticStatusesRef.current.delete(task.id);
         })
         .catch((err) => {
@@ -460,6 +653,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       createdBy: null,
       createdByFullName: null,
       createdByAvatarUrl: null,
+      commentCount: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -472,14 +666,9 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       createTaskAction(teamId, input)
         .then((savedTask) => {
           optimisticCreatedTasksRef.current.delete(tempId);
-          setBoard((current) =>
-            current
-              ? { ...current, tasks: current.tasks.map((task) => (task.id === tempId ? savedTask : task)) }
-              : current
-          );
-          void refreshBoard({ silent: true });
-          void refreshOverview({ silent: true });
-          refreshDayCategoryCounts();
+          reconcileBoardTasks([
+            { previous: null, next: savedTask, removeId: tempId, previousWasCounted: false },
+          ]);
         })
         .catch((err) => {
           optimisticCreatedTasksRef.current.delete(tempId);
@@ -518,14 +707,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       updateTaskAction(teamId, taskId, input)
         .then((savedTask) => {
           optimisticTasksRef.current.delete(taskId);
-          setBoard((current) =>
-            current
-              ? { ...current, tasks: current.tasks.map((task) => (task.id === taskId ? savedTask : task)) }
-              : current
-          );
-          void refreshBoard({ silent: true });
-          void refreshOverview({ silent: true });
-          refreshDayCategoryCounts();
+          reconcileBoardTasks([{ previous: previousTask, next: savedTask }]);
         })
         .catch((err) => {
           optimisticTasksRef.current.delete(taskId);
@@ -540,26 +722,18 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     });
   }
 
-  const rangeLabel =
-    viewMode === 'day'
-      ? anchorDate === today
-        ? `Hôm nay · ${formatVi(anchorDate)}`
-        : formatVi(anchorDate)
-      : `${formatVi(range.fromDate)} — ${formatVi(range.toDate)}`;
-
   return (
     <div className="px-4 py-10 sm:px-6 lg:px-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           {isBgd && board ? (
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard/giao-task')}
+            <Link
+              href="/dashboard/giao-task"
               className="flex items-center gap-1 font-heading text-xs font-bold uppercase tracking-[0.2em] text-blue hover:text-blue-cta"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
               Tổng quan 6 đội
-            </button>
+            </Link>
           ) : (
             <p className="font-heading text-xs font-bold uppercase tracking-[0.2em] text-blue">Giao Task</p>
           )}
@@ -573,6 +747,38 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             {board ? board.team.name : 'Tổng quan 6 đội'}
           </h1>
         </div>
+        {!board && overview && (
+          <div className="flex items-center gap-1 rounded-[10px] border border-black p-1">
+            <button
+              type="button"
+              onClick={() => setAnchorDate(shiftMonth(anchorDate, -1))}
+              className="rounded-[8px] p-1.5 text-navy hover:bg-surface-2"
+              aria-label="Tháng trước"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <span className="min-w-[92px] px-1 text-center text-sm font-semibold text-navy">
+              Tháng {anchorDate.slice(5, 7)}/{anchorDate.slice(0, 4)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setAnchorDate(shiftMonth(anchorDate, 1))}
+              className="rounded-[8px] p-1.5 text-navy hover:bg-surface-2"
+              aria-label="Tháng sau"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {anchorDate.slice(0, 7) !== today.slice(0, 7) && (
+              <button
+                type="button"
+                onClick={() => setAnchorDate(today)}
+                className="ml-1 shrink-0 rounded-[8px] px-2 py-1 text-xs font-semibold text-blue hover:bg-surface-2"
+              >
+                Về tháng này
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -585,20 +791,20 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
         <>
           <OverviewPanel
             overview={overview}
-            onSelectTeam={(code) => router.push(`/dashboard/giao-task/${code}`)}
             monthLabel={anchorDate.slice(0, 7)}
           />
-          <DepartmentOverview
-            today={today}
-            onSelectMember={(_userId, fullName) => router.push(`/dashboard/giao-task/${nameSlug(fullName)}`)}
-          />
+          <DepartmentOverview groups={overview.departments} />
         </>
       )}
 
       {board && (
         <>
           <div className="mb-5">
-            <AssigneeBarChart chart={board.chart} members={board.team.members} showDailyChart={viewMode !== 'day'} />
+            <AssigneeSummaryCard
+              chart={dayChart}
+              members={board.team.members}
+              periodLabel={anchorDate === today ? `Hôm nay ${formatVi(anchorDate)}` : formatVi(anchorDate)}
+            />
           </div>
 
           <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -667,13 +873,27 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   allMembers={board.team.members}
                   products={board.products}
                   onUpdate={updateTaskOptimistically}
-                  onDelete={(task) => runAction(() => deleteTaskAction(board.team.id, task.id))}
+                  onDelete={(task) =>
+                    runAction(
+                      () => deleteTaskAction(board.team.id, task.id),
+                      () => reconcileBoardTasks([{ previous: task, next: null }]),
+                      false
+                    )
+                  }
                   allowBulkPattern={board.isManager}
                   onBulkDuplicateDates={(taskIds, dates, assigneeUserIds) =>
-                    runAction(() => duplicateTasksToDatesAction(board.team.id, taskIds, dates, assigneeUserIds))
+                    runAction(
+                      () => duplicateTasksToDatesAction(board.team.id, taskIds, dates, assigneeUserIds),
+                      (created) => reconcileBoardTasks(created.map((task) => ({ previous: null, next: task }))),
+                      false
+                    )
                   }
                   onBulkDuplicatePattern={(taskIds, pattern, assigneeUserIds) =>
-                    runAction(() => bulkDuplicateTasksAction(board.team.id, taskIds, pattern, assigneeUserIds))
+                    runAction(
+                      () => bulkDuplicateTasksAction(board.team.id, taskIds, pattern, assigneeUserIds),
+                      (created) => reconcileBoardTasks(created.map((task) => ({ previous: null, next: task }))),
+                      false
+                    )
                   }
                   onStatusChange={updateTaskStatusOptimistically}
                   statusPendingTaskIds={statusPendingTaskIds}
@@ -692,48 +912,31 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   onStatusChange={updateTaskStatusOptimistically}
                   statusPendingTaskIds={statusPendingTaskIds}
                   emptyMessage="Chưa có task nào trong khoảng thời gian này."
-                  onDelete={(task) => runAction(() => deleteTaskAction(board.team.id, task.id))}
+                  onDelete={(task) =>
+                    runAction(
+                      () => deleteTaskAction(board.team.id, task.id),
+                      () => reconcileBoardTasks([{ previous: task, next: null }]),
+                      false
+                    )
+                  }
                 />
               )}
             </div>
 
             <div className="flex flex-col gap-4">
               <TaskCalendar
-                anchorDate={anchorDate}
+                viewAnchor={calendarMonthAnchor}
+                selectedDate={anchorDate}
                 today={today}
                 categories={board.categories}
                 dayCategoryCounts={dayCategoryCounts}
-                onSelectDay={(date) => {
-                  setAnchorDate(date);
-                  setViewMode('day');
+                onSelectDay={(date) => setAnchorDate(date)}
+                onShiftMonth={(direction) => {
+                  setAnchorDate(shiftMonth(anchorDate, direction));
+                  setCalendarMonthAnchor(shiftMonth(calendarMonthAnchor, direction));
                 }}
-                onShiftMonth={(direction) => setAnchorDate(shiftAnchor('month', anchorDate, direction))}
               />
-              <div className="rounded-[14px] border border-[#e8edf5] bg-white px-4 py-3">
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <strong className="font-heading text-navy">{rangeLabel}</strong>
-                  {anchorDate !== today && (
-                    <button type="button" onClick={() => setAnchorDate(today)} className="shrink-0 text-xs font-semibold text-blue">
-                      Về hôm nay
-                    </button>
-                  )}
-                </div>
-                <div className="mt-3 flex gap-1 rounded-[10px] bg-surface-2 p-1">
-                  {(['day', 'week', 'month'] as ViewMode[]).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setViewMode(mode)}
-                      className={`flex-1 rounded-[8px] px-3 py-1.5 text-xs font-semibold ${
-                        viewMode === mode ? 'bg-white text-blue shadow-sm' : 'text-muted'
-                      }`}
-                    >
-                      {mode === 'day' ? 'Ngày' : mode === 'week' ? 'Tuần' : 'Tháng'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <MonthProgressCard done={board.monthProgress.done} total={board.monthProgress.total} monthLabel={anchorDate.slice(0, 7)} />
+              <MonthProgressCard done={board.monthProgress.done} total={board.monthProgress.total} monthLabel={calendarYearMonth} />
               <TeamRosterCard
                 team={board.team}
                 categories={board.categories}
@@ -745,6 +948,11 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                 onManageCategories={() => setManagingCategories(true)}
               />
             </div>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-5">
+            <MonthlyDailyChart chart={anchorMonthChart} members={board.team.members} monthAnchor={calendarMonthAnchor} />
+            <MonthlyDailyChart chart={previousMonthChart} members={board.team.members} monthAnchor={previousMonthAnchor} />
           </div>
         </>
       )}
@@ -940,11 +1148,9 @@ function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[];
 
 function OverviewPanel({
   overview,
-  onSelectTeam,
   monthLabel,
 }: {
   overview: OverviewData;
-  onSelectTeam: (code: string) => void;
   monthLabel: string;
 }) {
   const progressByTeam = new Map(overview.monthProgress.map((p) => [p.teamId, p]));
@@ -1017,9 +1223,9 @@ function OverviewPanel({
                         <p className="mt-0.5 text-[11px] text-muted">{progress ? `${progress.done}/${progress.total} task` : '—'}</p>
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <button type="button" onClick={() => onSelectTeam(team.code)} className="text-sm font-semibold text-blue whitespace-nowrap">
+                        <Link href={`/dashboard/giao-task/${team.code}`} className="whitespace-nowrap text-sm font-semibold text-blue">
                           Xem chi tiết
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   );
@@ -1151,7 +1357,21 @@ function TaskTable({
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[820px] table-fixed border-collapse text-left text-sm">
+          <colgroup>
+            <col style={{ width: 44 }} />
+            <col style={{ width: 76 }} />
+            <col style={{ width: 130 }} />
+            {leadingColumns.map((key) => (
+              <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
+            ))}
+            <col />
+            {trailingColumns.map((key) => (
+              <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
+            ))}
+            <col style={{ width: 100 }} />
+            <col style={{ width: 44 }} />
+          </colgroup>
           <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-[#000000]">
             <tr className="divide-x divide-[#e8edf5]">
               <th className="px-3 py-3">
@@ -1164,20 +1384,20 @@ function TaskTable({
                   className="h-4 w-4 cursor-pointer accent-blue"
                 />
               </th>
-              <th className="whitespace-nowrap px-3 py-3">Ngày</th>
-              <th className="whitespace-nowrap px-3 py-3">Thành viên</th>
+              <th className="truncate px-3 py-3">Ngày</th>
+              <th className="truncate px-3 py-3">Thành viên</th>
               {leadingColumns.map((key) => (
-                <th key={key} className="whitespace-nowrap px-3 py-3">
+                <th key={key} className="truncate px-3 py-3">
                   {COLUMN_LABELS[key]}
                 </th>
               ))}
-              <th className="whitespace-nowrap px-3 py-3">Chủ đề</th>
+              <th className="truncate px-3 py-3">Chủ đề</th>
               {trailingColumns.map((key) => (
-                <th key={key} className="whitespace-nowrap px-3 py-3">
+                <th key={key} className="truncate px-3 py-3">
                   {COLUMN_LABELS[key]}
                 </th>
               ))}
-              <th className="whitespace-nowrap px-3 py-3">Trạng thái</th>
+              <th className="truncate px-3 py-3">Trạng thái</th>
               <th className="px-3 py-3" />
             </tr>
           </thead>
@@ -1273,7 +1493,10 @@ function TaskTable({
                 {trailingColumns.map((key) => {
                   const rawValue = String((task as unknown as Record<string, unknown>)[key] ?? '');
                   return (
-                    <td key={key} className="px-3 py-2.5 text-ink">
+                    <td
+                      key={key}
+                      className={`px-3 py-2.5 text-ink ${key === 'note' || key === 'referenceLink' ? 'break-words' : ''}`}
+                    >
                       {key === 'videoCount' ? (
                         task.videoCount ?? ''
                       ) : key === 'product' && task.product ? (
@@ -1282,10 +1505,6 @@ function TaskTable({
                           style={{ background: productColorMap.get(task.product) ?? UNASSIGNED_COLOR }}
                         >
                           {task.product}
-                        </span>
-                      ) : key === 'note' || key === 'referenceLink' ? (
-                        <span className="block max-w-[220px] truncate" title={rawValue || undefined}>
-                          {rawValue}
                         </span>
                       ) : (
                         rawValue
@@ -2388,39 +2607,22 @@ function TeamRosterCard({
   );
 }
 
-function AssigneeBarChart({
-  chart,
-  members,
-  showDailyChart,
-}: {
-  chart: DailyAssigneeCount[];
-  members: TeamMember[];
-  showDailyChart: boolean;
-}) {
-  // Popup ngày portal ra document.body thay vì absolute trong cột — khu biểu
-  // đồ cuộn ngang (overflow-x-auto) khiến trục dọc cũng bị cắt theo (xem lý
-  // do tương tự ở TaskRowMenu), nên popup xổ lên trên sẽ bị khuất mất.
-  const [hovered, setHovered] = useState<{ date: string; left: number; top: number } | null>(null);
-
-  useEffect(() => {
-    if (!hovered) return;
-    function handleScroll() {
-      setHovered(null);
-    }
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
-  }, [hovered]);
-
-  if (chart.length === 0) return null;
-
-  const dates = Array.from(new Set(chart.map((c) => c.date))).sort();
-  const assignees = Array.from(new Set(chart.map((c) => c.fullName ?? 'Chưa gán'))).sort();
-  const max = Math.max(...dates.map((d) => chart.filter((c) => c.date === d).reduce((sum, c) => sum + c.count, 0)), 1);
+/** Gộp task theo người phụ trách từ 1 tập DailyAssigneeCount[] bất kỳ — dùng
+ *  chung cho thẻ tổng theo ngày (AssigneeSummaryCard) lẫn phần tổng theo
+ *  tháng nằm trên biểu đồ (MonthlyDailyChart), chỉ khác nhau ở `chart` truyền
+ *  vào đã lọc theo ngày hay theo cả tháng. */
+function computeAssigneeTotals(chart: DailyAssigneeCount[], members: TeamMember[], opts?: { includeAllMembers?: boolean }) {
+  const names = new Set(chart.map((c) => c.fullName ?? 'Chưa gán'));
+  // Thẻ "Task theo người" theo NGÀY cần hiện đủ mọi thành viên đội kể cả ai
+  // 0 task hôm đó (0|0) — khác bản theo THÁNG (MonthlyDailyChart) vẫn chỉ
+  // liệt kê người có task trong tháng, giữ nguyên hành vi cũ.
+  if (opts?.includeAllMembers) {
+    for (const member of members) names.add(member.fullName);
+  }
+  const assignees = Array.from(names).sort();
   const memberByName = new Map(members.map((m) => [m.fullName, m]));
   const colorMap = assigneeColorMap(members);
   const colorOf = (name: string) => colorMap.get(name) ?? UNASSIGNED_COLOR;
-  const hoveredDayItems = hovered ? chart.filter((c) => c.date === hovered.date) : [];
-  const hoveredDayTotal = hoveredDayItems.reduce((sum, c) => sum + c.count, 0);
 
   const totalsByAssignee = assignees
     .map((name) => {
@@ -2436,114 +2638,183 @@ function AssigneeBarChart({
     .sort((a, b) => b.total - a.total);
   const grandTotal = totalsByAssignee.reduce((sum, item) => sum + item.total, 0);
 
+  return { totalsByAssignee, grandTotal, colorOf, memberByName };
+}
+
+function AssigneeTotalsGrid({ totalsByAssignee }: { totalsByAssignee: ReturnType<typeof computeAssigneeTotals>['totalsByAssignee'] }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      {totalsByAssignee.map(({ name, color, member, total, done }) => (
+        <div
+          key={name}
+          className="flex items-center justify-between gap-2 rounded-[10px] border border-[#e8edf5] p-2"
+          style={{ borderLeftWidth: 3, borderLeftColor: color, backgroundColor: `${color}33` }}
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            {member ? (
+              memberAvatar(member, 26)
+            ) : (
+              <span
+                className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
+                style={{ background: color }}
+              >
+                {name.charAt(0)}
+              </span>
+            )}
+            <p className="truncate text-xs font-bold text-ink">{member ? givenNameOf(name) : name}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-wide text-muted">Task</span>
+            <div className="flex">
+              <span
+                className="grid h-7 w-7 place-items-center border border-navy bg-navy text-xs font-extrabold text-white"
+                title="Đã hoàn thành"
+              >
+                {done}
+              </span>
+              <span
+                className="grid h-7 w-7 place-items-center border border-l-0 border-navy bg-white text-xs font-extrabold text-ink"
+                title="Tổng số task"
+              >
+                {total}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Thẻ tổng hợp "Task theo người" theo đúng NGÀY đang chọn — đặt ở đầu trang
+ *  như bố cục cũ. `chart` truyền vào phải là dữ liệu đã lọc theo đúng 1 ngày
+ *  (xem dayChart ở TaskBoard), khác với bản tổng cả tháng nằm trên biểu đồ
+ *  (MonthlyDailyChart). */
+function AssigneeSummaryCard({ chart, members, periodLabel }: { chart: DailyAssigneeCount[]; members: TeamMember[]; periodLabel: string }) {
+  const { totalsByAssignee, grandTotal } = computeAssigneeTotals(chart, members, { includeAllMembers: true });
+
   return (
     <div className="rounded-[16px] border border-[#e8edf5] bg-white p-4">
       <div className="mb-3 flex items-center justify-between">
-        <p className="font-heading text-sm font-bold text-navy">Task theo người</p>
+        <p className="font-heading text-sm font-bold text-navy">
+          Task theo người <span className="font-normal text-muted">· {periodLabel}</span>
+        </p>
         <p className="text-xs font-semibold text-muted">Tổng {grandTotal} task</p>
       </div>
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        {totalsByAssignee.map(({ name, color, member, total, done }) => (
-          <div
-            key={name}
-            className="flex items-center justify-between gap-2 rounded-[10px] border border-[#e8edf5] p-2"
-            style={{ borderLeftWidth: 3, borderLeftColor: color, backgroundColor: `${color}33` }}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              {member ? (
-                memberAvatar(member, 26)
-              ) : (
-                <span
-                  className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
-                  style={{ background: color }}
-                >
-                  {name.charAt(0)}
-                </span>
-              )}
-              <p className="truncate text-xs font-bold text-ink">{member ? givenNameOf(name) : name}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <span className="text-[9px] font-bold uppercase tracking-wide text-muted">Task</span>
-              <div className="flex">
-                <span
-                  className="grid h-7 w-7 place-items-center border border-navy bg-navy text-xs font-extrabold text-white"
-                  title="Đã hoàn thành"
-                >
-                  {done}
-                </span>
-                <span
-                  className="grid h-7 w-7 place-items-center border border-l-0 border-navy bg-white text-xs font-extrabold text-ink"
-                  title="Tổng số task"
-                >
-                  {total}
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
+      <AssigneeTotalsGrid totalsByAssignee={totalsByAssignee} />
+    </div>
+  );
+}
+
+/** Biểu đồ "Theo ngày" trải rộng hết chiều ngang trang (đặt ngoài lưới
+ *  bảng+sidebar, không bị bó hẹp trong cột 1fr) — mỗi cột chia đều theo
+ *  flex-1 nên luôn đủ số ngày thật của tháng đang xem (31 ngày tháng 8, 30
+ *  ngày tháng 9...) kể cả ngày chưa có task, không cần cuộn ngang. */
+function MonthlyDailyChart({
+  chart,
+  members,
+  monthAnchor,
+}: {
+  chart: DailyAssigneeCount[];
+  members: TeamMember[];
+  monthAnchor: string;
+}) {
+  // Popup ngày portal ra document.body thay vì absolute trong cột — nếu khu
+  // biểu đồ từng cuộn ngang thì trục dọc cũng bị cắt theo (xem lý do tương tự
+  // ở TaskRowMenu); nay không còn cuộn ngang nhưng vẫn portal cho an toàn.
+  const [hovered, setHovered] = useState<{ date: string; left: number; top: number } | null>(null);
+
+  useEffect(() => {
+    if (!hovered) return;
+    function handleScroll() {
+      setHovered(null);
+    }
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [hovered]);
+
+  if (chart.length === 0) return null;
+
+  const monthStart = startOfMonth(monthAnchor);
+  const monthEnd = endOfMonth(monthAnchor);
+  const dates: string[] = [];
+  for (let d = monthStart; d <= monthEnd; d = addDays(d, 1)) {
+    dates.push(d);
+  }
+  const max = Math.max(...dates.map((d) => chart.filter((c) => c.date === d).reduce((sum, c) => sum + c.count, 0)), 1);
+  const { totalsByAssignee, grandTotal, colorOf, memberByName } = computeAssigneeTotals(chart, members);
+  const hoveredDayItems = hovered ? chart.filter((c) => c.date === hovered.date) : [];
+  const hoveredDayTotal = hoveredDayItems.reduce((sum, c) => sum + c.count, 0);
+  const monthLabel = `Tháng ${Number(monthAnchor.slice(5, 7))}/${monthAnchor.slice(0, 4)}`;
+
+  return (
+    <div className="rounded-[16px] border border-[#e8edf5] bg-white p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="font-heading text-sm font-bold text-navy">
+          Task theo người <span className="font-normal text-muted">· {monthLabel}</span>
+        </p>
+        <p className="text-xs font-semibold text-muted">Tổng {grandTotal} task</p>
       </div>
-      {showDailyChart && (
-        <>
-          <p className="mb-2 font-heading text-xs font-bold uppercase tracking-wide text-muted">Theo ngày</p>
-          <div className="flex items-end gap-3 overflow-x-auto pb-2" style={{ minHeight: 140 }}>
-            {dates.map((date) => {
-              const dayItems = chart.filter((c) => c.date === date);
-              const dayTotal = dayItems.reduce((sum, c) => sum + c.count, 0);
-              return (
-                <div
-                  key={date}
-                  className="flex shrink-0 cursor-default flex-col items-center gap-1"
-                  style={{ width: 36 }}
-                  onMouseEnter={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHovered({ date, left: rect.left + rect.width / 2, top: rect.top });
-                  }}
-                  onMouseLeave={() => setHovered((h) => (h?.date === date ? null : h))}
-                >
-                  <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-[4px]" style={{ height: 100 }}>
-                    {dayItems.map((item, idx) => (
-                      <div
-                        key={`${item.assigneeUserId}-${idx}`}
-                        style={{
-                          height: `${(item.count / max) * 100}%`,
-                          background: colorOf(item.fullName ?? 'Chưa gán'),
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-semibold text-muted">{dayTotal}</span>
-                  <span className="text-[9px] text-muted">{formatVi(date).slice(0, 5)}</span>
-                </div>
-              );
-            })}
-          </div>
-          {hovered &&
-            createPortal(
-              <div
-                style={{ left: hovered.left, top: hovered.top - 8 }}
-                className="pointer-events-none fixed z-50 w-max max-w-[220px] -translate-x-1/2 -translate-y-full rounded-[10px] border border-[#e8edf5] bg-white p-2.5 shadow-[0_16px_32px_-16px_rgba(16,26,48,0.35)]"
-              >
-                <p className="mb-1 font-heading text-[11px] font-bold text-navy">{formatVi(hovered.date)}</p>
-                <ul className="space-y-0.5">
-                  {hoveredDayItems.map((item, idx) => {
-                    const label = item.fullName ?? 'Chưa gán';
-                    const member = memberByName.get(label);
-                    return (
-                      <li key={`${item.assigneeUserId}-${idx}`} className="flex items-center justify-between gap-3 text-xs">
-                        <span className="font-semibold" style={{ color: colorOf(label) }}>
-                          {member ? givenNameOf(label) : label}
-                        </span>
-                        <span className="font-bold text-navy">{item.count}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <p className="mt-1.5 border-t border-[#edf1f7] pt-1 text-[10px] font-semibold text-muted">Tổng: {hoveredDayTotal}</p>
-              </div>,
-              document.body
-            )}
-        </>
-      )}
+      <div className="mb-4">
+        <AssigneeTotalsGrid totalsByAssignee={totalsByAssignee} />
+      </div>
+      <p className="mb-2 font-heading text-xs font-bold uppercase tracking-wide text-muted">Theo ngày · {monthLabel}</p>
+      <div className="flex items-end gap-1 pb-2" style={{ minHeight: 140 }}>
+        {dates.map((date) => {
+          const dayItems = chart.filter((c) => c.date === date);
+          const dayTotal = dayItems.reduce((sum, c) => sum + c.count, 0);
+          return (
+            <div
+              key={date}
+              className="flex min-w-0 flex-1 cursor-default flex-col items-center gap-1"
+              onMouseEnter={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHovered({ date, left: rect.left + rect.width / 2, top: rect.top });
+              }}
+              onMouseLeave={() => setHovered((h) => (h?.date === date ? null : h))}
+            >
+              <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-[4px]" style={{ height: 100 }}>
+                {dayItems.map((item, idx) => (
+                  <div
+                    key={`${item.assigneeUserId}-${idx}`}
+                    style={{
+                      height: `${(item.count / max) * 100}%`,
+                      background: colorOf(item.fullName ?? 'Chưa gán'),
+                    }}
+                  />
+                ))}
+              </div>
+              <span className="text-[10px] font-semibold text-muted">{dayTotal}</span>
+              <span className="text-[9px] text-muted">{formatVi(date).slice(0, 5)}</span>
+            </div>
+          );
+        })}
+      </div>
+      {hovered &&
+        createPortal(
+          <div
+            style={{ left: hovered.left, top: hovered.top - 8 }}
+            className="pointer-events-none fixed z-50 w-max max-w-[220px] -translate-x-1/2 -translate-y-full rounded-[10px] border border-[#e8edf5] bg-white p-2.5 shadow-[0_16px_32px_-16px_rgba(16,26,48,0.35)]"
+          >
+            <p className="mb-1 font-heading text-[11px] font-bold text-navy">{formatVi(hovered.date)}</p>
+            <ul className="space-y-0.5">
+              {hoveredDayItems.map((item, idx) => {
+                const label = item.fullName ?? 'Chưa gán';
+                const member = memberByName.get(label);
+                return (
+                  <li key={`${item.assigneeUserId}-${idx}`} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="font-semibold" style={{ color: colorOf(label) }}>
+                      {member ? givenNameOf(label) : label}
+                    </span>
+                    <span className="font-bold text-navy">{item.count}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-1.5 border-t border-[#edf1f7] pt-1 text-[10px] font-semibold text-muted">Tổng: {hoveredDayTotal}</p>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -2588,7 +2859,7 @@ function DuplicateDatePicker({
       <div className="mb-2 flex items-center justify-between">
         <button
           type="button"
-          onClick={() => setViewMonth(shiftAnchor('month', viewMonth, -1))}
+          onClick={() => setViewMonth(shiftMonth(viewMonth, -1))}
           aria-label="Tháng trước"
           className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
         >
@@ -2597,7 +2868,7 @@ function DuplicateDatePicker({
         <strong className="font-heading text-xs text-navy">{monthLabel}</strong>
         <button
           type="button"
-          onClick={() => setViewMonth(shiftAnchor('month', viewMonth, 1))}
+          onClick={() => setViewMonth(shiftMonth(viewMonth, 1))}
           aria-label="Tháng sau"
           className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
         >

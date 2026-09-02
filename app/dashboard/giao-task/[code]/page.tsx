@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { todayIso } from '@/lib/date';
-import { findOutsideTeamUserBySlug, findTeamIdByUserId, getTeamByCode, isTeamManager } from '@/lib/teams';
+import { findOutsideTeamUserBySlug, findTeamIdByUserId, getTeamByCode } from '@/lib/teams';
 import TaskBoard from '@/components/dashboard/task-board';
 import PersonalTaskBoard from '@/components/dashboard/personal-task-board';
-import { loadTeamBoardCore, loadTeamsOverview } from '../team-board-data';
+import { loadPersonalBoardCore, loadTeamBoardCore } from '../team-board-data';
 import PersonalBoardRoute from './personal-board-route';
 
 interface PageProps {
@@ -26,7 +26,10 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
 
   // getTeamByCode và findTeamIdByUserId không phụ thuộc nhau — chạy song
   // song ngay từ đầu thay vì nối tiếp.
-  const [teamRow, ownTeamId] = await Promise.all([getTeamByCode(code), findTeamIdByUserId(session.userId)]);
+  const [teamRow, ownTeamId] = await Promise.all([
+    getTeamByCode(code),
+    isBgd ? Promise.resolve(null) : findTeamIdByUserId(session.userId),
+  ]);
   if (teamRow) {
     if (!isBgd && ownTeamId !== teamRow.id) redirect('/dashboard/giao-task');
 
@@ -34,15 +37,13 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
     // getTeamBoardAsBgdAction); chính thành viên/quản lý thì theo đúng vai
     // trò thật của họ trong đội. core/isManager/overview độc lập nhau nên
     // gộp chung 1 Promise.all thay vì await tuần tự.
-    const [core, isManager, overview] = await Promise.all([
-      loadTeamBoardCore(teamRow.id, today),
-      isBgd ? Promise.resolve(true) : isTeamManager(teamRow.id, session.userId),
-      isBgd ? loadTeamsOverview(today) : Promise.resolve(null),
-    ]);
+    const core = await loadTeamBoardCore(teamRow.id, today);
     if (!core) redirect('/dashboard/giao-task');
+    const isManager =
+      isBgd || core.team.members.some((member) => member.userId === session.userId && member.role === 'manager');
 
     return (
-      <TaskBoard key={`team-${core.team.id}`} isBgd={isBgd} today={today} overview={overview} board={{ ...core, isManager }} />
+      <TaskBoard key={`team-${core.team.id}`} isBgd={isBgd} today={today} overview={null} board={{ ...core, isManager }} />
     );
   }
 
@@ -52,22 +53,26 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
   // Task cá nhân: chỉ chính chủ hoặc BGĐ (khớp requirePersonalTaskContext ở
   // actions.ts) — người khác gõ đúng URL vẫn bị chặn ở đây, không chỉ ẩn UI.
   if (session.userId === person.userId) {
+    const initialBoard = await loadPersonalBoardCore(person.userId, today);
     return (
       <PersonalTaskBoard
         today={today}
         ownerUserId={person.userId}
         viewerIsBgd={false}
         ownerAvatarUrl={person.avatarUrl}
+        initialBoard={initialBoard}
       />
     );
   }
   if (isBgd) {
+    const initialBoard = await loadPersonalBoardCore(person.userId, today);
     return (
       <PersonalBoardRoute
         today={today}
         ownerUserId={person.userId}
         ownerName={person.fullName}
         ownerAvatarUrl={person.avatarUrl}
+        initialBoard={initialBoard}
       />
     );
   }

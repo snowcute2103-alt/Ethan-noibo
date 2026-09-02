@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import type { Department, Tier } from './roles';
@@ -66,7 +67,7 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
  * quyền, thay vì phải chờ hết hạn JWT (proxy.ts vẫn chỉ verify chữ ký, nhẹ,
  * không tra DB — xem lib/README hoặc phase-03 trong plan).
  */
-export async function getSession(): Promise<SessionPayload | null> {
+async function readSession(): Promise<SessionPayload | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -79,3 +80,9 @@ export async function getSession(): Promise<SessionPayload | null> {
   }
   return payload;
 }
+
+/** React cache chỉ memoize trong một lượt Server Component render/request.
+ * Layout và page thường cùng gọi getSession(); dedupe ở đây giữ nguyên bước
+ * kiểm tra session_version cho request mới nhưng không query users hai lần
+ * trong cùng một render. */
+export const getSession = cache(readSession);

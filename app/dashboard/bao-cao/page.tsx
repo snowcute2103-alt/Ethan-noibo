@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { WEBSITE_REPORTS } from '@/lib/content/reports';
+import { canViewWebsiteReports } from '@/lib/report-access';
 import ReportDashboard from '@/components/dashboard/report-dashboard';
 
 export default async function BaoCaoPage() {
   const session = await getSession();
   if (!session) redirect('/login');
+  if (!canViewWebsiteReports(session.userId)) redirect('/dashboard');
 
   return (
     <div className="relative overflow-hidden bg-surface-2">
