@@ -217,7 +217,7 @@ export default function AnnouncementManager({
 
       {selectedStatic ? (
         <div className="flex flex-col gap-6 border border-navy/15 p-6 sm:p-8">
-          <p className="border border-gold-2/50 bg-[#FFF4D6] px-4 py-3 text-sm text-navy">
+          <p className="theme-light-surface border border-gold-2/50 bg-[#FFF4D6] px-4 py-3 text-sm text-navy">
             Mục này ({selectedStatic.kind}) có sẵn trong code hệ thống — chỉ xem, không sửa/xoá được ở đây.
           </p>
           <div>

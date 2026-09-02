@@ -426,7 +426,7 @@ export default function RuleManager({
       <div className="flex flex-col gap-6 border border-navy/15 p-6 sm:p-8">
         {error && <p className="text-sm text-red-600">{error}</p>}
         {isStaticSelected && (
-          <p className="border border-gold-2/50 bg-[#FFF4D6] px-4 py-3 text-sm text-navy">
+          <p className="theme-light-surface border border-gold-2/50 bg-[#FFF4D6] px-4 py-3 text-sm text-navy">
             Rule này có sẵn trong code hệ thống (không phải tạo qua trang này) — chỉ xem, không sửa/xoá được ở đây.
           </p>
         )}

@@ -740,7 +740,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           <h1
             className={
               board
-                ? 'mt-1 font-heading text-2xl font-semibold text-navy sm:text-3xl'
+                ? 'mt-3 mb-2 font-heading text-3xl font-light uppercase tracking-wide text-navy sm:text-4xl'
                 : 'mt-4 font-heading text-5xl font-light uppercase tracking-wide text-navy'
             }
           >
@@ -748,7 +748,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           </h1>
         </div>
         {!board && overview && (
-          <div className="flex items-center gap-1 rounded-[10px] border border-black p-1">
+          <div className="flex items-center gap-1 rounded-[10px] border border-[var(--theme-border)] p-1">
             <button
               type="button"
               onClick={() => setAnchorDate(shiftMonth(anchorDate, -1))}
@@ -808,7 +808,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           </div>
 
           <div className="mb-5 flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-[10px] border border-black p-1">
+            <div className="flex items-center gap-1 rounded-[10px] border border-[var(--theme-border)] p-1">
               {boardView === 'table' && (
                 <button
                   type="button"
@@ -821,7 +821,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
               <button
                 type="button"
                 onClick={() => setCategoryId('all')}
-                className={`rounded-[8px] px-3 py-1.5 text-sm font-normal uppercase text-[#000000] ${categoryId === 'all' ? 'bg-[#EAB308]' : ''}`}
+                className={`rounded-[8px] px-3 py-1.5 text-sm font-normal uppercase transition-colors ${categoryId === 'all' ? 'bg-[#EAB308] text-[#111827]' : 'text-ink hover:bg-surface'}`}
               >
                 Tất cả
               </button>
@@ -832,7 +832,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                     key={cat.id}
                     type="button"
                     onClick={() => setCategoryId(cat.id)}
-                    className={`rounded-[8px] px-3 py-1.5 text-sm font-normal uppercase text-[#000000] ${isSelected ? 'bg-[#EAB308]' : ''}`}
+                    className={`rounded-[8px] px-3 py-1.5 text-sm font-normal uppercase transition-colors ${isSelected ? 'bg-[#EAB308] text-[#111827]' : 'text-ink hover:bg-surface'}`}
                   >
                     {cat.name}
                   </button>
@@ -950,7 +950,8 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-5">
+          <div className="mt-10 flex flex-col gap-5 border-t-2 border-[#dbe4f2] pt-8">
+            <h2 className="font-heading text-3xl font-light uppercase tracking-wide text-navy sm:text-4xl">Biểu đồ tổng</h2>
             <MonthlyDailyChart chart={anchorMonthChart} members={board.team.members} monthAnchor={calendarMonthAnchor} />
             <MonthlyDailyChart chart={previousMonthChart} members={board.team.members} monthAnchor={previousMonthAnchor} />
           </div>
@@ -1372,7 +1373,7 @@ function TaskTable({
             <col style={{ width: 100 }} />
             <col style={{ width: 44 }} />
           </colgroup>
-          <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-[#000000]">
+          <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-ink">
             <tr className="divide-x divide-[#e8edf5]">
               <th className="px-3 py-3">
                 <input
@@ -1482,7 +1483,7 @@ function TaskTable({
                   return (
                     <td key={key} className="px-3 py-2.5">
                       {value ? (
-                        <span className="text-sm font-medium text-[#000000]">{value}</span>
+                        <span className="text-sm font-medium text-ink">{value}</span>
                       ) : (
                         <span className="text-muted">—</span>
                       )}
@@ -2613,9 +2614,9 @@ function TeamRosterCard({
  *  vào đã lọc theo ngày hay theo cả tháng. */
 function computeAssigneeTotals(chart: DailyAssigneeCount[], members: TeamMember[], opts?: { includeAllMembers?: boolean }) {
   const names = new Set(chart.map((c) => c.fullName ?? 'Chưa gán'));
-  // Thẻ "Task theo người" theo NGÀY cần hiện đủ mọi thành viên đội kể cả ai
-  // 0 task hôm đó (0|0) — khác bản theo THÁNG (MonthlyDailyChart) vẫn chỉ
-  // liệt kê người có task trong tháng, giữ nguyên hành vi cũ.
+  // AssigneeSummaryCard (theo ngày) và MonthlyDailyChart (theo tháng) đều cần
+  // hiện đủ mọi thành viên đội kể cả ai chưa có task trong kỳ đang xem (0|0),
+  // để bảng không "biến mất" hoặc thiếu người khi tháng/ngày đó chưa có dữ liệu.
   if (opts?.includeAllMembers) {
     for (const member of members) names.add(member.fullName);
   }
@@ -2733,8 +2734,6 @@ function MonthlyDailyChart({
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [hovered]);
 
-  if (chart.length === 0) return null;
-
   const monthStart = startOfMonth(monthAnchor);
   const monthEnd = endOfMonth(monthAnchor);
   const dates: string[] = [];
@@ -2742,7 +2741,12 @@ function MonthlyDailyChart({
     dates.push(d);
   }
   const max = Math.max(...dates.map((d) => chart.filter((c) => c.date === d).reduce((sum, c) => sum + c.count, 0)), 1);
-  const { totalsByAssignee, grandTotal, colorOf, memberByName } = computeAssigneeTotals(chart, members);
+  // Tháng chưa có task nào (vd tháng hiện tại vừa sang) vẫn phải hiện đủ
+  // khung bảng + đủ thành viên 0|0 — không ẩn cả khối như trước, khớp cách
+  // xử lý ở AssigneeSummaryCard (thẻ theo ngày).
+  const { totalsByAssignee, grandTotal, colorOf, memberByName } = computeAssigneeTotals(chart, members, {
+    includeAllMembers: true,
+  });
   const hoveredDayItems = hovered ? chart.filter((c) => c.date === hovered.date) : [];
   const hoveredDayTotal = hoveredDayItems.reduce((sum, c) => sum + c.count, 0);
   const monthLabel = `Tháng ${Number(monthAnchor.slice(5, 7))}/${monthAnchor.slice(0, 4)}`;
@@ -2750,15 +2754,13 @@ function MonthlyDailyChart({
   return (
     <div className="rounded-[16px] border border-[#e8edf5] bg-white p-4">
       <div className="mb-3 flex items-center justify-between">
-        <p className="font-heading text-sm font-bold text-navy">
-          Task theo người <span className="font-normal text-muted">· {monthLabel}</span>
-        </p>
+        <p className="font-heading text-sm font-bold text-navy">{monthLabel}</p>
         <p className="text-xs font-semibold text-muted">Tổng {grandTotal} task</p>
       </div>
       <div className="mb-4">
         <AssigneeTotalsGrid totalsByAssignee={totalsByAssignee} />
       </div>
-      <p className="mb-2 font-heading text-xs font-bold uppercase tracking-wide text-muted">Theo ngày · {monthLabel}</p>
+      <p className="mb-2 font-heading text-xs font-bold uppercase tracking-wide text-muted">Theo ngày</p>
       <div className="flex items-end gap-1 pb-2" style={{ minHeight: 140 }}>
         {dates.map((date) => {
           const dayItems = chart.filter((c) => c.date === date);

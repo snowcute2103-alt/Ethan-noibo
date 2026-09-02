@@ -115,7 +115,7 @@ function MonthGrid({
         : !activeDates.has(dateStr)
           ? 'bg-[#1A1D24] text-white/50'
           : dateStr < today
-            ? 'bg-[#FFB84D] text-navy'
+            ? 'bg-[#FFB84D] text-[#111827]'
             : 'border border-[#e8edf5] bg-white text-navy';
     // Viền riêng cho ngày ĐANG XEM trên bảng task (anchorDate) — độc lập với
     // màu nền "Hôm nay" ở trên, vì 2 ngày này không phải lúc nào cũng trùng

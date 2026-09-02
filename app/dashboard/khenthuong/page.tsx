@@ -27,7 +27,7 @@ export default async function KhenThuongPage() {
   }));
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-b from-[#FFF5F8] via-white to-white">
+    <div className="theme-light-surface relative overflow-hidden bg-gradient-to-b from-[#FFF5F8] via-white to-white">
       <div className="relative mx-auto flex max-w-[1500px] flex-col gap-16 px-4 py-16 sm:px-6 sm:py-20 lg:gap-32 lg:px-8 lg:py-36">
         <div className="recognition-hero-grid relative grid grid-cols-1 items-center gap-10 overflow-visible lg:grid-cols-[1fr_600px] lg:gap-14">
           <Image

@@ -94,6 +94,41 @@ body {
 :root[data-theme='dark'] .via-white { --tw-gradient-via: var(--surface) var(--tw-gradient-via-position); }
 :root[data-theme='dark'] .to-white { --tw-gradient-to: var(--surface) var(--tw-gradient-to-position); }
 
+/* Các bề mặt chủ ý giữ giao diện sáng (trang báo, hero sáng, badge màu kem)
+ * cần một ngữ cảnh màu riêng để dark mode không đổi chữ navy thành trắng. */
+.theme-light-surface {
+  color-scheme: light;
+  --navy: oklch(31% 0.07 263);
+  --navy-2: oklch(36% 0.07 263);
+  --navy-deep: oklch(23% 0.06 263);
+  --blue: oklch(50% 0.2 258);
+  --blue-cta: oklch(57% 0.19 258);
+  --gold: oklch(76% 0.16 72);
+  --gold-2: oklch(84% 0.15 83);
+  --cyan: oklch(79% 0.15 211);
+  --ink: oklch(31% 0.015 254);
+  --muted: oklch(49% 0.035 254);
+  --surface: oklch(99% 0.003 254);
+  --surface-2: oklch(97% 0.008 254);
+  --theme-border: oklch(88% 0.015 254);
+  color: var(--ink);
+}
+
+.theme-light-surface.text-navy,
+.theme-light-surface.text-navy-deep,
+.theme-light-surface .text-navy,
+.theme-light-surface .text-navy-deep {
+  color: var(--navy);
+}
+
+:root[data-theme='dark'] .theme-light-surface [class~='text-navy/35'] { color: color-mix(in oklch, var(--navy) 35%, transparent); }
+:root[data-theme='dark'] .theme-light-surface [class~='text-navy/40'] { color: color-mix(in oklch, var(--navy) 40%, transparent); }
+:root[data-theme='dark'] .theme-light-surface [class~='text-navy/50'] { color: color-mix(in oklch, var(--navy) 50%, transparent); }
+:root[data-theme='dark'] .theme-light-surface [class~='text-navy/60'] { color: color-mix(in oklch, var(--navy) 60%, transparent); }
+:root[data-theme='dark'] .theme-light-surface [class~='text-navy/70'] { color: color-mix(in oklch, var(--navy) 70%, transparent); }
+:root[data-theme='dark'] .theme-light-surface [class~='text-navy/80'] { color: color-mix(in oklch, var(--navy) 80%, transparent); }
+:root[data-theme='dark'] .theme-light-surface [class~='text-navy/90'] { color: color-mix(in oklch, var(--navy) 90%, transparent); }
+
 .theme-toggle {
   display: inline-flex;
   min-width: 84px;

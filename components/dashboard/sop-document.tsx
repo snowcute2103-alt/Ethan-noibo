@@ -239,7 +239,7 @@ export default function SopDocumentView({ doc, image }: { doc: RuleDocument; ima
               <span className="border border-cyan/50 bg-cyan/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy">
                 {doc.effectiveDate}
               </span>
-              <span className="border border-gold-2 bg-[#FFF4D6] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy">
+              <span className="theme-light-surface border border-gold-2 bg-[#FFF4D6] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy">
                 {doc.status}
               </span>
               <span className="flex items-center gap-1.5 border border-blue-cta/40 bg-blue-cta/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-blue-cta">
@@ -258,7 +258,7 @@ export default function SopDocumentView({ doc, image }: { doc: RuleDocument; ima
             aria-modal="true"
             aria-label={doc.title}
             onClick={(e) => e.stopPropagation()}
-            className="animate-nyt-panel-in fixed inset-y-0 left-0 flex h-full w-full flex-col overflow-hidden border-r-2 border-navy bg-[#f7f3e8] shadow-[24px_0_60px_-24px_rgba(16,26,48,0.45)] sm:w-1/2 sm:min-w-[480px] lg:max-w-[820px]"
+            className="theme-light-surface animate-nyt-panel-in fixed inset-y-0 left-0 flex h-full w-full flex-col overflow-hidden border-r-2 border-navy bg-[#f7f3e8] shadow-[24px_0_60px_-24px_rgba(16,26,48,0.45)] sm:w-1/2 sm:min-w-[480px] lg:max-w-[820px]"
           >
             <button
               type="button"
