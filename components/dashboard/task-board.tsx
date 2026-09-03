@@ -1402,7 +1402,7 @@ function HorizontalScrollBar({ targetRef }: { targetRef: React.RefObject<HTMLDiv
   if (!thumb) return null;
 
   return (
-    <div ref={trackRef} className="mx-3 mb-3 mt-2 h-2.5 rounded-full bg-surface-2">
+    <div ref={trackRef} className="mx-3 mb-3 mt-2 h-1.5 rounded-full bg-surface-2">
       <div
         role="scrollbar"
         aria-orientation="horizontal"
