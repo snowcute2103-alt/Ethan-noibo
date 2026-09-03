@@ -913,11 +913,13 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                 <TaskTable
                   tasks={visibleTasks}
                   visibleColumns={
-                    // KD4 chỉ có 1 bộ cột dùng chung cho Media/Support — tab "Tất cả"
-                    // gióng đúng bộ cột đó thay vì rơi về liệt kê hết mọi cột từng có
-                    // trong hệ thống (fallback mặc định khi categoryId không khớp nhóm nào).
-                    categoryId === 'all' && board.team.code === 'kd4'
-                      ? (board.categories.find((c) => c.name === 'Media')?.visibleColumns ?? [...TASK_COLUMN_KEYS])
+                    // Tab "Tất cả" gộp đúng các cột mà nhóm task (Media/Support/...) của
+                    // riêng đội này đang dùng, thay vì liệt kê hết mọi cột từng có trong
+                    // hệ thống (fallback cũ khi categoryId không khớp nhóm nào).
+                    categoryId === 'all'
+                      ? (board.categories.length > 0
+                          ? Array.from(new Set(board.categories.flatMap((c) => c.visibleColumns)))
+                          : [...TASK_COLUMN_KEYS])
                       : (board.categories.find((c) => c.id === categoryId)?.visibleColumns ?? [...TASK_COLUMN_KEYS])
                   }
                   teamCode={board.team.code}
