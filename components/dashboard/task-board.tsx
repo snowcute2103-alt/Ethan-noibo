@@ -1493,7 +1493,7 @@ function TaskTable({
             {trailingColumns.map((key) => (
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
             ))}
-            <col style={{ width: 100 }} />
+            <col style={{ width: 120 }} />
             <col style={{ width: 96 }} />
           </colgroup>
           <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-ink">
