@@ -1484,7 +1484,12 @@ function TaskTable({
             {leadingColumns.map((key) => (
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
             ))}
-            <col />
+            {/* Chủ đề không khai width cố định để nhận phần còn lại của bảng — nhưng
+                table-fixed co cột không-khai-width về gần 0 khi tổng các cột còn lại
+                (đặc biệt tab "Tất cả" gộp nhiều cột tuỳ chọn) đã vượt quá bề rộng
+                bảng, khiến chữ đè lên cột kế bên. minWidth giữ 1 sàn hợp lý, phần dư
+                (nếu có) bảng vẫn tự cuộn ngang như các cột khác. */}
+            <col style={{ minWidth: 220 }} />
             {trailingColumns.map((key) => (
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
             ))}
