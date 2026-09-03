@@ -586,6 +586,29 @@ body {
   display: none;
 }
 
+/* Ngược lại scrollbar-hide — dùng cho bảng nhiều cột (vd Giao Task) để
+   thanh cuộn ngang luôn hiện rõ, dày hơn mặc định OS, báo cho người dùng
+   biết còn cột ở bên phải thay vì thanh mảnh dễ bị bỏ qua. */
+.table-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: var(--blue) var(--surface-2);
+}
+
+.table-scrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+
+.table-scrollbar::-webkit-scrollbar-track {
+  background: var(--surface-2);
+  border-radius: 999px;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--blue);
+  border-radius: 999px;
+  border: 2px solid var(--surface-2);
+}
+
 /* ---- Danh sách "Nội dung khác" — scrollbar SVG cong theo bo góc thẻ, xem CurvedScrollList ---- */
 
 .content-hover-tone {

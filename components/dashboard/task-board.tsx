@@ -1475,7 +1475,7 @@ function TaskTable({
           }}
         />
       )}
-      <div className="overflow-x-auto">
+      <div className="table-scrollbar overflow-x-auto pb-3">
         <table className="w-full min-w-[1000px] table-fixed border-collapse text-left text-sm">
           <colgroup>
             <col style={{ width: 44 }} />
