@@ -4,13 +4,30 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MoreVertical, TriangleAlert, ListChecks, CircleDot, CheckCircle2, Check, ArrowLeft, X, StickyNote, Video, Rows3, Grid2x2, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  MoreVertical,
+  TriangleAlert,
+  ListChecks,
+  CircleDot,
+  CheckCircle2,
+  Check,
+  ArrowLeft,
+  X,
+  StickyNote,
+  Video,
+  Rows3,
+  Grid2x2,
+  ChevronLeft,
+  ChevronRight,
+  UserRound,
+} from 'lucide-react';
 import { useCheckboxConfetti } from '@/components/dashboard/checkbox-confetti';
 import DepartmentOverview from '@/components/dashboard/department-overview';
 import TaskCalendar from '@/components/dashboard/task-calendar';
 import type { DepartmentGroup, TeamWithRoster, TeamSummary, TeamTaskCategory, TeamMemberRole, TeamMember } from '@/lib/teams';
 import type { Task, TaskInput, TaskStatus, DailyAssigneeCount, TeamMonthProgress, BulkDuplicatePattern, MonthDayCategoryCount } from '@/lib/tasks';
 import { TASK_COLUMN_KEYS, type TaskColumnKey } from '@/lib/task-columns';
+import { getAnchoredPopoverPosition, type AnchoredPopoverPosition } from '@/lib/anchored-popover';
 import { shopsForTeamCode, type ShopEntry } from '@/lib/shops';
 import {
   getMyTeamBoardTasksAction,
@@ -68,6 +85,7 @@ interface TaskBoardProps {
 
 const COLUMN_LABELS: Record<TaskColumnKey, string> = {
   accountName: 'Tên Acc',
+  channelName: 'Kênh',
   channel: 'Up kênh',
   videoCount: 'SL VID',
   product: 'Sản phẩm',
@@ -82,6 +100,7 @@ const COLUMN_LABELS: Record<TaskColumnKey, string> = {
  *  là cột duy nhất không khai độ rộng nên nó nhận hết phần còn lại. */
 const COLUMN_WIDTH_PX: Record<TaskColumnKey, number> = {
   accountName: 130,
+  channelName: 110,
   channel: 110,
   videoCount: 80,
   product: 130,
@@ -254,6 +273,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   // Mặc định vào nhóm đầu tiên (Media/Support...), khớp với dữ liệu page.tsx
   // đã lọc sẵn phía server; 'all' là tab "Tất cả" xem gộp mọi nhóm.
   const [categoryId, setCategoryId] = useState<number | 'all' | undefined>(initialBoard?.categories[0]?.id);
+  const [assigneeFilter, setAssigneeFilter] = useState<number | 'all'>('all');
   const [board, setBoard] = useState<BoardData | null>(initialBoard);
   const [overview, setOverview] = useState<OverviewData | null>(initialOverview);
   const [error, setError] = useState<string | null>(null);
@@ -288,7 +308,10 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     return board.tasks.filter((t) => t.assigneeUserId != null && memberCategoryById.get(t.assigneeUserId) === categoryId);
   }, [board, categoryId]);
 
-  const visibleTasks = categoryTasks;
+  const visibleTasks = useMemo(
+    () => (assigneeFilter === 'all' ? categoryTasks : categoryTasks.filter((task) => task.assigneeUserId === assigneeFilter)),
+    [categoryTasks, assigneeFilter]
+  );
 
   // Thêm task ngay trên tab nào thì chỉ gán được cho người đang ở đúng nhóm
   // đó — tránh tình huống vừa lưu xong task đã biến mất khỏi tab đang xem.
@@ -601,9 +624,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             current
               ? {
                   ...current,
-                  tasks: current.tasks.map((item) =>
-                    item.id === task.id && item.status === status ? { ...item, status: previousStatus } : item
-                  ),
+                  tasks: current.tasks.map((item) => (item.id === task.id && item.status === status ? { ...item, status: previousStatus } : item)),
                 }
               : current
           );
@@ -637,6 +658,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       assigneeAvatarUrl: member?.avatarUrl ?? null,
       accountName: input.accountName ?? null,
       title: input.title,
+      channelName: input.channelName ?? null,
       channel: input.channel ?? null,
       videoCount: input.videoCount ?? null,
       product: input.product ?? null,
@@ -781,11 +803,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
         )}
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-          {error}
-        </div>
-      )}
+      {error && <div className="mb-4 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">{error}</div>}
 
       {!board && overview && (
         <>
@@ -839,6 +857,22 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                 );
               })}
             </div>
+            <label className="flex h-[42px] min-w-[180px] max-w-full items-center gap-2 rounded-[10px] border border-[var(--theme-border)] bg-white px-3 text-ink">
+              <UserRound className="h-4 w-4 shrink-0 text-blue" aria-hidden="true" />
+              <span className="sr-only">Lọc theo thành viên</span>
+              <select
+                value={assigneeFilter}
+                onChange={(event) => setAssigneeFilter(event.target.value === 'all' ? 'all' : Number(event.target.value))}
+                className="min-w-0 flex-1 cursor-pointer bg-transparent text-sm font-medium outline-none"
+              >
+                <option value="all">Lọc thành viên</option>
+                {board.team.members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.fullName.toLocaleUpperCase('vi')}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="ml-auto flex gap-1 rounded-[10px] bg-surface-2 p-1">
               <button
                 type="button"
@@ -873,13 +907,20 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   allMembers={board.team.members}
                   products={board.products}
                   onUpdate={updateTaskOptimistically}
-                  onDelete={(task) =>
+                  onBulkDelete={(taskIds) => {
+                    const removedTasks = board.tasks.filter((task) => taskIds.includes(task.id));
                     runAction(
-                      () => deleteTaskAction(board.team.id, task.id),
-                      () => reconcileBoardTasks([{ previous: task, next: null }]),
+                      () => Promise.all(taskIds.map((taskId) => deleteTaskAction(board.team.id, taskId))),
+                      () =>
+                        reconcileBoardTasks(
+                          removedTasks.map((task) => ({
+                            previous: task,
+                            next: null,
+                          }))
+                        ),
                       false
-                    )
-                  }
+                    );
+                  }}
                   allowBulkPattern={board.isManager}
                   onBulkDuplicateDates={(taskIds, dates, assigneeUserIds) =>
                     runAction(
@@ -1001,8 +1042,18 @@ function StatusCountBadge({ count, tone }: { count: number; tone: 'neutral' | 'b
   return <span className={`inline-flex min-w-[36px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold ${toneClass}`}>{count}</span>;
 }
 
-const OVERVIEW_STATUS_COLUMNS: { key: 'notStarted' | 'done' | 'overdue'; label: string; dot: string; tone: 'neutral' | 'blue' | 'emerald' | 'red' }[] = [
-  { key: 'notStarted', label: 'Chưa làm', dot: 'bg-[#B7C2D6]', tone: 'neutral' },
+const OVERVIEW_STATUS_COLUMNS: {
+  key: 'notStarted' | 'done' | 'overdue';
+  label: string;
+  dot: string;
+  tone: 'neutral' | 'blue' | 'emerald' | 'red';
+}[] = [
+  {
+    key: 'notStarted',
+    label: 'Chưa làm',
+    dot: 'bg-[#B7C2D6]',
+    tone: 'neutral',
+  },
   { key: 'done', label: 'Hoàn thành', dot: 'bg-emerald-500', tone: 'emerald' },
   { key: 'overdue', label: 'Quá hạn', dot: 'bg-red-500', tone: 'red' },
 ];
@@ -1066,11 +1117,46 @@ function OverviewStatusDonut({ monthLabel, totals }: { monthLabel: string; total
  *  này, đã thống nhất với người dùng khi làm bảng bên dưới). */
 function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; totals: OverviewTotals }) {
   const pct = (n: number) => (totals.total > 0 ? Math.round((n / totals.total) * 100) : 0);
-  const cards: { label: string; value: number; caption: string; icon: typeof ListChecks; toneBg: string; toneText: string }[] = [
-    { label: 'Tổng công việc', value: totals.total, caption: `Tháng ${monthLabel.split('-')[1]}`, icon: ListChecks, toneBg: 'bg-surface-2', toneText: 'text-navy' },
-    { label: 'Đang làm', value: totals.inProgress, caption: `${pct(totals.inProgress)}% công việc`, icon: CircleDot, toneBg: 'bg-[#E7F0FF]', toneText: 'text-blue' },
-    { label: 'Hoàn thành', value: totals.done, caption: `${pct(totals.done)}% công việc`, icon: CheckCircle2, toneBg: 'bg-emerald-50', toneText: 'text-emerald-600' },
-    { label: 'Quá hạn', value: totals.overdue, caption: `${pct(totals.overdue)}% công việc`, icon: TriangleAlert, toneBg: 'bg-red-50', toneText: 'text-red-600' },
+  const cards: {
+    label: string;
+    value: number;
+    caption: string;
+    icon: typeof ListChecks;
+    toneBg: string;
+    toneText: string;
+  }[] = [
+    {
+      label: 'Tổng công việc',
+      value: totals.total,
+      caption: `Tháng ${monthLabel.split('-')[1]}`,
+      icon: ListChecks,
+      toneBg: 'bg-surface-2',
+      toneText: 'text-navy',
+    },
+    {
+      label: 'Đang làm',
+      value: totals.inProgress,
+      caption: `${pct(totals.inProgress)}% công việc`,
+      icon: CircleDot,
+      toneBg: 'bg-[#E7F0FF]',
+      toneText: 'text-blue',
+    },
+    {
+      label: 'Hoàn thành',
+      value: totals.done,
+      caption: `${pct(totals.done)}% công việc`,
+      icon: CheckCircle2,
+      toneBg: 'bg-emerald-50',
+      toneText: 'text-emerald-600',
+    },
+    {
+      label: 'Quá hạn',
+      value: totals.overdue,
+      caption: `${pct(totals.overdue)}% công việc`,
+      icon: TriangleAlert,
+      toneBg: 'bg-red-50',
+      toneText: 'text-red-600',
+    },
   ];
 
   return (
@@ -1098,9 +1184,24 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
  *  để nhìn được cả tương quan số lượng lẫn tỉ lệ trạng thái giữa các đội. */
 function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[]; progressByTeam: Map<number, TeamMonthProgress> }) {
   const maxTotal = Math.max(1, ...teams.map((team) => progressByTeam.get(team.id)?.total ?? 0));
-  const segments: { key: 'notStarted' | 'done' | 'overdue'; label: string; bar: string; dot: string }[] = [
-    { key: 'notStarted', label: 'Chưa làm', bar: 'bg-[#B7C2D6]', dot: 'bg-[#B7C2D6]' },
-    { key: 'done', label: 'Hoàn thành', bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
+  const segments: {
+    key: 'notStarted' | 'done' | 'overdue';
+    label: string;
+    bar: string;
+    dot: string;
+  }[] = [
+    {
+      key: 'notStarted',
+      label: 'Chưa làm',
+      bar: 'bg-[#B7C2D6]',
+      dot: 'bg-[#B7C2D6]',
+    },
+    {
+      key: 'done',
+      label: 'Hoàn thành',
+      bar: 'bg-emerald-500',
+      dot: 'bg-emerald-500',
+    },
     { key: 'overdue', label: 'Quá hạn', bar: 'bg-red-500', dot: 'bg-red-500' },
   ];
 
@@ -1120,14 +1221,7 @@ function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[];
                   const count = progress ? progress[seg.key] : 0;
                   if (count <= 0) return null;
                   const widthPct = (count / maxTotal) * 100;
-                  return (
-                    <span
-                      key={seg.key}
-                      title={`${seg.label}: ${count}`}
-                      className={`h-full rounded-full ${seg.bar}`}
-                      style={{ width: `${widthPct}%` }}
-                    />
-                  );
+                  return <span key={seg.key} title={`${seg.label}: ${count}`} className={`h-full rounded-full ${seg.bar}`} style={{ width: `${widthPct}%` }} />;
                 })}
               </div>
               <span className="w-7 shrink-0 text-right text-xs font-bold text-navy">{total}</span>
@@ -1147,13 +1241,7 @@ function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[];
   );
 }
 
-function OverviewPanel({
-  overview,
-  monthLabel,
-}: {
-  overview: OverviewData;
-  monthLabel: string;
-}) {
+function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; monthLabel: string }) {
   const progressByTeam = new Map(overview.monthProgress.map((p) => [p.teamId, p]));
   const totals = overview.monthProgress.reduce<OverviewTotals>(
     (acc, p) => ({
@@ -1248,7 +1336,7 @@ function TaskTable({
   allMembers,
   products,
   onUpdate,
-  onDelete,
+  onBulkDelete,
   allowBulkPattern,
   onBulkDuplicateDates,
   onBulkDuplicatePattern,
@@ -1267,7 +1355,7 @@ function TaskTable({
   allMembers: TeamMember[];
   products: string[];
   onUpdate: (taskId: number, input: TaskInput) => void;
-  onDelete: (task: Task) => void;
+  onBulkDelete: (taskIds: number[]) => void;
   allowBulkPattern: boolean;
   onBulkDuplicateDates: (taskIds: number[], dates: string[], assigneeUserIds: number[]) => void;
   onBulkDuplicatePattern: (taskIds: number[], pattern: BulkDuplicatePattern, assigneeUserIds: number[]) => void;
@@ -1281,13 +1369,15 @@ function TaskTable({
   onCreate: (input: TaskInput) => void;
 }) {
   const columns = TASK_COLUMN_KEYS.filter((key) => visibleColumns.includes(key));
-  // Khớp thứ tự cột bảng Notion gốc: Tên Acc đứng trước Chủ đề, các cột còn
-  // lại (Up kênh/SL VID/Sản phẩm...) đứng sau Chủ đề.
-  const leadingColumns = columns.filter((key) => key === 'accountName');
-  const trailingColumns = columns.filter((key) => key !== 'accountName');
+  // Khớp thứ tự cột bảng Notion gốc: Tên Acc rồi Kênh (channelName — kênh
+  // đăng thật, khác "channel"/Up kênh vốn lưu tên người) đứng trước Chủ đề,
+  // các cột còn lại (Up kênh/SL VID/Sản phẩm...) đứng sau Chủ đề.
+  const leadingColumns = columns.filter((key) => key === 'accountName' || key === 'channelName');
+  const trailingColumns = columns.filter((key) => key !== 'accountName' && key !== 'channelName');
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
   const [bulkDuplicating, setBulkDuplicating] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
 
   // Cùng bảng màu/thứ tự tên với thẻ tổng hợp "Task theo người" phía trên —
@@ -1354,14 +1444,32 @@ function TaskTable({
             >
               Nhân bản đã chọn
             </button>
+            <button
+              type="button"
+              onClick={() => setConfirmBulkDelete(true)}
+              className="rounded-[8px] bg-red-500 px-3 py-1.5 font-semibold text-white hover:bg-red-600"
+            >
+              Xoá đã chọn
+            </button>
           </div>
         </div>
       )}
+      {confirmBulkDelete && (
+        <ConfirmDeleteDialog
+          message={`Bạn có muốn xoá ${selectedTaskIds.size} task đã chọn không?`}
+          onCancel={() => setConfirmBulkDelete(false)}
+          onConfirm={() => {
+            onBulkDelete([...selectedTaskIds]);
+            setSelectedTaskIds(new Set());
+            setConfirmBulkDelete(false);
+          }}
+        />
+      )}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] table-fixed border-collapse text-left text-sm">
+        <table className="w-full min-w-[1000px] table-fixed border-collapse text-left text-sm">
           <colgroup>
             <col style={{ width: 44 }} />
-            <col style={{ width: 76 }} />
+            <col style={{ width: 90 }} />
             <col style={{ width: 130 }} />
             {leadingColumns.map((key) => (
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
@@ -1371,7 +1479,7 @@ function TaskTable({
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
             ))}
             <col style={{ width: 100 }} />
-            <col style={{ width: 44 }} />
+            <col style={{ width: 36 }} />
           </colgroup>
           <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-ink">
             <tr className="divide-x divide-[#e8edf5]">
@@ -1435,116 +1543,98 @@ function TaskTable({
                   products={products}
                   defaultDate={task.taskDate}
                   onCancel={() => setEditingTaskId(null)}
-                  onSubmit={(input) => {
-                    onUpdate(task.id, input);
-                    setEditingTaskId(null);
-                  }}
+                  onSubmit={(input) => onUpdate(task.id, input)}
                 />
               ) : (
-              <tr
-                key={task.id}
-                className="divide-x divide-[#edf1f7] transition-[filter] hover:brightness-95"
-                style={{ backgroundColor: `${rowColor}26` }}
-              >
-                <td className="px-3 py-2.5" style={{ borderLeft: `3px solid ${rowColor}` }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedTaskIds.has(task.id)}
-                    onChange={() => toggleSelect(task.id)}
-                    aria-label="Chọn task để nhân bản hàng loạt"
-                    className="h-4 w-4 cursor-pointer accent-blue"
-                  />
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5 font-variant-numeric-tabular text-ink">{formatVi(task.taskDate).slice(0, 5)}</td>
-                <td className="px-3 py-2.5 text-ink">
-                  {task.assigneeFullName ? (
-                    <div className="flex items-center gap-1.5">
-                      {task.assigneeAvatarUrl ? (
-                        <Image
-                          src={task.assigneeAvatarUrl}
-                          alt={task.assigneeFullName}
-                          width={24}
-                          height={24}
-                          className="h-6 w-6 shrink-0 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-[10px] font-bold text-white">
-                          {initialsOf(task.assigneeFullName)}
-                        </span>
-                      )}
-                      {givenNameOf(task.assigneeFullName)}
-                    </div>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                {leadingColumns.map((key) => {
-                  const value = String((task as unknown as Record<string, unknown>)[key] ?? '');
-                  return (
-                    <td key={key} className="px-3 py-2.5">
-                      {value ? (
-                        <span className="text-sm font-medium text-ink">{value}</span>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                  );
-                })}
-                <td className="px-3 py-2.5 font-medium text-navy">{task.title}</td>
-                {trailingColumns.map((key) => {
-                  const rawValue = String((task as unknown as Record<string, unknown>)[key] ?? '');
-                  return (
-                    <td
-                      key={key}
-                      className={`px-3 py-2.5 text-ink ${key === 'note' || key === 'referenceLink' ? 'break-words' : ''}`}
+                <tr key={task.id} className="divide-x divide-[#edf1f7] transition-[filter] hover:brightness-95" style={{ backgroundColor: `${rowColor}26` }}>
+                  <td className="px-3 py-2.5" style={{ borderLeft: `3px solid ${rowColor}` }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTaskIds.has(task.id)}
+                      onChange={() => toggleSelect(task.id)}
+                      aria-label="Chọn task để nhân bản hàng loạt"
+                      className="h-4 w-4 cursor-pointer accent-blue"
+                    />
+                  </td>
+                  <td onClick={() => setEditingTaskId(task.id)} className="cursor-pointer whitespace-nowrap px-3 py-2.5 font-variant-numeric-tabular text-ink">
+                    {formatVi(task.taskDate).slice(0, 5)}
+                  </td>
+                  <td onClick={() => setEditingTaskId(task.id)} className="cursor-pointer px-3 py-2.5 text-ink">
+                    {task.assigneeFullName ? (
+                      <div className="flex items-center gap-1.5">
+                        {task.assigneeAvatarUrl ? (
+                          <Image src={task.assigneeAvatarUrl} alt={task.assigneeFullName} width={24} height={24} className="h-6 w-6 shrink-0 rounded-full object-cover" />
+                        ) : (
+                          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-[10px] font-bold text-white">
+                            {initialsOf(task.assigneeFullName)}
+                          </span>
+                        )}
+                        {givenNameOf(task.assigneeFullName)}
+                      </div>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  {leadingColumns.map((key) => {
+                    const value = String((task as unknown as Record<string, unknown>)[key] ?? '');
+                    return (
+                      <td key={key} onClick={() => setEditingTaskId(task.id)} className="cursor-pointer px-3 py-2.5">
+                        {value ? <span className="text-sm font-medium text-ink">{value}</span> : <span className="text-muted">—</span>}
+                      </td>
+                    );
+                  })}
+                  <td onClick={() => setEditingTaskId(task.id)} className="cursor-pointer px-3 py-2.5 font-medium text-navy">
+                    {task.title}
+                  </td>
+                  {trailingColumns.map((key) => {
+                    const rawValue = String((task as unknown as Record<string, unknown>)[key] ?? '');
+                    return (
+                      <td
+                        key={key}
+                        onClick={() => setEditingTaskId(task.id)}
+                        className={`cursor-pointer px-3 py-2.5 text-ink ${key === 'note' || key === 'referenceLink' ? 'break-words' : ''}`}
+                      >
+                        {key === 'videoCount' ? (
+                          (task.videoCount ?? '')
+                        ) : key === 'product' && task.product ? (
+                          <span
+                            className="inline-block truncate rounded-full px-2.5 py-1 text-xs font-semibold text-white"
+                            style={{
+                              background: productColorMap.get(task.product) ?? UNASSIGNED_COLOR,
+                            }}
+                          >
+                            {task.product}
+                          </span>
+                        ) : (
+                          rawValue
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2.5">
+                    <button
+                      type="button"
+                      disabled={statusPendingTaskIds.has(task.id)}
+                      aria-pressed={task.status === 'done'}
+                      aria-busy={statusPendingTaskIds.has(task.id)}
+                      aria-label={task.status === 'done' ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
+                      onClick={() => {
+                        const nextStatus = task.status === 'done' ? 'not_started' : 'done';
+                        onStatusChange(task, nextStatus);
+                        if (nextStatus !== 'done') return;
+                        fireConfetti();
+                      }}
+                      className={`group grid h-11 w-11 place-items-center rounded-[8px] transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${statusPendingTaskIds.has(task.id) ? 'cursor-wait opacity-80' : 'cursor-pointer active:scale-[0.96]'}`}
                     >
-                      {key === 'videoCount' ? (
-                        task.videoCount ?? ''
-                      ) : key === 'product' && task.product ? (
-                        <span
-                          className="inline-block truncate rounded-full px-2.5 py-1 text-xs font-semibold text-white"
-                          style={{ background: productColorMap.get(task.product) ?? UNASSIGNED_COLOR }}
-                        >
-                          {task.product}
-                        </span>
-                      ) : (
-                        rawValue
-                      )}
-                    </td>
-                  );
-                })}
-                <td className="px-3 py-2.5">
-                  <button
-                    type="button"
-                    disabled={statusPendingTaskIds.has(task.id)}
-                    aria-pressed={task.status === 'done'}
-                    aria-busy={statusPendingTaskIds.has(task.id)}
-                    aria-label={task.status === 'done' ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
-                    onClick={() => {
-                      const nextStatus = task.status === 'done' ? 'not_started' : 'done';
-                      onStatusChange(task, nextStatus);
-                      if (nextStatus !== 'done') return;
-                      fireConfetti();
-                    }}
-                    className={`group grid h-11 w-11 place-items-center rounded-[8px] transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
-                      statusPendingTaskIds.has(task.id) ? 'cursor-wait opacity-80' : 'cursor-pointer active:scale-[0.96]'
-                    }`}
-                  >
-                    <span
-                      className={`grid h-6 w-6 place-items-center rounded-[5px] border transition-[background-color,border-color,transform] duration-150 ${
-                        task.status === 'done'
-                          ? 'border-[#20C978] bg-[#20C978] text-white shadow-[0_5px_12px_-7px_rgba(32,201,120,0.9)]'
-                          : 'border-navy/30 bg-white text-transparent group-hover:scale-105 group-hover:border-[#20C978]'
-                      }`}
-                    >
-                      <Check size={16} strokeWidth={3} aria-hidden="true" />
-                    </span>
-                  </button>
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-right text-xs">
-                  <TaskRowMenu onEdit={() => setEditingTaskId(task.id)} onDelete={() => onDelete(task)} />
-                </td>
-              </tr>
+                      <span
+                        className={`grid h-6 w-6 place-items-center rounded-[5px] border transition-[background-color,border-color,transform] duration-150 ${task.status === 'done' ? 'border-[#20C978] bg-[#20C978] text-white shadow-[0_5px_12px_-7px_rgba(32,201,120,0.9)]' : 'border-navy/30 bg-white text-transparent group-hover:scale-105 group-hover:border-[#20C978]'}`}
+                      >
+                        <Check size={16} strokeWidth={3} aria-hidden="true" />
+                      </span>
+                    </button>
+                  </td>
+                  <td className="px-3 py-2.5" />
+                </tr>
               );
             })}
           </tbody>
@@ -1603,11 +1693,7 @@ function TaskCardGrid({
   onDelete: (task: Task) => void;
 }) {
   if (tasks.length === 0) {
-    return (
-      <div className="rounded-[16px] border-2 border-navy/15 bg-white p-10 text-center text-sm text-muted shadow-[0_16px_40px_-24px_rgba(16,26,48,0.35)]">
-        {emptyMessage}
-      </div>
-    );
+    return <div className="rounded-[16px] border-2 border-navy/15 bg-white p-10 text-center text-sm text-muted shadow-[0_16px_40px_-24px_rgba(16,26,48,0.35)]">{emptyMessage}</div>;
   }
 
   const rosterOrder = new Map(members.map((m, i) => [m.fullName, i]));
@@ -1684,6 +1770,7 @@ function TaskCard({
   onDelete: (task: Task) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1721,198 +1808,179 @@ function TaskCard({
           : 'bg-surface-2 text-muted';
 
   return (
-    <div
-      ref={cardRef}
-      className="flex flex-col gap-3 rounded-[14px] border border-[#e8edf5] bg-white p-4 shadow-[0_10px_24px_-18px_rgba(16,26,48,0.35)] transition hover:shadow-[0_16px_32px_-16px_rgba(16,26,48,0.35)]"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <button
-          type="button"
-          disabled={pending}
-          aria-busy={pending}
-          onClick={cycleStatus}
-          title="Bấm để đổi trạng thái"
-          className={`flex min-h-11 items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-[transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
-            pending ? 'cursor-wait opacity-70' : 'hover:-translate-y-0.5 active:translate-y-0'
-          } ${statusTextTone}`}
-        >
-          <span className={`h-2 w-2 rounded-full ${statusMeta.dot}`} aria-hidden="true" />
-          {statusMeta.label}
-        </button>
-        <div className="relative shrink-0">
+    <>
+      <div
+        ref={cardRef}
+        className="flex flex-col gap-3 rounded-[14px] border border-[#e8edf5] bg-white p-4 shadow-[0_10px_24px_-18px_rgba(16,26,48,0.35)] transition hover:shadow-[0_16px_32px_-16px_rgba(16,26,48,0.35)]"
+      >
+        <div className="flex items-start justify-between gap-2">
           <button
             type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-label="Tuỳ chọn task"
-            className="grid h-7 w-7 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
+            disabled={pending}
+            aria-busy={pending}
+            onClick={cycleStatus}
+            title="Bấm để đổi trạng thái"
+            className={`flex min-h-11 items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-[transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
+              pending ? 'cursor-wait opacity-70' : 'hover:-translate-y-0.5 active:translate-y-0'
+            } ${statusTextTone}`}
           >
-            <MoreVertical size={16} aria-hidden="true" />
+            <span className={`h-2 w-2 rounded-full ${statusMeta.dot}`} aria-hidden="true" />
+            {statusMeta.label}
           </button>
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 top-8 z-20 w-32 border border-[#e8edf5] bg-white py-1 text-xs shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="Tuỳ chọn task"
+              className="grid h-7 w-7 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onDelete(task);
-                  setMenuOpen(false);
-                }}
-                className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-[#f2f5fa]"
+              <MoreVertical size={16} aria-hidden="true" />
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-8 z-20 w-32 border border-[#e8edf5] bg-white py-1 text-xs shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
               >
-                Xoá
-              </button>
-            </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setConfirmDelete(true);
+                    setMenuOpen(false);
+                  }}
+                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-[#f2f5fa]"
+                >
+                  Xoá
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">#{task.id}</p>
+          <p className="mt-0.5 line-clamp-2 font-heading text-base font-semibold text-navy">{task.title}</p>
+          {(task.accountName || task.product) && (
+            <p className="mt-1 truncate text-sm text-muted">{[task.accountName, task.product].filter(Boolean).join(' · ')}</p>
           )}
         </div>
-      </div>
 
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-wide text-muted">#{task.id}</p>
-        <p className="mt-0.5 line-clamp-2 font-heading text-base font-semibold text-navy">{task.title}</p>
-        {(task.accountName || task.product) && (
-          <p className="mt-1 truncate text-sm text-muted">{[task.accountName, task.product].filter(Boolean).join(' · ')}</p>
-        )}
-      </div>
-
-      <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-        <div className="flex min-w-0 items-center gap-2">
-          {task.assigneeFullName ? (
-            <>
-              {task.assigneeAvatarUrl ? (
-                <Image
-                  src={task.assigneeAvatarUrl}
-                  alt={task.assigneeFullName}
-                  width={28}
-                  height={28}
-                  className="h-7 w-7 shrink-0 rounded-full object-cover"
-                />
-              ) : (
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-[11px] font-bold text-white">
-                  {initialsOf(task.assigneeFullName)}
-                </span>
-              )}
-              <span className="truncate text-sm font-medium text-ink">{givenNameOf(task.assigneeFullName)}</span>
-            </>
-          ) : (
-            <span className="text-sm text-muted">Chưa gán</span>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {task.note && <StickyNote className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="Có ghi chú" />}
-          {task.videoCount != null && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold text-muted">
-              <Video className="h-3.5 w-3.5" aria-hidden="true" />
-              {task.videoCount}
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+          <div className="flex min-w-0 items-center gap-2">
+            {task.assigneeFullName ? (
+              <>
+                {task.assigneeAvatarUrl ? (
+                  <Image
+                    src={task.assigneeAvatarUrl}
+                    alt={task.assigneeFullName}
+                    width={28}
+                    height={28}
+                    className="h-7 w-7 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-[11px] font-bold text-white">
+                    {initialsOf(task.assigneeFullName)}
+                  </span>
+                )}
+                <span className="truncate text-sm font-medium text-ink">{givenNameOf(task.assigneeFullName)}</span>
+              </>
+            ) : (
+              <span className="text-sm text-muted">Chưa gán</span>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {task.note && <StickyNote className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="Có ghi chú" />}
+            {task.videoCount != null && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold text-muted">
+                <Video className="h-3.5 w-3.5" aria-hidden="true" />
+                {task.videoCount}
+              </span>
+            )}
+            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${dateTone}`}>
+              {formatVi(task.taskDate).slice(0, 5)}
             </span>
-          )}
-          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${dateTone}`}>
-            {formatVi(task.taskDate).slice(0, 5)}
-          </span>
+          </div>
         </div>
       </div>
-    </div>
+      {confirmDelete && (
+        <ConfirmDeleteDialog
+          message={`Bạn có muốn xoá task "${task.title}" không?`}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            onDelete(task);
+            setConfirmDelete(false);
+          }}
+        />
+      )}
+    </>
   );
 }
 
-/** Menu "⋮" của mỗi dòng task — portal ra document.body thay vì absolute
- *  trong ô, vì bảng cuộn ngang (overflow-x-auto) khiến trục dọc cũng bị cắt
- *  theo (quy tắc CSS: overflow-x khác visible thì overflow-y "visible" tự
- *  thành "auto"), nên dòng cuối bảng menu xổ xuống sẽ bị khuất mất. */
-function TaskRowMenu({
-  onEdit,
-  onDelete,
-}: {
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+function anchoredPopoverStyle(position: AnchoredPopoverPosition): React.CSSProperties {
+  return {
+    left: position.left,
+    width: position.width,
+    maxHeight: position.maxHeight,
+    ...(position.placement === 'above' ? { bottom: position.edge } : { top: position.edge }),
+  };
+}
 
-  function openMenu() {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    setOpen(true);
-  }
+/** Portal các popup trong ô ra body và neo bằng toạ độ viewport để vùng cuộn
+ * ngang/dọc của bảng không thể cắt mất nội dung. */
+function useTableCellPopover(
+  open: boolean,
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  preferredWidth: number
+) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<AnchoredPopoverPosition | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e: MouseEvent) {
-      const target = e.target as Node;
-      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) {
+      setOpen(false);
+      return;
+    }
+    setPosition(getAnchoredPopoverPosition(rect, { width: window.innerWidth, height: window.innerHeight }, preferredWidth));
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
       setOpen(false);
     }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
     }
-    function handleScroll() {
+    function handleScroll(event: Event) {
+      const target = event.target;
+      if (target instanceof Node && popoverRef.current?.contains(target)) return;
       setOpen(false);
     }
+    function handleResize() {
+      setOpen(false);
+    }
+
     document.addEventListener('mousedown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
     };
-  }, [open]);
+  }, [open, preferredWidth, setOpen]);
 
-  return (
-    <>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => (open ? setOpen(false) : openMenu())}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Tuỳ chọn task"
-        className="ml-auto grid h-7 w-7 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
-      >
-        <MoreVertical size={16} aria-hidden="true" />
-      </button>
-      {open &&
-        coords &&
-        createPortal(
-          <div
-            ref={menuRef}
-            role="menu"
-            style={{ top: coords.top, right: coords.right }}
-            className="fixed z-50 w-36 border border-[#e8edf5] bg-white py-1 text-left text-xs shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onEdit();
-                setOpen(false);
-              }}
-              className="block w-full px-3 py-1.5 text-left font-semibold text-blue hover:bg-[#f2f5fa]"
-            >
-              Sửa
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onDelete();
-                setOpen(false);
-              }}
-              className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-[#f2f5fa]"
-            >
-              Xoá
-            </button>
-          </div>,
-          document.body
-        )}
-    </>
-  );
+  return { triggerRef, popoverRef, position };
 }
 
 function memberAvatar(m: TeamMember, size: number) {
@@ -1937,44 +2005,21 @@ function memberAvatar(m: TeamMember, size: number) {
 
 /** Picker chọn người phụ trách kiểu "Đã chọn / Đổi người khác" với avatar,
  *  thay cho <select> thuần — dùng ở hàng thêm task ngay trong bảng. */
-function MemberPickerCell({
-  members,
-  value,
-  onChange,
-}: {
-  members: TeamMember[];
-  value: number | null;
-  onChange: (userId: number | null) => void;
-}) {
+function MemberPickerCell({ members, value, onChange }: { members: TeamMember[]; value: number | null; onChange: (userId: number | null) => void }) {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const { triggerRef, popoverRef, position } = useTableCellPopover(open, setOpen, 208);
   const selected = members.find((m) => m.userId === value) ?? null;
   const others = members.filter((m) => m.userId !== value);
 
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e: MouseEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open]);
-
   return (
-    <div ref={wrapRef} className="relative">
+    <div>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex w-full min-w-[100px] items-center gap-1.5 rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-left text-sm outline-none focus:border-blue"
+        className="flex w-full min-w-0 max-w-full items-center gap-1.5 rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-left text-sm outline-none focus:border-blue"
       >
         {selected ? (
           <>
@@ -1985,50 +2030,53 @@ function MemberPickerCell({
           <span className="text-muted">— Chưa gán —</span>
         )}
       </button>
-      {open && (
-        <div
-          role="listbox"
-          className="absolute left-0 top-full z-20 mt-1 w-52 border border-[#e8edf5] bg-white py-2 text-sm shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
-        >
-          {selected && (
-            <>
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Đã chọn</p>
-              <div className="flex w-full items-center gap-2 bg-[#f2f5fa] px-3 py-1.5 font-medium text-navy">
-                {memberAvatar(selected, 18)}
-                {givenNameOf(selected.fullName)}
-              </div>
-              <div className="my-1.5 border-t border-[#edf1f7]" />
-            </>
-          )}
-          <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
-            {selected ? 'Đổi người khác' : 'Chọn người'}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              onChange(null);
-              setOpen(false);
-            }}
-            className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]"
+      {open &&
+        position &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="listbox"
+            style={anchoredPopoverStyle(position)}
+            className="fixed z-50 overflow-y-auto border border-[#e8edf5] bg-white py-2 text-sm shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
           >
-            — Chưa gán —
-          </button>
-          {others.map((m) => (
+            {selected && (
+              <>
+                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Đã chọn</p>
+                <div className="flex w-full items-center gap-2 bg-[#f2f5fa] px-3 py-1.5 font-medium text-navy">
+                  {memberAvatar(selected, 18)}
+                  {givenNameOf(selected.fullName)}
+                </div>
+                <div className="my-1.5 border-t border-[#edf1f7]" />
+              </>
+            )}
+            <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{selected ? 'Đổi người khác' : 'Chọn người'}</p>
             <button
-              key={m.userId}
               type="button"
               onClick={() => {
-                onChange(m.userId);
+                onChange(null);
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#f2f5fa]"
+              className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]"
             >
-              {memberAvatar(m, 18)}
-              {givenNameOf(m.fullName)}
+              — Chưa gán —
             </button>
-          ))}
-        </div>
-      )}
+            {others.map((m) => (
+              <button
+                key={m.userId}
+                type="button"
+                onClick={() => {
+                  onChange(m.userId);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#f2f5fa]"
+              >
+                {memberAvatar(m, 18)}
+                {givenNameOf(m.fullName)}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -2041,29 +2089,11 @@ function MemberPickerCell({
 function AccountNameCell({ value, onChange, shops }: { value: string; onChange: (name: string) => void; shops: ShopEntry[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const { triggerRef, popoverRef, position } = useTableCellPopover(open, setOpen, 256);
   const selected = shops.find((s) => s.name === value) ?? (value ? { name: value, active: false } : null);
 
   useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e: MouseEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (open) searchInputRef.current?.focus();
-    else setQuery('');
+    if (!open) setQuery('');
   }, [open]);
 
   const trimmedQuery = query.trim().toLowerCase();
@@ -2077,63 +2107,65 @@ function AccountNameCell({ value, onChange, shops }: { value: string; onChange: 
   }
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex w-full min-w-[100px] items-center rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-left text-sm outline-none focus:border-blue"
+        className="flex w-full min-w-0 max-w-full items-center rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-left text-sm outline-none focus:border-blue"
       >
         <span className="truncate">{selected ? selected.name : <span className="text-muted">— Chưa chọn —</span>}</span>
       </button>
-      {open && (
-        <div
-          role="listbox"
-          className="absolute left-0 top-full z-20 mt-1 w-64 border border-[#e8edf5] bg-white text-sm shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
-        >
-          {selected && (
-            <>
-              <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Đã chọn</p>
-              <div className="flex items-center justify-between gap-2 bg-[#f2f5fa] px-3 py-1.5 font-medium text-navy">
-                <span className="truncate">{selected.name}</span>
-                {!selected.active && <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">Inactive</span>}
-              </div>
-              <div className="my-1.5 border-t border-[#edf1f7]" />
-            </>
-          )}
-          <div className="px-3 pb-1.5">
-            <input
-              ref={searchInputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm tên acc…"
-              className="w-full rounded-[6px] border border-[#dbe4f2] px-2 py-1.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <div className="max-h-56 overflow-y-auto pb-1.5">
-            <button
-              type="button"
-              onClick={() => select('')}
-              className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]"
-            >
-              — Chưa chọn —
-            </button>
-            {results.length === 0 && <p className="px-3 py-2 text-xs text-muted">Không tìm thấy acc nào.</p>}
-            {results.map((s) => (
-              <button
-                key={s.name}
-                type="button"
-                onClick={() => select(s.name)}
-                className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-[#f2f5fa]"
-              >
-                <span className="truncate">{s.name}</span>
-                {!s.active && <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">Inactive</span>}
+      {open &&
+        position &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="listbox"
+            style={anchoredPopoverStyle(position)}
+            className="fixed z-50 flex flex-col overflow-hidden border border-[#e8edf5] bg-white text-sm shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
+          >
+            {selected && (
+              <>
+                <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Đã chọn</p>
+                <div className="flex items-center justify-between gap-2 bg-[#f2f5fa] px-3 py-1.5 font-medium text-navy">
+                  <span className="truncate">{selected.name}</span>
+                  {!selected.active && <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">Inactive</span>}
+                </div>
+                <div className="my-1.5 border-t border-[#edf1f7]" />
+              </>
+            )}
+            <div className="px-3 pb-1.5">
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Tìm tên acc…"
+                className="w-full rounded-[6px] border border-[#dbe4f2] px-2 py-1.5 text-sm outline-none focus:border-blue"
+              />
+            </div>
+            <div className="min-h-0 max-h-56 overflow-y-auto pb-1.5">
+              <button type="button" onClick={() => select('')} className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]">
+                — Chưa chọn —
               </button>
-            ))}
-          </div>
-        </div>
-      )}
+              {results.length === 0 && <p className="px-3 py-2 text-xs text-muted">Không tìm thấy acc nào.</p>}
+              {results.map((s) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  onClick={() => select(s.name)}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-[#f2f5fa]"
+                >
+                  <span className="truncate">{s.name}</span>
+                  {!s.active && <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">Inactive</span>}
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -2147,34 +2179,13 @@ function AccountNameCell({ value, onChange, shops }: { value: string; onChange: 
 function ProductCell({ value, onChange, products }: { value: string; onChange: (name: string) => void; products: string[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const allProducts = useMemo(
-    () => Array.from(new Set([...products, ...(value ? [value] : [])])).sort((a, b) => a.localeCompare(b, 'vi')),
-    [products, value]
-  );
+  const { triggerRef, popoverRef, position } = useTableCellPopover(open, setOpen, 256);
+  const allProducts = useMemo(() => Array.from(new Set([...products, ...(value ? [value] : [])])).sort((a, b) => a.localeCompare(b, 'vi')), [products, value]);
   const colorMap = useMemo(() => distinctColorMap(allProducts), [allProducts]);
   const colorOf = (name: string) => colorMap.get(name) ?? UNASSIGNED_COLOR;
 
   useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e: MouseEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (open) searchInputRef.current?.focus();
-    else setQuery('');
+    if (!open) setQuery('');
   }, [open]);
 
   const trimmedQuery = query.trim();
@@ -2187,75 +2198,72 @@ function ProductCell({ value, onChange, products }: { value: string; onChange: (
   }
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex w-full min-w-[100px] items-center rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-left text-sm outline-none focus:border-blue"
+        className="flex w-full min-w-0 max-w-full items-center rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-left text-sm outline-none focus:border-blue"
       >
         {value ? (
-          <span className="truncate rounded-full px-2 py-0.5 text-xs font-semibold text-white" style={{ background: colorOf(value) }}>
+          <span className="min-w-0 max-w-full truncate rounded-full px-2 py-0.5 text-xs font-semibold text-white" style={{ background: colorOf(value) }}>
             {value}
           </span>
         ) : (
           <span className="text-muted">— Chưa chọn —</span>
         )}
       </button>
-      {open && (
-        <div
-          role="listbox"
-          className="absolute left-0 top-full z-20 mt-1 w-64 border border-[#e8edf5] bg-white text-sm shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
-        >
-          <div className="px-3 pt-2 pb-1.5">
-            <input
-              ref={searchInputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && trimmedQuery && !exactMatch) {
-                  e.preventDefault();
-                  select(trimmedQuery);
-                }
-              }}
-              placeholder="Tìm hoặc thêm sản phẩm mới…"
-              className="w-full rounded-[6px] border border-[#dbe4f2] px-2 py-1.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <div className="max-h-56 overflow-y-auto pb-1.5">
-            <button
-              type="button"
-              onClick={() => select('')}
-              className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]"
-            >
-              — Chưa chọn —
-            </button>
-            {trimmedQuery && !exactMatch && (
-              <button
-                type="button"
-                onClick={() => select(trimmedQuery)}
-                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left font-semibold text-blue hover:bg-[#f2f5fa]"
-              >
-                + Dùng "{trimmedQuery}"
+      {open &&
+        position &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="listbox"
+            style={anchoredPopoverStyle(position)}
+            className="fixed z-50 flex flex-col overflow-hidden border border-[#e8edf5] bg-white text-sm shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
+          >
+            <div className="px-3 pt-2 pb-1.5">
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && trimmedQuery && !exactMatch) {
+                    e.preventDefault();
+                    select(trimmedQuery);
+                  }
+                }}
+                placeholder="Tìm hoặc thêm sản phẩm mới…"
+                className="w-full rounded-[6px] border border-[#dbe4f2] px-2 py-1.5 text-sm outline-none focus:border-blue"
+              />
+            </div>
+            <div className="min-h-0 max-h-56 overflow-y-auto pb-1.5">
+              <button type="button" onClick={() => select('')} className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]">
+                — Chưa chọn —
               </button>
-            )}
-            {results.length === 0 && !trimmedQuery && <p className="px-3 py-2 text-xs text-muted">Chưa có sản phẩm nào.</p>}
-            {results.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => select(name)}
-                className="flex w-full items-center px-3 py-1.5 text-left hover:bg-[#f2f5fa]"
-              >
-                <span className="truncate rounded-full px-2 py-0.5 text-xs font-semibold text-white" style={{ background: colorOf(name) }}>
-                  {name}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+              {trimmedQuery && !exactMatch && (
+                <button
+                  type="button"
+                  onClick={() => select(trimmedQuery)}
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left font-semibold text-blue hover:bg-[#f2f5fa]"
+                >
+                  + Dùng "{trimmedQuery}"
+                </button>
+              )}
+              {results.length === 0 && !trimmedQuery && <p className="px-3 py-2 text-xs text-muted">Chưa có sản phẩm nào.</p>}
+              {results.map((name) => (
+                <button key={name} type="button" onClick={() => select(name)} className="flex w-full items-center px-3 py-1.5 text-left hover:bg-[#f2f5fa]">
+                  <span className="truncate rounded-full px-2 py-0.5 text-xs font-semibold text-white" style={{ background: colorOf(name) }}>
+                    {name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -2290,6 +2298,7 @@ function TaskRowEditor({
   const [assigneeUserId, setAssigneeUserId] = useState<number | null>(task?.assigneeUserId ?? members[0]?.userId ?? null);
   const [title, setTitle] = useState(task?.title ?? '');
   const [accountName, setAccountName] = useState(task?.accountName ?? '');
+  const [channelName, setChannelName] = useState(task?.channelName ?? '');
   const [channel, setChannel] = useState(task?.channel ?? '');
   const [videoCount, setVideoCount] = useState(task?.videoCount?.toString() ?? '');
   const [product, setProduct] = useState(task?.product ?? '');
@@ -2307,49 +2316,121 @@ function TaskRowEditor({
     titleInputRef.current?.focus();
   }, []);
 
-  const cellInputClass = 'w-full min-w-[100px] rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-sm outline-none focus:border-blue';
+  const cellInputClass = 'block box-border w-full min-w-0 max-w-full rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-sm outline-none focus:border-blue';
+  const editorCellClass = 'min-w-0 overflow-hidden px-3 py-2.5';
   const shops = shopsForTeamCode(teamCode);
+  // Sửa task có sẵn thì lưu ngay khi đổi 1 ô (không cần nút Lưu riêng) — thêm
+  // task mới vẫn giữ nút Lưu/Huỷ tường minh vì chưa có gì để lưu tự động tới
+  // khi bấm nút.
+  const isEditingExisting = Boolean(task);
 
-  function handleSave() {
+  // Nhận override cho field vừa đổi vì setState không đồng bộ — nếu chỉ gọi
+  // handleSave() ngay sau setX(...) trong cùng handler thì closure vẫn thấy
+  // giá trị field đó CŨ (chưa re-render), nên phải truyền giá trị mới thẳng
+  // vào đây thay vì đọc lại state.
+  function commit(
+    overrides: Partial<{
+      taskDate: string;
+      assigneeUserId: number | null;
+      accountName: string;
+      channelName: string;
+      channel: string;
+      videoCount: string;
+      product: string;
+      optionTag: string;
+      referenceLink: string;
+      note: string;
+      status: TaskStatus;
+    }> = {}
+  ) {
+    const merged = {
+      taskDate,
+      assigneeUserId,
+      accountName,
+      channelName,
+      channel,
+      videoCount,
+      product,
+      optionTag,
+      referenceLink,
+      note,
+      status,
+      ...overrides,
+    };
     if (!title.trim()) {
       titleInputRef.current?.focus();
       return;
     }
-    const now = Date.now();
-    if (now - lastSaveAtRef.current < 400) return;
-    lastSaveAtRef.current = now;
+    if (!isEditingExisting) {
+      // Khoá double-submit chỉ áp cho TẠO MỚI (né IME bắn 2 lần Enter ra 2
+      // task trùng nhau) — sửa task có sẵn thì submit trùng vô hại (cùng
+      // patch, idempotent), khoá ở đây sẽ làm rớt mất lượt autosave kế tiếp
+      // nếu người dùng đổi 2 ô liên tiếp trong vòng 400ms.
+      const now = Date.now();
+      if (now - lastSaveAtRef.current < 400) return;
+      lastSaveAtRef.current = now;
+    }
     onSubmit({
-      taskDate,
-      assigneeUserId,
+      taskDate: merged.taskDate,
+      assigneeUserId: merged.assigneeUserId,
       title: title.trim(),
       categoryId: task?.categoryId ?? null,
-      accountName: accountName || null,
-      channel: channel || null,
-      videoCount: videoCount ? Number(videoCount) : null,
-      product: product || null,
-      optionTag: optionTag || null,
-      referenceLink: referenceLink || null,
-      note: note || null,
-      status,
+      accountName: merged.accountName || null,
+      channelName: merged.channelName || null,
+      channel: merged.channel || null,
+      videoCount: merged.videoCount ? Number(merged.videoCount) : null,
+      product: merged.product || null,
+      optionTag: merged.optionTag || null,
+      referenceLink: merged.referenceLink || null,
+      note: merged.note || null,
+      status: merged.status,
     });
+  }
+
+  function handleSave() {
+    commit();
+  }
+
+  function handleEnterSave(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave();
   }
 
   function renderColumnInput(key: TaskColumnKey) {
     switch (key) {
       case 'accountName':
-        return <AccountNameCell value={accountName} onChange={setAccountName} shops={shops} />;
+        return (
+          <AccountNameCell
+            value={accountName}
+            onChange={(name) => {
+              setAccountName(name);
+              if (isEditingExisting) commit({ accountName: name });
+            }}
+            shops={shops}
+          />
+        );
+      case 'channelName':
+        return <input value={channelName} onChange={(e) => setChannelName(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       case 'channel':
-        return <input value={channel} onChange={(e) => setChannel(e.target.value)} className={cellInputClass} />;
+        return <input value={channel} onChange={(e) => setChannel(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       case 'videoCount':
-        return <input type="number" min={0} value={videoCount} onChange={(e) => setVideoCount(e.target.value)} className={cellInputClass} />;
+        return <input type="number" min={0} value={videoCount} onChange={(e) => setVideoCount(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       case 'product':
-        return <ProductCell value={product} onChange={setProduct} products={products} />;
+        return (
+          <ProductCell
+            value={product}
+            onChange={(name) => {
+              setProduct(name);
+              if (isEditingExisting) commit({ product: name });
+            }}
+            products={products}
+          />
+        );
       case 'optionTag':
-        return <input value={optionTag} onChange={(e) => setOptionTag(e.target.value)} className={cellInputClass} />;
+        return <input value={optionTag} onChange={(e) => setOptionTag(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       case 'note':
-        return <input value={note} onChange={(e) => setNote(e.target.value)} className={cellInputClass} />;
+        return <input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       case 'referenceLink':
-        return <input value={referenceLink} onChange={(e) => setReferenceLink(e.target.value)} className={cellInputClass} />;
+        return <input value={referenceLink} onChange={(e) => setReferenceLink(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       default:
         return null;
     }
@@ -2358,37 +2439,51 @@ function TaskRowEditor({
   return (
     <tr className="divide-x divide-[#edf1f7] bg-[#f6f9ff]">
       <td className="px-3 py-2.5" />
-      <td className="px-3 py-2.5">
-        <input type="date" value={taskDate} onChange={(e) => setTaskDate(e.target.value)} className={cellInputClass} />
-      </td>
-      <td className="px-3 py-2.5">
-        <MemberPickerCell members={members} value={assigneeUserId} onChange={setAssigneeUserId} />
-      </td>
-      {leadingColumns.map((key) => (
-        <td key={key} className="px-3 py-2.5">
-          {renderColumnInput(key)}
-        </td>
-      ))}
-      <td className="px-3 py-2.5">
+      <td className={editorCellClass}>
         <input
-          ref={titleInputRef}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSave()}
-          placeholder="Chủ đề, đầu việc"
+          type="date"
+          value={taskDate}
+          onChange={(e) => {
+            const value = e.target.value;
+            setTaskDate(value);
+            if (isEditingExisting) commit({ taskDate: value });
+          }}
+          onKeyDown={handleEnterSave}
           className={cellInputClass}
         />
       </td>
-      {trailingColumns.map((key) => (
-        <td key={key} className="px-3 py-2.5">
+      <td className={editorCellClass}>
+        <MemberPickerCell
+          members={members}
+          value={assigneeUserId}
+          onChange={(userId) => {
+            setAssigneeUserId(userId);
+            if (isEditingExisting) commit({ assigneeUserId: userId });
+          }}
+        />
+      </td>
+      {leadingColumns.map((key) => (
+        <td key={key} className={editorCellClass}>
           {renderColumnInput(key)}
         </td>
       ))}
-      <td className="px-3 py-2.5">
+      <td className={editorCellClass}>
+        <input ref={titleInputRef} value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={handleEnterSave} placeholder="Chủ đề, đầu việc" className={cellInputClass} />
+      </td>
+      {trailingColumns.map((key) => (
+        <td key={key} className={editorCellClass}>
+          {renderColumnInput(key)}
+        </td>
+      ))}
+      <td className={editorCellClass}>
         <input
           type="checkbox"
           checked={status === 'done'}
-          onChange={(e) => setStatus(e.target.checked ? 'done' : 'not_started')}
+          onChange={(e) => {
+            const next = e.target.checked ? 'done' : 'not_started';
+            setStatus(next);
+            if (isEditingExisting) commit({ status: next });
+          }}
           onClick={(e) => {
             if (!e.currentTarget.checked) return;
             fireConfetti();
@@ -2398,13 +2493,21 @@ function TaskRowEditor({
         />
         {confettiNode}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right text-xs">
-        <button type="button" onClick={handleSave} className="mr-2 font-semibold text-blue">
-          Lưu
-        </button>
-        <button type="button" onClick={onCancel} className="font-semibold text-muted">
-          Huỷ
-        </button>
+      <td className="min-w-0 whitespace-nowrap px-3 py-2 text-right text-xs">
+        {isEditingExisting ? (
+          <button type="button" onClick={onCancel} className="font-semibold text-muted hover:text-navy">
+            Xong
+          </button>
+        ) : (
+          <>
+            <button type="button" onClick={handleSave} className="mr-2 font-semibold text-blue">
+              Lưu
+            </button>
+            <button type="button" onClick={onCancel} className="font-semibold text-muted">
+              Huỷ
+            </button>
+          </>
+        )}
       </td>
     </tr>
   );
@@ -2711,19 +2814,16 @@ function AssigneeSummaryCard({ chart, members, periodLabel }: { chart: DailyAssi
  *  bảng+sidebar, không bị bó hẹp trong cột 1fr) — mỗi cột chia đều theo
  *  flex-1 nên luôn đủ số ngày thật của tháng đang xem (31 ngày tháng 8, 30
  *  ngày tháng 9...) kể cả ngày chưa có task, không cần cuộn ngang. */
-function MonthlyDailyChart({
-  chart,
-  members,
-  monthAnchor,
-}: {
-  chart: DailyAssigneeCount[];
-  members: TeamMember[];
-  monthAnchor: string;
-}) {
+function MonthlyDailyChart({ chart, members, monthAnchor }: { chart: DailyAssigneeCount[]; members: TeamMember[]; monthAnchor: string }) {
   // Popup ngày portal ra document.body thay vì absolute trong cột — nếu khu
-  // biểu đồ từng cuộn ngang thì trục dọc cũng bị cắt theo (xem lý do tương tự
-  // ở TaskRowMenu); nay không còn cuộn ngang nhưng vẫn portal cho an toàn.
-  const [hovered, setHovered] = useState<{ date: string; left: number; top: number } | null>(null);
+  // biểu đồ từng cuộn ngang thì trục dọc cũng bị cắt theo (CSS: overflow-x
+  // khác visible thì overflow-y "visible" tự thành "auto"); nay không còn
+  // cuộn ngang nhưng vẫn portal cho an toàn.
+  const [hovered, setHovered] = useState<{
+    date: string;
+    left: number;
+    top: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!hovered) return;
@@ -2944,9 +3044,7 @@ function BulkSelectedDuplicateModal({
   }
 
   function toggleMonth(monthDays: string[], allSelected: boolean) {
-    setSelectedDates((prev) =>
-      allSelected ? prev.filter((d) => !monthDays.includes(d)) : [...new Set([...prev, ...monthDays])].sort()
-    );
+    setSelectedDates((prev) => (allSelected ? prev.filter((d) => !monthDays.includes(d)) : [...new Set([...prev, ...monthDays])].sort()));
   }
 
   function toggleMember(userId: number) {
@@ -3075,6 +3173,7 @@ function CategoryManagerModal({
 }) {
   const [newName, setNewName] = useState('');
   const [newColumns, setNewColumns] = useState<string[]>([]);
+  const [confirmDeleteCat, setConfirmDeleteCat] = useState<TeamTaskCategory | null>(null);
 
   function toggleColumn(list: string[], key: string): string[] {
     return list.includes(key) ? list.filter((c) => c !== key) : [...list, key];
@@ -3091,7 +3190,7 @@ function CategoryManagerModal({
                 onBlur={(e) => e.target.value !== cat.name && onUpdate(cat.id, { name: e.target.value })}
                 className="rounded-[8px] border border-transparent bg-transparent px-1 text-sm font-semibold text-navy hover:border-[#dbe4f2] focus:border-blue focus:outline-none"
               />
-              <button type="button" onClick={() => onDelete(cat.id)} className="text-xs font-semibold text-red-500">
+              <button type="button" onClick={() => setConfirmDeleteCat(cat)} className="text-xs font-semibold text-red-500">
                 Xoá nhóm
               </button>
             </div>
@@ -3139,6 +3238,16 @@ function CategoryManagerModal({
           </button>
         </div>
       </div>
+      {confirmDeleteCat && (
+        <ConfirmDeleteDialog
+          message={`Bạn có muốn xoá nhóm "${confirmDeleteCat.name}" không?`}
+          onCancel={() => setConfirmDeleteCat(null)}
+          onConfirm={() => {
+            onDelete(confirmDeleteCat.id);
+            setConfirmDeleteCat(null);
+          }}
+        />
+      )}
     </ModalShell>
   );
 }
@@ -3179,6 +3288,40 @@ function AddMemberModal({
             <span className="font-semibold text-blue">+ Thêm</span>
           </button>
         ))}
+      </div>
+    </ModalShell>
+  );
+}
+
+/** Hộp thoại xác nhận dùng chung cho mọi thao tác xoá trong Giao Task —
+ * chặn xoá nhầm bằng một bước hỏi lại trước khi gọi hành động thật. */
+function ConfirmDeleteDialog({
+  message,
+  onConfirm,
+  onCancel,
+}: {
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <ModalShell title="Xác nhận xoá" onClose={onCancel}>
+      <p className="text-sm text-ink">{message}</p>
+      <div className="mt-5 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-[8px] border border-[#dbe4f2] px-3 py-1.5 text-sm font-semibold text-muted hover:bg-[#f2f5fa]"
+        >
+          Huỷ
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="rounded-[8px] bg-red-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-600"
+        >
+          Xoá
+        </button>
       </div>
     </ModalShell>
   );
