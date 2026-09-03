@@ -94,6 +94,16 @@ const COLUMN_LABELS: Record<TaskColumnKey, string> = {
   note: 'Ghi chú',
 };
 
+// KD4 bán trên sàn (listing), không "up kênh" như các đội media — đổi tên cột
+// hiển thị cho đúng nghiệp vụ, dữ liệu/khoá cột (`channel`) giữ nguyên.
+const COLUMN_LABEL_OVERRIDES: Partial<Record<string, Partial<Record<TaskColumnKey, string>>>> = {
+  kd4: { channel: 'SL Listing' },
+};
+
+function columnLabel(key: TaskColumnKey, teamCode: string): string {
+  return COLUMN_LABEL_OVERRIDES[teamCode]?.[key] ?? COLUMN_LABELS[key];
+}
+
 /** Độ rộng cố định (px) cho từng cột tuỳ chọn — dùng với table-layout: fixed
  *  để bảng không bị lệch cột (cột chứa URL/text dài nuốt hết chỗ, cột trống
  *  teo lại) như khi để trình duyệt tự co giãn theo nội dung. Cột "Chủ đề"
@@ -902,7 +912,14 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
               {boardView === 'table' ? (
                 <TaskTable
                   tasks={visibleTasks}
-                  visibleColumns={board.categories.find((c) => c.id === categoryId)?.visibleColumns ?? [...TASK_COLUMN_KEYS]}
+                  visibleColumns={
+                    // KD4 chỉ có 1 bộ cột dùng chung cho Media/Support — tab "Tất cả"
+                    // gióng đúng bộ cột đó thay vì rơi về liệt kê hết mọi cột từng có
+                    // trong hệ thống (fallback mặc định khi categoryId không khớp nhóm nào).
+                    categoryId === 'all' && board.team.code === 'kd4'
+                      ? (board.categories.find((c) => c.name === 'Media')?.visibleColumns ?? [...TASK_COLUMN_KEYS])
+                      : (board.categories.find((c) => c.id === categoryId)?.visibleColumns ?? [...TASK_COLUMN_KEYS])
+                  }
                   teamCode={board.team.code}
                   allMembers={board.team.members}
                   products={board.products}
@@ -1206,15 +1223,16 @@ function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[];
   ];
 
   return (
-    <div className="h-full min-w-[280px] flex-1 rounded-[16px] border border-[#e8edf5] bg-white p-4">
-      <p className="font-heading text-sm font-bold text-navy">Khối lượng công việc theo đội</p>
-      <p className="mt-0.5 text-xs text-muted">So sánh 6 đội, theo trạng thái task</p>
-      <div className="mt-5 flex flex-col gap-3">
+    <div className="flex h-full min-w-[280px] flex-col rounded-[16px] border border-[#e8edf5] bg-white px-4 pb-4">
+      <div className="flex h-[33px] items-center">
+        <p className="font-heading text-sm font-bold text-navy">Khối lượng công việc theo đội</p>
+      </div>
+      <div className="flex flex-col">
         {teams.map((team) => {
           const progress = progressByTeam.get(team.id);
           const total = progress?.total ?? 0;
           return (
-            <div key={team.id} className="flex items-center gap-3">
+            <div key={team.id} className="flex h-[57px] items-center gap-3">
               <span className="w-9 shrink-0 text-xs font-semibold uppercase text-muted">{team.code}</span>
               <div className="flex h-3 flex-1 items-center gap-0.5">
                 {segments.map((seg) => {
@@ -1260,7 +1278,7 @@ function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; month
         <OverviewStatusDonut monthLabel={monthLabel} totals={totals} />
         <OverviewSummaryCards monthLabel={monthLabel} totals={totals} />
       </div>
-      <div className="flex flex-wrap items-stretch gap-4">
+      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,auto)_minmax(420px,1fr)]">
         <div className="w-fit max-w-full overflow-hidden rounded-[16px] border border-[#e8edf5] bg-white">
           <div className="overflow-x-auto">
             <table className="border-collapse text-left text-sm">
@@ -1479,7 +1497,7 @@ function TaskTable({
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
             ))}
             <col style={{ width: 100 }} />
-            <col style={{ width: 36 }} />
+            <col style={{ width: 96 }} />
           </colgroup>
           <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-ink">
             <tr className="divide-x divide-[#e8edf5]">
@@ -1497,13 +1515,13 @@ function TaskTable({
               <th className="truncate px-3 py-3">Thành viên</th>
               {leadingColumns.map((key) => (
                 <th key={key} className="truncate px-3 py-3">
-                  {COLUMN_LABELS[key]}
+                  {columnLabel(key, teamCode)}
                 </th>
               ))}
               <th className="truncate px-3 py-3">Chủ đề</th>
               {trailingColumns.map((key) => (
                 <th key={key} className="truncate px-3 py-3">
-                  {COLUMN_LABELS[key]}
+                  {columnLabel(key, teamCode)}
                 </th>
               ))}
               <th className="truncate px-3 py-3">Trạng thái</th>
