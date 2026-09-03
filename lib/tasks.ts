@@ -26,6 +26,7 @@ export interface Task {
   assigneeAvatarUrl: string | null;
   accountName: string | null;
   title: string;
+  channelName: string | null;
   channel: string | null;
   videoCount: number | null;
   product: string | null;
@@ -53,6 +54,7 @@ export interface TaskInput {
   assigneeUserId?: number | null;
   accountName?: string | null;
   title: string;
+  channelName?: string | null;
   channel?: string | null;
   videoCount?: number | null;
   product?: string | null;
@@ -107,7 +109,7 @@ export interface PersonalTaskDetail {
 
 const TASK_SELECT_CORE = `
   t.id, t.team_id, t.owner_user_id, t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.assignee_user_id,
-  u.full_name AS assignee_full_name, u.avatar_url AS assignee_avatar_url, t.account_name, t.title, t.channel, t.video_count,
+  u.full_name AS assignee_full_name, u.avatar_url AS assignee_avatar_url, t.account_name, t.title, t.channel_name, t.channel, t.video_count,
   t.product, t.option_tag, t.reference_link, t.note, t.status, t.duplicated_from_task_id,
   t.description, t.image_url, t.priority, t.original_task_date::text AS original_task_date, t.rolled_over_at,
   t.created_by, cb.full_name AS created_by_full_name, cb.avatar_url AS created_by_avatar_url
@@ -143,6 +145,7 @@ function mapTaskRow(row: any): Task {
     assigneeAvatarUrl: row.assignee_avatar_url,
     accountName: row.account_name,
     title: row.title,
+    channelName: row.channel_name,
     channel: row.channel,
     videoCount: row.video_count,
     product: row.product,
@@ -202,9 +205,9 @@ export async function createTask(teamId: number, input: TaskInput, createdBy: nu
   const rows = await sql.query(
     `/* write */ WITH ins AS (
        INSERT INTO tasks
-         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel,
+         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel_name, channel,
           video_count, product, option_tag, reference_link, note, status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *
      )
      SELECT ${TEAM_TASK_SELECT} FROM ins t ${TASK_JOINS}`,
@@ -215,6 +218,7 @@ export async function createTask(teamId: number, input: TaskInput, createdBy: nu
       input.assigneeUserId ?? null,
       input.accountName ?? null,
       input.title,
+      input.channelName ?? null,
       input.channel ?? null,
       input.videoCount ?? null,
       input.product ?? null,
@@ -256,6 +260,7 @@ export async function updateTask(taskId: number, teamId: number, patch: TaskPatc
   if (patch.assigneeUserId !== undefined) set('assignee_user_id', patch.assigneeUserId);
   if (patch.accountName !== undefined) set('account_name', patch.accountName);
   if (patch.title !== undefined) set('title', patch.title);
+  if (patch.channelName !== undefined) set('channel_name', patch.channelName);
   if (patch.channel !== undefined) set('channel', patch.channel);
   if (patch.videoCount !== undefined) set('video_count', patch.videoCount);
   if (patch.product !== undefined) set('product', patch.product);
@@ -313,11 +318,11 @@ export async function duplicateTask(
        SELECT * FROM tasks WHERE id = $1 AND team_id = $2
      ), ins AS (
        INSERT INTO tasks
-         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel,
+         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel_name, channel,
           video_count, product, option_tag, reference_link, note, status, duplicated_from_task_id, created_by)
        SELECT team_id, category_id, $3::date,
               CASE WHEN $6 THEN $5::int ELSE assignee_user_id END,
-              account_name, title, channel, video_count, product, option_tag, reference_link, note,
+              account_name, title, channel_name, channel, video_count, product, option_tag, reference_link, note,
               'not_started', id, $4::int
        FROM src
        RETURNING *
@@ -378,7 +383,7 @@ export async function bulkDuplicateTasks(
        SELECT NULL::int, false, 1::bigint WHERE cardinality($5::int[]) = 0
      ), ins AS (
        INSERT INTO tasks
-         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel,
+         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel_name, channel,
           video_count, product, option_tag, reference_link, note, status, duplicated_from_task_id, created_by)
        SELECT src.team_id, src.category_id,
               CASE $3::text
@@ -391,7 +396,7 @@ export async function bulkDuplicateTasks(
                 )::date
               END,
               CASE WHEN targets.override_assignee THEN targets.user_id ELSE src.assignee_user_id END,
-              src.account_name, src.title, src.channel, src.video_count, src.product, src.option_tag,
+              src.account_name, src.title, src.channel_name, src.channel, src.video_count, src.product, src.option_tag,
               src.reference_link, src.note, 'not_started', src.id, $6::int
        FROM src CROSS JOIN occurrences CROSS JOIN targets CROSS JOIN valid
        WHERE valid.ok
@@ -442,11 +447,11 @@ export async function duplicateTasksToDates(
        SELECT NULL::int, false, 1::bigint WHERE cardinality($4::int[]) = 0
      ), ins AS (
        INSERT INTO tasks
-         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel,
+         (team_id, category_id, task_date, assignee_user_id, account_name, title, channel_name, channel,
           video_count, product, option_tag, reference_link, note, status, duplicated_from_task_id, created_by)
        SELECT src.team_id, src.category_id, dates.task_date,
               CASE WHEN targets.override_assignee THEN targets.user_id ELSE src.assignee_user_id END,
-              src.account_name, src.title, src.channel, src.video_count, src.product, src.option_tag,
+              src.account_name, src.title, src.channel_name, src.channel, src.video_count, src.product, src.option_tag,
               src.reference_link, src.note, 'not_started', src.id, $5::int
        FROM src CROSS JOIN dates CROSS JOIN targets CROSS JOIN valid
        WHERE valid.ok

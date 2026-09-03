@@ -68,6 +68,7 @@ interface TaskBoardProps {
 
 const COLUMN_LABELS: Record<TaskColumnKey, string> = {
   accountName: 'Tên Acc',
+  channelName: 'Kênh',
   channel: 'Up kênh',
   videoCount: 'SL VID',
   product: 'Sản phẩm',
@@ -82,6 +83,7 @@ const COLUMN_LABELS: Record<TaskColumnKey, string> = {
  *  là cột duy nhất không khai độ rộng nên nó nhận hết phần còn lại. */
 const COLUMN_WIDTH_PX: Record<TaskColumnKey, number> = {
   accountName: 130,
+  channelName: 110,
   channel: 110,
   videoCount: 80,
   product: 130,
@@ -637,6 +639,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       assigneeAvatarUrl: member?.avatarUrl ?? null,
       accountName: input.accountName ?? null,
       title: input.title,
+      channelName: input.channelName ?? null,
       channel: input.channel ?? null,
       videoCount: input.videoCount ?? null,
       product: input.product ?? null,
@@ -873,13 +876,14 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   allMembers={board.team.members}
                   products={board.products}
                   onUpdate={updateTaskOptimistically}
-                  onDelete={(task) =>
+                  onBulkDelete={(taskIds) => {
+                    const removedTasks = board.tasks.filter((task) => taskIds.includes(task.id));
                     runAction(
-                      () => deleteTaskAction(board.team.id, task.id),
-                      () => reconcileBoardTasks([{ previous: task, next: null }]),
+                      () => Promise.all(taskIds.map((taskId) => deleteTaskAction(board.team.id, taskId))),
+                      () => reconcileBoardTasks(removedTasks.map((task) => ({ previous: task, next: null }))),
                       false
-                    )
-                  }
+                    );
+                  }}
                   allowBulkPattern={board.isManager}
                   onBulkDuplicateDates={(taskIds, dates, assigneeUserIds) =>
                     runAction(
@@ -1248,7 +1252,7 @@ function TaskTable({
   allMembers,
   products,
   onUpdate,
-  onDelete,
+  onBulkDelete,
   allowBulkPattern,
   onBulkDuplicateDates,
   onBulkDuplicatePattern,
@@ -1267,7 +1271,7 @@ function TaskTable({
   allMembers: TeamMember[];
   products: string[];
   onUpdate: (taskId: number, input: TaskInput) => void;
-  onDelete: (task: Task) => void;
+  onBulkDelete: (taskIds: number[]) => void;
   allowBulkPattern: boolean;
   onBulkDuplicateDates: (taskIds: number[], dates: string[], assigneeUserIds: number[]) => void;
   onBulkDuplicatePattern: (taskIds: number[], pattern: BulkDuplicatePattern, assigneeUserIds: number[]) => void;
@@ -1281,10 +1285,11 @@ function TaskTable({
   onCreate: (input: TaskInput) => void;
 }) {
   const columns = TASK_COLUMN_KEYS.filter((key) => visibleColumns.includes(key));
-  // Khớp thứ tự cột bảng Notion gốc: Tên Acc đứng trước Chủ đề, các cột còn
-  // lại (Up kênh/SL VID/Sản phẩm...) đứng sau Chủ đề.
-  const leadingColumns = columns.filter((key) => key === 'accountName');
-  const trailingColumns = columns.filter((key) => key !== 'accountName');
+  // Khớp thứ tự cột bảng Notion gốc: Tên Acc rồi Kênh (channelName — kênh
+  // đăng thật, khác "channel"/Up kênh vốn lưu tên người) đứng trước Chủ đề,
+  // các cột còn lại (Up kênh/SL VID/Sản phẩm...) đứng sau Chủ đề.
+  const leadingColumns = columns.filter((key) => key === 'accountName' || key === 'channelName');
+  const trailingColumns = columns.filter((key) => key !== 'accountName' && key !== 'channelName');
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
   const [bulkDuplicating, setBulkDuplicating] = useState(false);
@@ -1354,14 +1359,24 @@ function TaskTable({
             >
               Nhân bản đã chọn
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                onBulkDelete([...selectedTaskIds]);
+                setSelectedTaskIds(new Set());
+              }}
+              className="rounded-[8px] bg-red-500 px-3 py-1.5 font-semibold text-white hover:bg-red-600"
+            >
+              Xoá đã chọn
+            </button>
           </div>
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] table-fixed border-collapse text-left text-sm">
+        <table className="w-full min-w-[1000px] table-fixed border-collapse text-left text-sm">
           <colgroup>
             <col style={{ width: 44 }} />
-            <col style={{ width: 76 }} />
+            <col style={{ width: 90 }} />
             <col style={{ width: 130 }} />
             {leadingColumns.map((key) => (
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
@@ -1371,7 +1386,7 @@ function TaskTable({
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
             ))}
             <col style={{ width: 100 }} />
-            <col style={{ width: 44 }} />
+            <col style={{ width: 36 }} />
           </colgroup>
           <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-ink">
             <tr className="divide-x divide-[#e8edf5]">
@@ -1455,8 +1470,13 @@ function TaskTable({
                     className="h-4 w-4 cursor-pointer accent-blue"
                   />
                 </td>
-                <td className="whitespace-nowrap px-3 py-2.5 font-variant-numeric-tabular text-ink">{formatVi(task.taskDate).slice(0, 5)}</td>
-                <td className="px-3 py-2.5 text-ink">
+                <td
+                  onClick={() => setEditingTaskId(task.id)}
+                  className="cursor-pointer whitespace-nowrap px-3 py-2.5 font-variant-numeric-tabular text-ink"
+                >
+                  {formatVi(task.taskDate).slice(0, 5)}
+                </td>
+                <td onClick={() => setEditingTaskId(task.id)} className="cursor-pointer px-3 py-2.5 text-ink">
                   {task.assigneeFullName ? (
                     <div className="flex items-center gap-1.5">
                       {task.assigneeAvatarUrl ? (
@@ -1481,7 +1501,7 @@ function TaskTable({
                 {leadingColumns.map((key) => {
                   const value = String((task as unknown as Record<string, unknown>)[key] ?? '');
                   return (
-                    <td key={key} className="px-3 py-2.5">
+                    <td key={key} onClick={() => setEditingTaskId(task.id)} className="cursor-pointer px-3 py-2.5">
                       {value ? (
                         <span className="text-sm font-medium text-ink">{value}</span>
                       ) : (
@@ -1490,13 +1510,16 @@ function TaskTable({
                     </td>
                   );
                 })}
-                <td className="px-3 py-2.5 font-medium text-navy">{task.title}</td>
+                <td onClick={() => setEditingTaskId(task.id)} className="cursor-pointer px-3 py-2.5 font-medium text-navy">
+                  {task.title}
+                </td>
                 {trailingColumns.map((key) => {
                   const rawValue = String((task as unknown as Record<string, unknown>)[key] ?? '');
                   return (
                     <td
                       key={key}
-                      className={`px-3 py-2.5 text-ink ${key === 'note' || key === 'referenceLink' ? 'break-words' : ''}`}
+                      onClick={() => setEditingTaskId(task.id)}
+                      className={`cursor-pointer px-3 py-2.5 text-ink ${key === 'note' || key === 'referenceLink' ? 'break-words' : ''}`}
                     >
                       {key === 'videoCount' ? (
                         task.videoCount ?? ''
@@ -1541,9 +1564,7 @@ function TaskTable({
                     </span>
                   </button>
                 </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-right text-xs">
-                  <TaskRowMenu onEdit={() => setEditingTaskId(task.id)} onDelete={() => onDelete(task)} />
-                </td>
+                <td className="px-3 py-2.5" />
               </tr>
               );
             })}
@@ -1816,102 +1837,6 @@ function TaskCard({
         </div>
       </div>
     </div>
-  );
-}
-
-/** Menu "⋮" của mỗi dòng task — portal ra document.body thay vì absolute
- *  trong ô, vì bảng cuộn ngang (overflow-x-auto) khiến trục dọc cũng bị cắt
- *  theo (quy tắc CSS: overflow-x khác visible thì overflow-y "visible" tự
- *  thành "auto"), nên dòng cuối bảng menu xổ xuống sẽ bị khuất mất. */
-function TaskRowMenu({
-  onEdit,
-  onDelete,
-}: {
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  function openMenu() {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    setOpen(true);
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e: MouseEvent) {
-      const target = e.target as Node;
-      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    function handleScroll() {
-      setOpen(false);
-    }
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('scroll', handleScroll, true);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('scroll', handleScroll, true);
-    };
-  }, [open]);
-
-  return (
-    <>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => (open ? setOpen(false) : openMenu())}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Tuỳ chọn task"
-        className="ml-auto grid h-7 w-7 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
-      >
-        <MoreVertical size={16} aria-hidden="true" />
-      </button>
-      {open &&
-        coords &&
-        createPortal(
-          <div
-            ref={menuRef}
-            role="menu"
-            style={{ top: coords.top, right: coords.right }}
-            className="fixed z-50 w-36 border border-[#e8edf5] bg-white py-1 text-left text-xs shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onEdit();
-                setOpen(false);
-              }}
-              className="block w-full px-3 py-1.5 text-left font-semibold text-blue hover:bg-[#f2f5fa]"
-            >
-              Sửa
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onDelete();
-                setOpen(false);
-              }}
-              className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-[#f2f5fa]"
-            >
-              Xoá
-            </button>
-          </div>,
-          document.body
-        )}
-    </>
   );
 }
 
@@ -2290,6 +2215,7 @@ function TaskRowEditor({
   const [assigneeUserId, setAssigneeUserId] = useState<number | null>(task?.assigneeUserId ?? members[0]?.userId ?? null);
   const [title, setTitle] = useState(task?.title ?? '');
   const [accountName, setAccountName] = useState(task?.accountName ?? '');
+  const [channelName, setChannelName] = useState(task?.channelName ?? '');
   const [channel, setChannel] = useState(task?.channel ?? '');
   const [videoCount, setVideoCount] = useState(task?.videoCount?.toString() ?? '');
   const [product, setProduct] = useState(task?.product ?? '');
@@ -2309,47 +2235,131 @@ function TaskRowEditor({
 
   const cellInputClass = 'w-full min-w-[100px] rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-sm outline-none focus:border-blue';
   const shops = shopsForTeamCode(teamCode);
+  // Sửa task có sẵn thì lưu ngay khi đổi 1 ô (không cần nút Lưu riêng) — thêm
+  // task mới vẫn giữ nút Lưu/Huỷ tường minh vì chưa có gì để lưu tự động tới
+  // khi bấm nút.
+  const isEditingExisting = Boolean(task);
 
-  function handleSave() {
+  // Nhận override cho field vừa đổi vì setState không đồng bộ — nếu chỉ gọi
+  // handleSave() ngay sau setX(...) trong cùng handler thì closure vẫn thấy
+  // giá trị field đó CŨ (chưa re-render), nên phải truyền giá trị mới thẳng
+  // vào đây thay vì đọc lại state.
+  function commit(
+    overrides: Partial<{
+      taskDate: string;
+      assigneeUserId: number | null;
+      accountName: string;
+      channelName: string;
+      channel: string;
+      videoCount: string;
+      product: string;
+      optionTag: string;
+      referenceLink: string;
+      note: string;
+      status: TaskStatus;
+    }> = {}
+  ) {
+    const merged = {
+      taskDate,
+      assigneeUserId,
+      accountName,
+      channelName,
+      channel,
+      videoCount,
+      product,
+      optionTag,
+      referenceLink,
+      note,
+      status,
+      ...overrides,
+    };
     if (!title.trim()) {
       titleInputRef.current?.focus();
       return;
     }
-    const now = Date.now();
-    if (now - lastSaveAtRef.current < 400) return;
-    lastSaveAtRef.current = now;
+    if (!isEditingExisting) {
+      // Khoá double-submit chỉ áp cho TẠO MỚI (né IME bắn 2 lần Enter ra 2
+      // task trùng nhau) — sửa task có sẵn thì submit trùng vô hại (cùng
+      // patch, idempotent), khoá ở đây sẽ làm rớt mất lượt autosave kế tiếp
+      // nếu người dùng đổi 2 ô liên tiếp trong vòng 400ms.
+      const now = Date.now();
+      if (now - lastSaveAtRef.current < 400) return;
+      lastSaveAtRef.current = now;
+    }
     onSubmit({
-      taskDate,
-      assigneeUserId,
+      taskDate: merged.taskDate,
+      assigneeUserId: merged.assigneeUserId,
       title: title.trim(),
       categoryId: task?.categoryId ?? null,
-      accountName: accountName || null,
-      channel: channel || null,
-      videoCount: videoCount ? Number(videoCount) : null,
-      product: product || null,
-      optionTag: optionTag || null,
-      referenceLink: referenceLink || null,
-      note: note || null,
-      status,
+      accountName: merged.accountName || null,
+      channelName: merged.channelName || null,
+      channel: merged.channel || null,
+      videoCount: merged.videoCount ? Number(merged.videoCount) : null,
+      product: merged.product || null,
+      optionTag: merged.optionTag || null,
+      referenceLink: merged.referenceLink || null,
+      note: merged.note || null,
+      status: merged.status,
     });
+  }
+
+  function handleSave() {
+    commit();
+  }
+
+  function handleEnterSave(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave();
   }
 
   function renderColumnInput(key: TaskColumnKey) {
     switch (key) {
       case 'accountName':
-        return <AccountNameCell value={accountName} onChange={setAccountName} shops={shops} />;
+        return (
+          <AccountNameCell
+            value={accountName}
+            onChange={(name) => {
+              setAccountName(name);
+              if (isEditingExisting) commit({ accountName: name });
+            }}
+            shops={shops}
+          />
+        );
+      case 'channelName':
+        return (
+          <input value={channelName} onChange={(e) => setChannelName(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />
+        );
       case 'channel':
-        return <input value={channel} onChange={(e) => setChannel(e.target.value)} className={cellInputClass} />;
+        return <input value={channel} onChange={(e) => setChannel(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       case 'videoCount':
-        return <input type="number" min={0} value={videoCount} onChange={(e) => setVideoCount(e.target.value)} className={cellInputClass} />;
+        return (
+          <input
+            type="number"
+            min={0}
+            value={videoCount}
+            onChange={(e) => setVideoCount(e.target.value)}
+            onKeyDown={handleEnterSave}
+            className={cellInputClass}
+          />
+        );
       case 'product':
-        return <ProductCell value={product} onChange={setProduct} products={products} />;
+        return (
+          <ProductCell
+            value={product}
+            onChange={(name) => {
+              setProduct(name);
+              if (isEditingExisting) commit({ product: name });
+            }}
+            products={products}
+          />
+        );
       case 'optionTag':
-        return <input value={optionTag} onChange={(e) => setOptionTag(e.target.value)} className={cellInputClass} />;
+        return <input value={optionTag} onChange={(e) => setOptionTag(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       case 'note':
-        return <input value={note} onChange={(e) => setNote(e.target.value)} className={cellInputClass} />;
+        return <input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />;
       case 'referenceLink':
-        return <input value={referenceLink} onChange={(e) => setReferenceLink(e.target.value)} className={cellInputClass} />;
+        return (
+          <input value={referenceLink} onChange={(e) => setReferenceLink(e.target.value)} onKeyDown={handleEnterSave} className={cellInputClass} />
+        );
       default:
         return null;
     }
@@ -2359,10 +2369,27 @@ function TaskRowEditor({
     <tr className="divide-x divide-[#edf1f7] bg-[#f6f9ff]">
       <td className="px-3 py-2.5" />
       <td className="px-3 py-2.5">
-        <input type="date" value={taskDate} onChange={(e) => setTaskDate(e.target.value)} className={cellInputClass} />
+        <input
+          type="date"
+          value={taskDate}
+          onChange={(e) => {
+            const value = e.target.value;
+            setTaskDate(value);
+            if (isEditingExisting) commit({ taskDate: value });
+          }}
+          onKeyDown={handleEnterSave}
+          className={cellInputClass}
+        />
       </td>
       <td className="px-3 py-2.5">
-        <MemberPickerCell members={members} value={assigneeUserId} onChange={setAssigneeUserId} />
+        <MemberPickerCell
+          members={members}
+          value={assigneeUserId}
+          onChange={(userId) => {
+            setAssigneeUserId(userId);
+            if (isEditingExisting) commit({ assigneeUserId: userId });
+          }}
+        />
       </td>
       {leadingColumns.map((key) => (
         <td key={key} className="px-3 py-2.5">
@@ -2374,7 +2401,7 @@ function TaskRowEditor({
           ref={titleInputRef}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSave()}
+          onKeyDown={handleEnterSave}
           placeholder="Chủ đề, đầu việc"
           className={cellInputClass}
         />
@@ -2388,7 +2415,11 @@ function TaskRowEditor({
         <input
           type="checkbox"
           checked={status === 'done'}
-          onChange={(e) => setStatus(e.target.checked ? 'done' : 'not_started')}
+          onChange={(e) => {
+            const next = e.target.checked ? 'done' : 'not_started';
+            setStatus(next);
+            if (isEditingExisting) commit({ status: next });
+          }}
           onClick={(e) => {
             if (!e.currentTarget.checked) return;
             fireConfetti();
@@ -2399,12 +2430,20 @@ function TaskRowEditor({
         {confettiNode}
       </td>
       <td className="whitespace-nowrap px-3 py-2 text-right text-xs">
-        <button type="button" onClick={handleSave} className="mr-2 font-semibold text-blue">
-          Lưu
-        </button>
-        <button type="button" onClick={onCancel} className="font-semibold text-muted">
-          Huỷ
-        </button>
+        {isEditingExisting ? (
+          <button type="button" onClick={onCancel} className="font-semibold text-muted hover:text-navy">
+            Xong
+          </button>
+        ) : (
+          <>
+            <button type="button" onClick={handleSave} className="mr-2 font-semibold text-blue">
+              Lưu
+            </button>
+            <button type="button" onClick={onCancel} className="font-semibold text-muted">
+              Huỷ
+            </button>
+          </>
+        )}
       </td>
     </tr>
   );
@@ -2721,8 +2760,9 @@ function MonthlyDailyChart({
   monthAnchor: string;
 }) {
   // Popup ngày portal ra document.body thay vì absolute trong cột — nếu khu
-  // biểu đồ từng cuộn ngang thì trục dọc cũng bị cắt theo (xem lý do tương tự
-  // ở TaskRowMenu); nay không còn cuộn ngang nhưng vẫn portal cho an toàn.
+  // biểu đồ từng cuộn ngang thì trục dọc cũng bị cắt theo (CSS: overflow-x
+  // khác visible thì overflow-y "visible" tự thành "auto"); nay không còn
+  // cuộn ngang nhưng vẫn portal cho an toàn.
   const [hovered, setHovered] = useState<{ date: string; left: number; top: number } | null>(null);
 
   useEffect(() => {

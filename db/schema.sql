@@ -304,3 +304,9 @@ CREATE TABLE IF NOT EXISTS personal_task_history (
 
 CREATE INDEX IF NOT EXISTS idx_personal_task_history_task_created
   ON personal_task_history (task_id, created_at DESC);
+
+/** Kênh đăng thật (vd "Kênh MKT2", "Kênh Chính") — khác hẳn cột "channel" có
+ *  sẵn ở trên (cột đó lại lưu TÊN NGƯỜI up, nhãn "Up kênh" trên UI, đặt tên
+ *  lịch sử dễ nhầm). Field tuỳ chọn theo từng nhóm task như account_name/
+ *  option_tag, bật/tắt qua team_task_categories.visible_columns. */
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_name TEXT;

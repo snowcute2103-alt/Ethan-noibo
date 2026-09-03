@@ -9,6 +9,7 @@
  */
 export const TASK_COLUMN_KEYS = [
   'accountName',
+  'channelName',
   'channel',
   'videoCount',
   'product',
