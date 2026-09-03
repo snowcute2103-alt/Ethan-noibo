@@ -936,12 +936,14 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   }}
                   allowBulkPattern={board.isManager}
                   onBulkDuplicateDates={async (taskIds, dates, assigneeUserIds) => {
-                    const created = await duplicateTasksToDatesAction(board.team.id, taskIds, dates, assigneeUserIds);
-                    reconcileBoardTasks(created.map((task) => ({ previous: null, next: task })));
+                    const result = await duplicateTasksToDatesAction(board.team.id, taskIds, dates, assigneeUserIds);
+                    if ('error' in result) throw new Error(result.error);
+                    reconcileBoardTasks(result.tasks.map((task) => ({ previous: null, next: task })));
                   }}
                   onBulkDuplicatePattern={async (taskIds, pattern, assigneeUserIds) => {
-                    const created = await bulkDuplicateTasksAction(board.team.id, taskIds, pattern, assigneeUserIds);
-                    reconcileBoardTasks(created.map((task) => ({ previous: null, next: task })));
+                    const result = await bulkDuplicateTasksAction(board.team.id, taskIds, pattern, assigneeUserIds);
+                    if ('error' in result) throw new Error(result.error);
+                    reconcileBoardTasks(result.tasks.map((task) => ({ previous: null, next: task })));
                   }}
                   onStatusChange={updateTaskStatusOptimistically}
                   statusPendingTaskIds={statusPendingTaskIds}

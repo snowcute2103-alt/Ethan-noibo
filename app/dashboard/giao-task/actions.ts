@@ -32,6 +32,7 @@ import {
   deleteTask,
   duplicateTasksToDates,
   bulkDuplicateTasks,
+  BulkDuplicateValidationError,
   getMonthProgress,
   getMonthTaskCategoryCounts,
   getDailyAssigneeBreakdown,
@@ -601,14 +602,26 @@ export async function deleteTaskAction(teamId: number, taskId: number): Promise<
   await deleteTask(taskId, actor.teamId);
 }
 
+// Next.js xoá message gốc của lỗi throw ra khỏi Server Action ở production
+// (chỉ giữ lại digest, tránh lộ chi tiết server) — kể cả lỗi validate cố ý
+// viết cho người dùng đọc (vd "vượt quá 60 bản"). Bắt riêng
+// BulkDuplicateValidationError và trả qua giá trị return (không throw qua
+// ranh giới server->client) thì message mới tới được người dùng nguyên vẹn;
+// lỗi thật ngoài dự kiến vẫn throw như cũ để không lộ chi tiết nhạy cảm.
 export async function duplicateTasksToDatesAction(
   teamId: number,
   taskIds: number[],
   dates: string[],
   assigneeUserIds: number[]
-): Promise<Task[]> {
+): Promise<{ tasks: Task[] } | { error: string }> {
   const actor = await requireTeamContext(teamId);
-  return duplicateTasksToDates(taskIds, actor.teamId, dates, assigneeUserIds, actor.userId);
+  try {
+    const tasks = await duplicateTasksToDates(taskIds, actor.teamId, dates, assigneeUserIds, actor.userId);
+    return { tasks };
+  } catch (err) {
+    if (err instanceof BulkDuplicateValidationError) return { error: err.message };
+    throw err;
+  }
 }
 
 export async function bulkDuplicateTasksAction(
@@ -616,7 +629,13 @@ export async function bulkDuplicateTasksAction(
   taskIds: number[],
   pattern: BulkDuplicatePattern,
   assigneeUserIds: number[]
-): Promise<Task[]> {
+): Promise<{ tasks: Task[] } | { error: string }> {
   const actor = await requireManagerContext(teamId);
-  return bulkDuplicateTasks(taskIds, actor.teamId, pattern, assigneeUserIds, actor.userId);
+  try {
+    const tasks = await bulkDuplicateTasks(taskIds, actor.teamId, pattern, assigneeUserIds, actor.userId);
+    return { tasks };
+  } catch (err) {
+    if (err instanceof BulkDuplicateValidationError) return { error: err.message };
+    throw err;
+  }
 }

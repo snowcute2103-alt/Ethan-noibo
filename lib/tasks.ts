@@ -334,6 +334,13 @@ export async function duplicateTask(
   return mapTaskRow(rows[0]);
 }
 
+// Next.js xoá message gốc của MỌI lỗi throw ra khỏi Server Action khi chạy
+// production (chỉ giữ digest, tránh lộ chi tiết server) — kể cả lỗi validate
+// cố ý viết cho người dùng đọc như dưới đây. Đánh dấu bằng class riêng để
+// action ở actions.ts nhận diện, trả về qua giá trị return thay vì throw
+// (không đi qua ranh giới server->client) thì message mới nguyên vẹn.
+export class BulkDuplicateValidationError extends Error {}
+
 const MAX_BULK_DUPLICATE_OCCURRENCES = 60;
 
 export interface BulkDuplicatePattern {
@@ -353,14 +360,14 @@ export async function bulkDuplicateTasks(
   createdBy: number | null
 ): Promise<Task[]> {
   if (pattern.occurrences < 1 || pattern.occurrences > MAX_BULK_DUPLICATE_OCCURRENCES) {
-    throw new Error(`Số lần nhân bản phải từ 1 đến ${MAX_BULK_DUPLICATE_OCCURRENCES}.`);
+    throw new BulkDuplicateValidationError(`Số lần nhân bản phải từ 1 đến ${MAX_BULK_DUPLICATE_OCCURRENCES}.`);
   }
   const uniqueTaskIds = [...new Set(taskIds)];
-  if (uniqueTaskIds.length < 1) throw new Error('Chọn ít nhất 1 task.');
+  if (uniqueTaskIds.length < 1) throw new BulkDuplicateValidationError('Chọn ít nhất 1 task.');
   const targets = [...new Set(assigneeUserIds)];
   const targetCount = Math.max(1, targets.length);
   if (uniqueTaskIds.length * pattern.occurrences * targetCount > MAX_BULK_DUPLICATE_OCCURRENCES) {
-    throw new Error(`Số bản nhân bản (task × số lần lặp × số người) phải tối đa ${MAX_BULK_DUPLICATE_OCCURRENCES}.`);
+    throw new BulkDuplicateValidationError(`Số bản nhân bản (task × số lần lặp × số người) phải tối đa ${MAX_BULK_DUPLICATE_OCCURRENCES}.`);
   }
 
   // Một statement tạo toàn bộ tích task × lần lặp × người phụ trách. CTE
@@ -406,7 +413,7 @@ export async function bulkDuplicateTasks(
     [teamId, uniqueTaskIds, pattern.frequency, pattern.occurrences, targets, createdBy]
   );
   const expectedCount = uniqueTaskIds.length * pattern.occurrences * targetCount;
-  if (rows.length !== expectedCount) throw new Error('Không tìm thấy task gốc.');
+  if (rows.length !== expectedCount) throw new BulkDuplicateValidationError('Không tìm thấy task gốc.');
   return rows.map(mapTaskRow);
 }
 
@@ -423,12 +430,12 @@ export async function duplicateTasksToDates(
 ): Promise<Task[]> {
   const uniqueTaskIds = [...new Set(taskIds)];
   const uniqueDates = [...new Set(dates)];
-  if (uniqueTaskIds.length < 1) throw new Error('Chọn ít nhất 1 task.');
-  if (uniqueDates.length < 1) throw new Error('Chọn ít nhất 1 ngày đích.');
+  if (uniqueTaskIds.length < 1) throw new BulkDuplicateValidationError('Chọn ít nhất 1 task.');
+  if (uniqueDates.length < 1) throw new BulkDuplicateValidationError('Chọn ít nhất 1 ngày đích.');
   const targets = [...new Set(assigneeUserIds)];
   const targetCount = Math.max(1, targets.length);
   if (uniqueTaskIds.length * uniqueDates.length * targetCount > MAX_BULK_DUPLICATE_OCCURRENCES) {
-    throw new Error(`Số bản nhân bản (task × ngày × người) phải tối đa ${MAX_BULK_DUPLICATE_OCCURRENCES}.`);
+    throw new BulkDuplicateValidationError(`Số bản nhân bản (task × ngày × người) phải tối đa ${MAX_BULK_DUPLICATE_OCCURRENCES}.`);
   }
   const rows = await sql.query(
     `/* write */ WITH requested AS (
@@ -461,7 +468,7 @@ export async function duplicateTasksToDates(
     [teamId, uniqueTaskIds, uniqueDates, targets, createdBy]
   );
   const expectedCount = uniqueTaskIds.length * uniqueDates.length * targetCount;
-  if (rows.length !== expectedCount) throw new Error('Không tìm thấy task gốc.');
+  if (rows.length !== expectedCount) throw new BulkDuplicateValidationError('Không tìm thấy task gốc.');
   return rows.map(mapTaskRow);
 }
 
