@@ -928,13 +928,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                     const removedTasks = board.tasks.filter((task) => taskIds.includes(task.id));
                     runAction(
                       () => Promise.all(taskIds.map((taskId) => deleteTaskAction(board.team.id, taskId))),
-                      () =>
-                        reconcileBoardTasks(
-                          removedTasks.map((task) => ({
-                            previous: task,
-                            next: null,
-                          }))
-                        ),
+                      () => reconcileBoardTasks(removedTasks.map((task) => ({ previous: task, next: null }))),
                       false
                     );
                   }}
@@ -2837,11 +2831,7 @@ function MonthlyDailyChart({ chart, members, monthAnchor }: { chart: DailyAssign
   // biểu đồ từng cuộn ngang thì trục dọc cũng bị cắt theo (CSS: overflow-x
   // khác visible thì overflow-y "visible" tự thành "auto"); nay không còn
   // cuộn ngang nhưng vẫn portal cho an toàn.
-  const [hovered, setHovered] = useState<{
-    date: string;
-    left: number;
-    top: number;
-  } | null>(null);
+  const [hovered, setHovered] = useState<{ date: string; left: number; top: number } | null>(null);
 
   useEffect(() => {
     if (!hovered) return;
