@@ -1339,6 +1339,83 @@ function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; month
   );
 }
 
+/** Thanh cuộn ngang riêng, luôn hiện (không phải thanh cuộn OS mặc định chỉ
+ *  hiện khi hover/đang cuộn trên macOS) — báo rõ bảng còn cột bên phải mà
+ *  không cần người dùng vô tình rê chuột mới thấy. Vẫn kéo được như thanh
+ *  cuộn thật (pointer capture), ẩn hẳn nếu nội dung không tràn. */
+function HorizontalScrollBar({ targetRef }: { targetRef: React.RefObject<HTMLDivElement | null> }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState<{ widthPct: number; leftPct: number } | null>(null);
+  const dragRef = useRef<{ startClientX: number; startScrollLeft: number; trackWidth: number; thumbWidthPx: number } | null>(null);
+
+  useEffect(() => {
+    const el = targetRef.current;
+    if (!el) return;
+
+    function update() {
+      const { scrollWidth, clientWidth, scrollLeft } = el as HTMLDivElement;
+      if (scrollWidth <= clientWidth + 1) {
+        setThumb(null);
+        return;
+      }
+      const widthPct = Math.max((clientWidth / scrollWidth) * 100, 6);
+      const maxScrollLeft = scrollWidth - clientWidth;
+      const leftPct = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * (100 - widthPct) : 0;
+      setThumb({ widthPct, leftPct });
+    }
+
+    update();
+    el.addEventListener('scroll', update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro.disconnect();
+    };
+  }, [targetRef]);
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    const el = targetRef.current;
+    const track = trackRef.current;
+    if (!el || !track || !thumb) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      startClientX: e.clientX,
+      startScrollLeft: el.scrollLeft,
+      trackWidth: track.clientWidth,
+      thumbWidthPx: (thumb.widthPct / 100) * track.clientWidth,
+    };
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const el = targetRef.current;
+    const drag = dragRef.current;
+    if (!el || !drag) return;
+    const trackRange = drag.trackWidth - drag.thumbWidthPx;
+    if (trackRange <= 0) return;
+    const maxScrollLeft = el.scrollWidth - el.clientWidth;
+    const deltaX = e.clientX - drag.startClientX;
+    el.scrollLeft = Math.max(0, Math.min(maxScrollLeft, drag.startScrollLeft + (deltaX / trackRange) * maxScrollLeft));
+  }
+
+  if (!thumb) return null;
+
+  return (
+    <div ref={trackRef} className="mx-3 mb-3 mt-2 h-2.5 rounded-full bg-surface-2">
+      <div
+        role="scrollbar"
+        aria-orientation="horizontal"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={() => (dragRef.current = null)}
+        className="h-full cursor-grab touch-none rounded-full bg-blue active:cursor-grabbing"
+        style={{ width: `${thumb.widthPct}%`, marginLeft: `${thumb.leftPct}%` }}
+      />
+    </div>
+  );
+}
+
 function TaskTable({
   tasks,
   visibleColumns,
@@ -1388,6 +1465,7 @@ function TaskTable({
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
   const [bulkDuplicating, setBulkDuplicating] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
 
   // Cùng bảng màu/thứ tự tên với thẻ tổng hợp "Task theo người" phía trên —
@@ -1475,7 +1553,7 @@ function TaskTable({
           }}
         />
       )}
-      <div className="table-scrollbar overflow-x-auto pb-3">
+      <div ref={scrollRef} className="scrollbar-hide overflow-x-auto">
         <table className="w-full min-w-[1000px] table-fixed border-collapse text-left text-sm">
           <colgroup>
             <col style={{ width: 44 }} />
@@ -1655,6 +1733,7 @@ function TaskTable({
           </tbody>
         </table>
       </div>
+      <HorizontalScrollBar targetRef={scrollRef} />
       {bulkDuplicating && (
         <BulkSelectedDuplicateModal
           count={selectedTaskIds.size}
