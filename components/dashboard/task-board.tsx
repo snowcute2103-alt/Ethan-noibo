@@ -935,20 +935,14 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                     );
                   }}
                   allowBulkPattern={board.isManager}
-                  onBulkDuplicateDates={(taskIds, dates, assigneeUserIds) =>
-                    runAction(
-                      () => duplicateTasksToDatesAction(board.team.id, taskIds, dates, assigneeUserIds),
-                      (created) => reconcileBoardTasks(created.map((task) => ({ previous: null, next: task }))),
-                      false
-                    )
-                  }
-                  onBulkDuplicatePattern={(taskIds, pattern, assigneeUserIds) =>
-                    runAction(
-                      () => bulkDuplicateTasksAction(board.team.id, taskIds, pattern, assigneeUserIds),
-                      (created) => reconcileBoardTasks(created.map((task) => ({ previous: null, next: task }))),
-                      false
-                    )
-                  }
+                  onBulkDuplicateDates={async (taskIds, dates, assigneeUserIds) => {
+                    const created = await duplicateTasksToDatesAction(board.team.id, taskIds, dates, assigneeUserIds);
+                    reconcileBoardTasks(created.map((task) => ({ previous: null, next: task })));
+                  }}
+                  onBulkDuplicatePattern={async (taskIds, pattern, assigneeUserIds) => {
+                    const created = await bulkDuplicateTasksAction(board.team.id, taskIds, pattern, assigneeUserIds);
+                    reconcileBoardTasks(created.map((task) => ({ previous: null, next: task })));
+                  }}
                   onStatusChange={updateTaskStatusOptimistically}
                   statusPendingTaskIds={statusPendingTaskIds}
                   emptyMessage="Chưa có task nào trong khoảng thời gian này."
@@ -1371,8 +1365,8 @@ function TaskTable({
   onUpdate: (taskId: number, input: TaskInput) => void;
   onBulkDelete: (taskIds: number[]) => void;
   allowBulkPattern: boolean;
-  onBulkDuplicateDates: (taskIds: number[], dates: string[], assigneeUserIds: number[]) => void;
-  onBulkDuplicatePattern: (taskIds: number[], pattern: BulkDuplicatePattern, assigneeUserIds: number[]) => void;
+  onBulkDuplicateDates: (taskIds: number[], dates: string[], assigneeUserIds: number[]) => Promise<void>;
+  onBulkDuplicatePattern: (taskIds: number[], pattern: BulkDuplicatePattern, assigneeUserIds: number[]) => Promise<void>;
   onStatusChange: (task: Task, status: TaskStatus) => void;
   statusPendingTaskIds: Set<number>;
   emptyMessage: string;
@@ -1661,16 +1655,18 @@ function TaskTable({
           allMembers={allMembers}
           allowBulkPattern={allowBulkPattern}
           onClose={() => setBulkDuplicating(false)}
-          onSubmitDates={(dates, assigneeUserIds) => {
-            onBulkDuplicateDates([...selectedTaskIds], dates, assigneeUserIds);
-            setBulkDuplicating(false);
-            setSelectedTaskIds(new Set());
-          }}
-          onSubmitPattern={(pattern, assigneeUserIds) => {
-            onBulkDuplicatePattern([...selectedTaskIds], pattern, assigneeUserIds);
-            setBulkDuplicating(false);
-            setSelectedTaskIds(new Set());
-          }}
+          onSubmitDates={(dates, assigneeUserIds) =>
+            onBulkDuplicateDates([...selectedTaskIds], dates, assigneeUserIds).then(() => {
+              setBulkDuplicating(false);
+              setSelectedTaskIds(new Set());
+            })
+          }
+          onSubmitPattern={(pattern, assigneeUserIds) =>
+            onBulkDuplicatePattern([...selectedTaskIds], pattern, assigneeUserIds).then(() => {
+              setBulkDuplicating(false);
+              setSelectedTaskIds(new Set());
+            })
+          }
         />
       )}
       {confettiNode}
@@ -3040,14 +3036,16 @@ function BulkSelectedDuplicateModal({
   allMembers: TeamMember[];
   allowBulkPattern: boolean;
   onClose: () => void;
-  onSubmitDates: (dates: string[], assigneeUserIds: number[]) => void;
-  onSubmitPattern: (pattern: BulkDuplicatePattern, assigneeUserIds: number[]) => void;
+  onSubmitDates: (dates: string[], assigneeUserIds: number[]) => Promise<void>;
+  onSubmitPattern: (pattern: BulkDuplicatePattern, assigneeUserIds: number[]) => Promise<void>;
 }) {
   const [mode, setMode] = useState<'once' | 'repeat'>('once');
   const [selectedDates, setSelectedDates] = useState<string[]>([addDays(initialMonth, 1)]);
   const [frequency, setFrequency] = useState<BulkDuplicatePattern['frequency']>('daily');
   const [occurrences, setOccurrences] = useState(7);
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function toggleDate(dateStr: string) {
     setSelectedDates((prev) => (prev.includes(dateStr) ? prev.filter((d) => d !== dateStr) : [...prev, dateStr].sort()));
@@ -3065,10 +3063,19 @@ function BulkSelectedDuplicateModal({
     <ModalShell title={`Nhân bản ${count} task đã chọn`} onClose={onClose}>
       <form
         className="grid gap-3"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          if (mode === 'once') onSubmitDates(selectedDates, selectedMembers);
-          else onSubmitPattern({ frequency, occurrences }, selectedMembers);
+          setSubmitError(null);
+          setSubmitting(true);
+          try {
+            if (mode === 'once') await onSubmitDates(selectedDates, selectedMembers);
+            else await onSubmitPattern({ frequency, occurrences }, selectedMembers);
+            // Không setSubmitting(false) ở đây — thành công thì modal bị unmount
+            // ngay khi component cha đóng nó, set state sau unmount sẽ warning.
+          } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : 'Có lỗi xảy ra.');
+            setSubmitting(false);
+          }
         }}
       >
         {allowBulkPattern && (
@@ -3151,16 +3158,17 @@ function BulkSelectedDuplicateModal({
             })}
           </div>
         </div>
+        {submitError && <div className="rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{submitError}</div>}
         <div className="mt-2 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-[10px] px-4 py-2 text-sm font-semibold text-muted">
             Huỷ
           </button>
           <button
             type="submit"
-            disabled={mode === 'once' && selectedDates.length === 0}
+            disabled={submitting || (mode === 'once' && selectedDates.length === 0)}
             className="rounded-[10px] bg-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
           >
-            Nhân bản
+            {submitting ? 'Đang nhân bản...' : 'Nhân bản'}
           </button>
         </div>
       </form>
