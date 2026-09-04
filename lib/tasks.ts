@@ -206,12 +206,13 @@ export async function listTasksForTeam(teamId: number, filter: ListTasksFilter):
 export async function createTask(teamId: number, input: TaskInput, createdBy: number | null): Promise<Task> {
   const rows = await sql.query(
     `/* write */ WITH next_order AS (
-       -- Task mới luôn xếp CUỐI nhóm (kiểu Excel: hàng mới thêm không chen vào
-       -- giữa) — lấy sort_order lớn nhất đang có trong đội +1, KHÔNG để mặc
-       -- định 0 (default cột) như trước: 1 khi trong đội đã có task từng bị
-       -- kéo-thả (sort_order > 0), default 0 sẽ ĐỨNG TRƯỚC cả nhóm đó thay vì
-       -- ở cuối — đúng lỗi "task mới nhảy lên đầu/giữa" người dùng gặp.
-       SELECT coalesce(max(sort_order), 0) + 1 AS value FROM tasks WHERE team_id = $1
+       -- Task mới luôn xếp ĐẦU nhóm của người phụ trách (khớp vị trí form
+       -- "+ Thêm task" luôn hiện ở đầu bảng) — lấy sort_order NHỎ NHẤT đang
+       -- có trong đội -1, không reset về 0/default: nếu chỉ để 0 cố định,
+       -- nhóm nào đã có task với sort_order < 0 (từng thêm task theo cách
+       -- này trước đó) sẽ khiến task mới đứng SAU những task đó thay vì
+       -- trước tất cả.
+       SELECT coalesce(min(sort_order), 0) - 1 AS value FROM tasks WHERE team_id = $1
      ), ins AS (
        INSERT INTO tasks
          (team_id, category_id, task_date, assignee_user_id, account_name, title, channel_name, channel,
