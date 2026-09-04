@@ -1567,8 +1567,18 @@ function TaskTable({
     // mảng đầu vào, dòng vừa sửa xong dễ bị đẩy lên đầu/xuống cuối nhóm.
     // `sortOrder` (đổi khi kéo-thả) đứng trước, `id` chỉ là tie-break cuối
     // cùng cho các task chưa từng bị kéo (sortOrder mặc định bằng nhau = 0).
+    //
+    // `idRank` xử lý riêng ID TẠM của task vừa tạo (createTaskOptimistically
+    // dùng `-Date.now()` làm id tạm, xem tempId): so trực tiếp `a.id - b.id`
+    // thì id âm luôn nhỏ hơn mọi id thật, nên ngay khi lưu, task mới nhảy lên
+    // ĐẦU nhóm, rồi server trả id thật (luôn LỚN NHẤT nhóm) lại kéo nó xuống
+    // CUỐI — đúng cảnh "lưu xong nhảy lung tung" người dùng thấy. Quy id âm về
+    // 1 hạng rất lớn (vẫn giữ đúng thứ tự tương đối giữa các id tạm với nhau)
+    // để ngay từ lúc lạc quan, task mới đã nằm ở CUỐI nhóm — trùng khớp vị trí
+    // cuối cùng khi id thật về, không còn bước nhảy nào nữa.
+    const idRank = (id: number) => (id < 0 ? Number.MAX_SAFE_INTEGER + id : id);
     return [...tasks].sort(
-      (a, b) => orderOf(a.assigneeFullName) - orderOf(b.assigneeFullName) || a.sortOrder - b.sortOrder || a.id - b.id
+      (a, b) => orderOf(a.assigneeFullName) - orderOf(b.assigneeFullName) || a.sortOrder - b.sortOrder || idRank(a.id) - idRank(b.id)
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, nameOrder]);
