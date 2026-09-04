@@ -59,7 +59,7 @@ export default function AwardCard({ name, month, accent, index }: AwardCardProps
     >
       <div
         ref={cardRef}
-        className="relative rounded-[26px] p-[1.5px] transition-[transform] duration-200 ease-out will-change-transform"
+        className="relative rounded-[16px] p-[1.5px] transition-[transform] duration-200 ease-out will-change-transform min-[1025px]:rounded-[26px]"
         style={{
           background: `linear-gradient(135deg, ${accent}, #F5A623 45%, #00D2FF 75%, #7C6CF0)`,
           transform: 'scale(var(--scale, 1)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))',
@@ -67,7 +67,7 @@ export default function AwardCard({ name, month, accent, index }: AwardCardProps
           boxShadow: '0 24px 48px -24px rgba(0,0,0,0.55)',
         }}
       >
-        <div className="relative overflow-hidden rounded-[24.5px] bg-gradient-to-br from-[#0b1220] via-[#131b30] to-[#1a2745] px-6 py-5">
+        <div className="relative overflow-hidden rounded-[14.5px] bg-gradient-to-br from-[#0b1220] via-[#131b30] to-[#1a2745] px-4 py-3.5 min-[1025px]:rounded-[24.5px] min-[1025px]:px-6 min-[1025px]:py-5">
           {/* Lớp cầu vồng luôn lấp lánh nhẹ, tự trôi */}
           <div
             aria-hidden="true"
@@ -88,16 +88,16 @@ export default function AwardCard({ name, month, accent, index }: AwardCardProps
             }}
           />
 
-          <div className="relative flex items-center gap-4">
+          <div className="relative flex items-center gap-3 min-[1025px]:gap-4">
             <span
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full ring-1 ring-white/15 transition-transform duration-200"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-1 ring-white/15 transition-transform duration-200 min-[1025px]:h-12 min-[1025px]:w-12"
               style={{ background: `linear-gradient(135deg, ${accent}33, transparent)`, transform: 'translateZ(30px)' }}
             >
               <Medal size={22} strokeWidth={2.25} style={{ color: accent }} aria-hidden="true" />
             </span>
             <div className="min-w-0" style={{ transform: 'translateZ(20px)' }}>
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#F5C776]">Ethan Ecom · Xuất sắc</p>
-              <p className="font-heading mt-1 text-lg font-medium tracking-wide leading-tight text-white">{name}</p>
+              <p className="font-heading mt-1 text-base font-medium tracking-wide leading-tight text-white min-[1025px]:text-lg">{name}</p>
               <p className="mt-0.5 text-xs font-semibold text-white/50">{month}</p>
             </div>
           </div>

@@ -57,9 +57,9 @@ export function CultureArticleDetail({
       whileInView={reduceMotion ? undefined : 'visible'}
       viewport={{ once: true, amount: 0.15 }}
       variants={staggerParent}
-      className={cn('grid grid-cols-1 gap-16 lg:grid-cols-[1fr_1.4fr] lg:gap-24', className)}
+      className={cn('grid grid-cols-1 gap-8 min-[1025px]:grid-cols-[1fr_1.4fr] min-[1025px]:gap-24', className)}
     >
-      <div className={`flex flex-col gap-9 ${reversed ? 'lg:order-2' : ''}`}>
+      <div className={`flex flex-col gap-6 min-[1025px]:gap-9 ${reversed ? 'min-[1025px]:order-2' : ''}`}>
         {showNumber && (
           <div className="relative">
             <div
@@ -83,7 +83,7 @@ export function CultureArticleDetail({
               whileHover={reduceMotion ? undefined : { y: -6 }}
               transition={{ type: 'spring', stiffness: 220, damping: 22 }}
               style={{ '--glow-color': 'rgba(0, 210, 255, 0.3)' } as React.CSSProperties}
-              className="card-glow relative h-72 w-full overflow-hidden sm:h-96"
+              className="card-glow relative h-52 w-full overflow-hidden sm:h-64 min-[1025px]:h-96"
             >
               <Image
                 src={image}
@@ -95,7 +95,7 @@ export function CultureArticleDetail({
             </motion.div>
             {showValuesBadge && (
               <div
-                className="absolute -right-10 -top-12 z-20 flex h-32 w-32 items-center justify-center rounded-full bg-black/20 backdrop-blur-[2px] sm:-right-16 sm:-top-20 sm:h-44 sm:w-44"
+                className="absolute -top-8 right-0 z-20 flex h-24 w-24 items-center justify-center rounded-full bg-black/20 backdrop-blur-[2px] sm:-top-10 sm:h-28 sm:w-28 min-[1025px]:-right-16 min-[1025px]:-top-20 min-[1025px]:h-44 min-[1025px]:w-44"
                 aria-hidden="true"
               >
                 <SpinningText
@@ -111,12 +111,12 @@ export function CultureArticleDetail({
         )}
         <motion.div variants={fadeUp}>
           <p
-            className={`font-heading text-sm font-medium uppercase tracking-[0.3em] ${theme === 'dark' ? 'text-cyan' : 'text-blue'}`}
+            className={`font-heading text-xs font-medium uppercase tracking-[0.2em] min-[1025px]:text-sm min-[1025px]:tracking-[0.3em] ${theme === 'dark' ? 'text-cyan' : 'text-blue'}`}
           >
             {article.kicker}
           </p>
           <h3
-            className={`font-heading mt-4 text-4xl font-light uppercase tracking-wide leading-tight sm:text-5xl sm:leading-tight ${
+            className={`font-heading mt-3 text-2xl font-light uppercase tracking-wide leading-tight sm:text-3xl min-[1025px]:mt-4 min-[1025px]:text-5xl min-[1025px]:leading-tight ${
               theme === 'dark' ? 'text-white' : 'text-navy'
             }`}
           >
@@ -128,18 +128,18 @@ export function CultureArticleDetail({
         </motion.div>
       </div>
 
-      <div className={`flex flex-col gap-11 ${reversed ? 'lg:order-1' : ''}`}>
+      <div className={`flex flex-col gap-7 min-[1025px]:gap-11 ${reversed ? 'min-[1025px]:order-1' : ''}`}>
         <motion.div variants={revealBlur} className="relative">
           <Quote size={40} strokeWidth={1.5} className="mb-2 text-cyan/50" aria-hidden="true" />
           <p
-            className={`font-heading max-w-prose text-2xl font-light leading-snug tracking-wide sm:text-3xl sm:leading-snug ${
+            className={`font-heading max-w-prose text-lg font-light leading-snug tracking-wide sm:text-xl min-[1025px]:text-3xl min-[1025px]:leading-snug ${
               theme === 'dark' ? 'text-white/90' : 'text-navy/80'
             }`}
           >
             {article.intro}
           </p>
         </motion.div>
-        <motion.div variants={staggerParent} className="flex flex-col gap-11">
+        <motion.div variants={staggerParent} className="flex flex-col gap-7 min-[1025px]:gap-11">
           {article.blocks.map((block) => (
             <Fragment key={block.heading}>
               <motion.div variants={fadeUp}>
@@ -153,7 +153,7 @@ export function CultureArticleDetail({
                 {block.paragraphs?.map((p, pi) => (
                   <p
                     key={pi}
-                    className={`mt-4 max-w-prose text-lg leading-relaxed ${theme === 'dark' ? 'text-white/85' : 'text-ink'}`}
+                    className={`mt-3 max-w-prose text-sm leading-relaxed sm:text-base min-[1025px]:mt-4 min-[1025px]:text-lg ${theme === 'dark' ? 'text-white/85' : 'text-ink'}`}
                   >
                     {p}
                   </p>
@@ -163,7 +163,7 @@ export function CultureArticleDetail({
                     {block.list.map((item, li) => (
                       <li
                         key={li}
-                        className={`flex gap-3 text-lg leading-relaxed ${theme === 'dark' ? 'text-white/85' : 'text-ink'}`}
+                        className={`flex gap-3 text-sm leading-relaxed sm:text-base min-[1025px]:text-lg ${theme === 'dark' ? 'text-white/85' : 'text-ink'}`}
                       >
                         <span className="mt-2.5 h-1 w-4 shrink-0 bg-gold" aria-hidden="true" />
                         {item}

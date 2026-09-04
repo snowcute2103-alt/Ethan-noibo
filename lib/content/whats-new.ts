@@ -12,7 +12,7 @@ export interface WhatsNewItem {
   href: string;
 }
 
-const MAX_ITEMS = 6;
+const MAX_ITEMS = 3;
 
 /**
  * Gộp Thông báo khẩn + Chính sách + Announcement + Rule (SOP) mới cập nhật,

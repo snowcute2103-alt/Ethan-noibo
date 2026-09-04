@@ -45,7 +45,7 @@ export default function ForgotPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="identifier" className="text-base font-semibold text-white/95">
+        <label htmlFor="identifier" className="text-sm font-semibold text-white/95 min-[1025px]:text-base">
           Tài khoản hoặc email
         </label>
         <input
@@ -58,21 +58,21 @@ export default function ForgotPasswordForm() {
           onChange={(e) => setIdentifier(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition-colors duration-200 placeholder:text-white/30 focus:border-cyan/60 focus:bg-white/[0.08] sm:px-5 sm:py-3 sm:text-base"
+          className="min-h-[44px] w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-base text-white outline-none transition-colors duration-200 placeholder:text-white/30 focus:border-cyan/60 focus:bg-white/[0.08] sm:px-4 min-[1025px]:px-5 min-[1025px]:py-3"
         />
         {focused && (
-          <p className="whitespace-nowrap text-[9px] text-white/60 sm:text-[11px] lg:text-sm">
+          <p className="text-[10px] leading-relaxed text-white/60 sm:text-[11px] min-[1025px]:whitespace-nowrap min-[1025px]:text-sm">
             Nhớ sếp, nhớ đồng nghiệp mà quên mật khẩu thì điền thông tin vào đây.
           </p>
         )}
       </div>
 
-      {error && <p className="text-base text-[#FF8A8A]">{error}</p>}
+      {error && <p className="text-sm text-[#FF8A8A] min-[1025px]:text-base">{error}</p>}
 
       <button
         type="submit"
         disabled={loading}
-        className="group/button relative mt-1 inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-blue-cta to-cyan px-4 py-3 text-base font-semibold uppercase tracking-wide text-white transition-transform duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 lg:text-lg"
+        className="group/button relative mt-1 inline-flex min-h-[44px] cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-blue-cta to-cyan px-4 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-transform duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 min-[1025px]:py-3 min-[1025px]:text-lg"
       >
         <span className="relative z-10">{loading ? 'Đang gửi…' : 'Gửi yêu cầu'}</span>
         <span className="absolute inset-0 flex h-full w-full justify-center transition-transform duration-[2000ms] ease-in-out [transform:skew(-13deg)_translateX(-150%)] group-hover/button:[transform:skew(-13deg)_translateX(150%)]">

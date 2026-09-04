@@ -37,16 +37,16 @@ export default function BirthdayModal({
     <div
       role="presentation"
       onClick={onClose}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/40 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/40 p-3 backdrop-blur-[2px] min-[1025px]:p-4"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Sinh nhật tháng này"
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_24px_48px_-20px_rgba(16,26,48,0.45)]"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_24px_48px_-20px_rgba(16,26,48,0.45)] min-[1025px]:max-h-[96vh] min-[1025px]:rounded-[20px]"
       >
-        <div className="flex items-start justify-between gap-4 px-5 pt-4 sm:px-8 sm:pt-6">
+        <div className="flex items-start justify-between gap-3 px-4 pt-3 sm:px-5 sm:pt-4 min-[1025px]:gap-4 min-[1025px]:px-8 min-[1025px]:pt-6">
           <div>
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.3em] text-blue-cta">Sinh nhật</p>
             <h2 className="font-heading mt-0.5 text-lg font-medium uppercase tracking-wide text-navy">Tháng này</h2>
@@ -55,17 +55,17 @@ export default function BirthdayModal({
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="shrink-0 border border-navy/15 p-1.5 text-navy/60 transition hover:border-navy hover:text-navy"
+            className="grid h-[44px] w-[44px] shrink-0 place-items-center border border-navy/15 text-navy/60 transition hover:border-navy hover:text-navy min-[1025px]:h-auto min-[1025px]:w-auto min-[1025px]:p-1.5"
           >
             <X size={16} strokeWidth={2.25} aria-hidden="true" />
           </button>
         </div>
 
-        <div className="mt-4 flex min-h-0 flex-col gap-2 overflow-y-auto px-5 pb-4 sm:mt-5 sm:px-8 sm:pb-6">
+        <div className="mt-3 flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3 sm:mt-4 sm:px-5 sm:pb-4 min-[1025px]:mt-5 min-[1025px]:px-8 min-[1025px]:pb-6">
           {people.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted">Tháng này chưa có ai sinh nhật.</p>
           ) : (
-            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 min-[1025px]:grid-cols-3">
               {people.map((person) => (
                 <li
                   key={person.fullName}

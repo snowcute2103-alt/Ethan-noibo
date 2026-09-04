@@ -397,7 +397,7 @@ export default function RuleManager({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
+    <div className="grid min-w-0 grid-cols-1 gap-5 min-[1025px]:grid-cols-[320px_1fr] min-[1025px]:gap-8">
       <div className="flex flex-col gap-4">
         <input
           value={search}
@@ -408,7 +408,7 @@ export default function RuleManager({
         <Button type="button" onClick={startNew}>
           <Plus size={16} /> Rule mới
         </Button>
-        <div className="flex max-h-[640px] flex-col gap-2 overflow-y-auto">
+        <div className="flex max-h-[320px] flex-col gap-2 overflow-y-auto min-[1025px]:max-h-[640px]">
           {filtered.map((r) => (
             <button
               key={r.id}
@@ -430,7 +430,7 @@ export default function RuleManager({
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 border border-navy/15 p-6 sm:p-8">
+      <div className="flex min-w-0 flex-col gap-4 border border-navy/15 p-4 sm:p-5 min-[1025px]:gap-6 min-[1025px]:p-8">
         {error && <p className="text-sm text-red-600">{error}</p>}
         {isStaticSelected && (
           <p className="theme-light-surface border border-gold-2/50 bg-[#FFF4D6] px-4 py-3 text-sm text-navy">
@@ -517,7 +517,7 @@ export default function RuleManager({
           </div>
 
           {form.sections.map((section, i) => (
-            <div key={section.key} className="flex flex-col gap-3 border border-navy/15 bg-surface-2/40 p-5">
+            <div key={section.key} className="flex min-w-0 flex-col gap-3 border border-navy/15 bg-surface-2/40 p-3 sm:p-4 min-[1025px]:p-5">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-muted">{i + 1}.</span>
                 <input

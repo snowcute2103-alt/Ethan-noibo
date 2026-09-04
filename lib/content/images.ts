@@ -5,6 +5,7 @@ import teamPhoto from '@/public/images/khenthuong/doingu.jpg';
 import visionImg from '@/public/images/van-hoa/connguoi.jpg';
 import founderImg from '@/public/images/van-hoa/hanhtrinh.jpg';
 import orgImg from '@/public/images/van-hoa/office.jpg';
+import orgChartImg from '@/public/images/van-hoa/so-do-to-chuc.svg';
 import cultureImg from '@/public/images/van-hoa/team-building.jpg';
 import sopPrintImg from '@/public/images/rule/ingiay.jpg';
 import sopPreparingImg from '@/public/images/rule/preparing-embroidery-machine.webp';
@@ -32,6 +33,9 @@ export const CULTURE_ARTICLE_IMAGE: Record<string, StaticImageData> = {
 
 /** Ảnh fallback chung — phòng khi thêm nội dung mới mà quên gán ảnh riêng. */
 export const FALLBACK_IMAGE: StaticImageData = heroBg;
+
+/** Sơ đồ tổ chức Ethan — dùng ở khối "Con người & văn hoá" trang chủ, ngay dưới bài Cơ cấu tổ chức. */
+export const ORG_CHART_IMAGE: StaticImageData = orgChartImg;
 
 /** Ảnh nền cho slider "5 giá trị cốt lõi" ở trang chủ, lấy từ ethanecom.com — đúng thứ tự
  *  với culture.ts blocks['5 giá trị cốt lõi'].list: Đồng lòng, Tử tế, Trách nhiệm, Cải tiến, Bền bỉ. */

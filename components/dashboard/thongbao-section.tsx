@@ -67,11 +67,11 @@ export default async function ThongBaoSection({ session }: { session: SessionPay
 
   return (
     <div>
-      <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-gold">Từ Ban lãnh đạo</p>
-      <h2 className="font-heading mt-3 text-4xl font-light uppercase tracking-wide text-navy sm:text-5xl">
+      <p className="font-heading text-xs font-medium uppercase tracking-[0.2em] text-gold min-[1025px]:text-sm min-[1025px]:tracking-[0.3em]">Từ Ban lãnh đạo</p>
+      <h2 className="font-heading mt-2 text-2xl font-light uppercase tracking-wide text-navy sm:text-3xl min-[1025px]:mt-3 min-[1025px]:text-5xl">
         Thông báo mới nhất
       </h2>
-      <div className="mt-12">
+      <div className="mt-6 sm:mt-8 min-[1025px]:mt-12">
         <ThongBaoSlideshow slides={slides} avatarUrl={avatarUrl} />
       </div>
     </div>

@@ -64,16 +64,16 @@ export default function ContentTeaserCard({
 }: ContentTeaserCardProps) {
   return (
     <CurvedScrollList maxHeight={440} thumbColor={accent} thumbActiveColor={accentActive}>
-      <div className="flex flex-col gap-4 px-6 py-6">
+      <div className="flex flex-col gap-3 px-4 py-4 sm:px-5 sm:py-5 min-[1025px]:gap-4 min-[1025px]:px-6 min-[1025px]:py-6">
         <p className="font-heading text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: accent }}>
           {category}
           <span className="ml-2 normal-case tracking-normal text-muted/70">· {date}</span>
         </p>
-        <h3 className="font-heading text-balance text-xl font-medium text-navy">{title}</h3>
-        <div className="relative h-36 w-full shrink-0 overflow-hidden rounded-lg">
+        <h3 className="font-heading text-balance text-lg font-medium text-navy min-[1025px]:text-xl">{title}</h3>
+        <div className="relative h-28 w-full shrink-0 overflow-hidden rounded-lg sm:h-32 min-[1025px]:h-36">
           <Image src={image} alt="" fill sizes="360px" className="object-cover" />
         </div>
-        <p className="text-sm leading-relaxed text-muted">{intro}</p>
+        <p className="text-xs leading-relaxed text-muted min-[1025px]:text-sm">{intro}</p>
         {highlights?.map((group) => (
           <div key={group.heading}>
             <p className="font-heading text-xs font-semibold uppercase tracking-wide text-navy/70">{group.heading}</p>

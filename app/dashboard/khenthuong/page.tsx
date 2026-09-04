@@ -28,40 +28,40 @@ export default async function KhenThuongPage() {
 
   return (
     <div className="theme-light-surface relative overflow-hidden bg-gradient-to-b from-[#FFF5F8] via-white to-white">
-      <div className="relative mx-auto flex max-w-[1500px] flex-col gap-16 px-4 py-16 sm:px-6 sm:py-20 lg:gap-32 lg:px-8 lg:py-36">
-        <div className="recognition-hero-grid relative grid grid-cols-1 items-center gap-10 overflow-visible lg:grid-cols-[1fr_600px] lg:gap-14">
+      <div className="relative mx-auto flex max-w-[1500px] flex-col gap-10 px-4 py-10 sm:px-6 sm:py-12 min-[1025px]:gap-32 min-[1025px]:px-8 min-[1025px]:py-36">
+        <div className="recognition-hero-grid relative grid grid-cols-1 items-center gap-7 overflow-visible min-[1025px]:grid-cols-[1fr_600px] min-[1025px]:gap-14">
           <Image
             src={money1}
             alt=""
             aria-hidden="true"
             priority={false}
-            className="desktop-visual-effect pointer-events-none absolute -left-24 top-0 z-[5] hidden w-[520px] -rotate-12 opacity-[0.22] blur-[1px] lg:block"
+            className="desktop-visual-effect pointer-events-none absolute -left-24 top-0 z-[5] hidden w-[520px] -rotate-12 opacity-[0.22] blur-[1px] min-[1025px]:block"
           />
           <Image
             src={money2}
             alt=""
             aria-hidden="true"
             priority={false}
-            className="desktop-visual-effect pointer-events-none absolute left-[8%] top-[42%] z-[5] hidden w-[400px] rotate-[18deg] opacity-[0.18] blur-[1px] lg:block"
+            className="desktop-visual-effect pointer-events-none absolute left-[8%] top-[42%] z-[5] hidden w-[400px] rotate-[18deg] opacity-[0.18] blur-[1px] min-[1025px]:block"
           />
           <Image
             src={money3}
             alt=""
             aria-hidden="true"
             priority={false}
-            className="desktop-visual-effect pointer-events-none absolute -left-16 bottom-0 z-[5] hidden w-[500px] rotate-[8deg] opacity-[0.18] blur-[1px] lg:block"
+            className="desktop-visual-effect pointer-events-none absolute -left-16 bottom-0 z-[5] hidden w-[500px] rotate-[8deg] opacity-[0.18] blur-[1px] min-[1025px]:block"
           />
           <FireworkBurst />
-          <div className="recognition-hero-copy relative z-10 text-center lg:text-left">
-            <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-[#FF6F91]">Wall of fame</p>
-            <h2 className="mt-5 font-heading text-[clamp(2.25rem,5.5vw,4.75rem)] font-light uppercase tracking-wide leading-[0.95] text-navy">
+          <div className="recognition-hero-copy relative z-10 text-center min-[1025px]:text-left">
+            <p className="font-heading text-xs font-medium uppercase tracking-[0.2em] text-[#FF6F91] min-[1025px]:text-sm min-[1025px]:tracking-[0.3em]">Wall of fame</p>
+            <h2 className="mt-3 font-heading text-[clamp(2rem,5.5vw,3.5rem)] font-light uppercase tracking-wide leading-[0.98] text-navy min-[1025px]:mt-5 min-[1025px]:text-[clamp(2.25rem,5.5vw,4.75rem)] min-[1025px]:leading-[0.95]">
               Khen thưởng
             </h2>
-            <p className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-muted sm:text-lg lg:mx-0">
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-muted sm:text-base min-[1025px]:mx-0 min-[1025px]:mt-6 min-[1025px]:text-lg">
               Cảm ơn những đóng góp nổi bật mỗi tháng — tinh thần đồng lòng làm nên Ethan.
             </p>
           </div>
-          <div className="desktop-visual-effect relative z-10 mx-auto hidden lg:block">
+          <div className="desktop-visual-effect relative z-10 mx-auto hidden min-[1025px]:block">
             <SphereImageGrid
               images={teamAvatars}
               containerSize={600}

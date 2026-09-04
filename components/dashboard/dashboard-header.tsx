@@ -28,20 +28,20 @@ export default function DashboardHeader({ navItems, user }: { navItems: NavItem[
       >
         <div className="glow-orb -left-24 -top-32 h-72 w-72 bg-cyan/20" aria-hidden="true" />
         <div className="glow-orb -right-16 -top-24 h-64 w-64 bg-gold/15" aria-hidden="true" />
-        <div className="relative mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6 sm:py-5 lg:px-8 lg:py-7">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+        <div className="relative mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-2 px-4 py-2 sm:gap-3 sm:px-6 sm:py-3 min-[1025px]:gap-4 min-[1025px]:px-8 min-[1025px]:py-7">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3 min-[1025px]:gap-4">
             <Link href="/dashboard" aria-label="Về trang chủ" className="shrink-0">
-              <Image src={logo} alt="Ethan Ecom" className="h-14 w-auto shrink-0 sm:h-16 lg:h-24" priority />
+              <Image src={logo} alt="Ethan Ecom" className="h-11 w-auto shrink-0 sm:h-[52px] min-[1025px]:h-24" priority />
             </Link>
           </div>
-          <nav aria-label="Điều hướng chính" className="order-3 w-full lg:order-none lg:w-auto lg:flex-1">
-            <div className="flex items-center gap-5 overflow-x-auto border-x border-white/30 px-4 py-2.5 sm:gap-8 sm:px-6 lg:justify-center">
+          <nav aria-label="Điều hướng chính" className="order-3 w-full min-w-0 min-[1025px]:order-none min-[1025px]:w-auto min-[1025px]:flex-1">
+            <div className="scrollbar-hide flex max-w-full items-center gap-3 overflow-x-auto overscroll-x-contain border-x border-white/30 px-3 py-1.5 sm:gap-5 sm:px-4 sm:py-2 min-[1025px]:justify-center min-[1025px]:gap-8 min-[1025px]:px-6 min-[1025px]:py-2.5">
               {navItems.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
             </div>
           </nav>
-          <div className="flex items-center gap-4 text-base sm:gap-6">
+          <div className="flex shrink-0 items-center gap-2 text-sm sm:gap-3 min-[1025px]:gap-6 min-[1025px]:text-base">
             <UserMenu user={user} />
           </div>
         </div>

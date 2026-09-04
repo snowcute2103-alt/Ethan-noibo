@@ -49,7 +49,7 @@ export default function ResetRequestsPanel({ requests }: { requests: PendingRese
   if (requests.length === 0) return null;
 
   return (
-    <Alert variant="warning" className="mb-8 p-6">
+    <Alert variant="warning" className="mb-5 p-4 sm:p-5 min-[1025px]:mb-8 min-[1025px]:p-6">
       <KeyRound aria-hidden="true" />
       <div>
         <div className="flex flex-wrap items-center gap-2">

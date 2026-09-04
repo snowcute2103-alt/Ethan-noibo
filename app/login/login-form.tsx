@@ -25,7 +25,7 @@ function GlowField({ id, label, type, autoComplete, value, onChange, rightSlot }
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-base font-semibold text-white/95">
+      <label htmlFor={id} className="text-sm font-semibold text-white/95 min-[1025px]:text-base">
         {label}
       </label>
       <div
@@ -41,7 +41,7 @@ function GlowField({ id, label, type, autoComplete, value, onChange, rightSlot }
           required
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition-colors duration-200 placeholder:text-white/30 focus:border-cyan/60 focus:bg-white/[0.08] sm:px-5 sm:py-3 sm:text-base [&:-webkit-autofill]:[-webkit-text-fill-color:#fff] [&:-webkit-autofill]:[box-shadow:0_0_0px_1000px_#1c2740_inset] [&:-webkit-autofill]:[transition:background-color_600000s_0s,color_600000s_0s]"
+          className={`min-h-[44px] w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-base text-white outline-none transition-colors duration-200 placeholder:text-white/30 focus:border-cyan/60 focus:bg-white/[0.08] sm:px-4 min-[1025px]:px-5 min-[1025px]:py-3 [&:-webkit-autofill]:[-webkit-text-fill-color:#fff] [&:-webkit-autofill]:[box-shadow:0_0_0px_1000px_#1c2740_inset] [&:-webkit-autofill]:[transition:background-color_600000s_0s,color_600000s_0s] ${rightSlot ? 'pr-12 sm:pr-12 min-[1025px]:pr-14' : ''}`}
         />
         {glow && (
           <div
@@ -56,7 +56,7 @@ function GlowField({ id, label, type, autoComplete, value, onChange, rightSlot }
             aria-hidden="true"
           />
         )}
-        {rightSlot && <div className="absolute right-4 top-1/2 -translate-y-1/2">{rightSlot}</div>}
+        {rightSlot && <div className="absolute right-3 top-1/2 -translate-y-1/2 min-[1025px]:right-4">{rightSlot}</div>}
       </div>
     </div>
   );
@@ -67,7 +67,7 @@ const SOCIAL_BADGES: { name: string; href?: string; icon: ReactNode }[] = [
     name: 'Facebook',
     href: 'https://www.facebook.com/ethanecom3979',
     icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4 lg:h-[22px] lg:w-[22px]" fill="currentColor" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 min-[1025px]:h-[22px] min-[1025px]:w-[22px]" fill="currentColor" aria-hidden="true">
         <path d="M13.5 21v-7.5h2.5l.4-3H13.5V8.4c0-.87.24-1.46 1.49-1.46H16.5V4.34C16.2 4.3 15.19 4.2 14 4.2c-2.4 0-4 1.46-4 4.16v2.14H7.5v3H10V21h3.5z" />
       </svg>
     ),
@@ -76,7 +76,7 @@ const SOCIAL_BADGES: { name: string; href?: string; icon: ReactNode }[] = [
     name: 'TikTok',
     href: 'https://www.tiktok.com/@ethanecommerch',
     icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4 lg:h-[22px] lg:w-[22px]" fill="currentColor" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 min-[1025px]:h-[22px] min-[1025px]:w-[22px]" fill="currentColor" aria-hidden="true">
         <path d="M16.5 3c.3 2.1 1.7 3.6 3.9 3.8v2.7c-1.4 0-2.7-.4-3.9-1.2v6.7c0 3.3-2.4 5.8-5.9 5.8-3.4 0-5.9-2.5-5.9-5.8s2.5-5.8 5.9-5.8c.4 0 .8 0 1.2.1v2.8a3 3 0 1 0 2 2.8V3h2.7z" />
       </svg>
     ),
@@ -85,7 +85,7 @@ const SOCIAL_BADGES: { name: string; href?: string; icon: ReactNode }[] = [
     name: 'Email hỗ trợ',
     href: 'mailto:support@ethanecom.com',
     icon: (
-      <svg viewBox="0 0 24 24" className="h-4 w-4 lg:h-[22px] lg:w-[22px]" fill="currentColor" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 min-[1025px]:h-[22px] min-[1025px]:w-[22px]" fill="currentColor" aria-hidden="true">
         <path d="M12 3.5c-4.7 0-8.5 3.36-8.5 7.5 0 2.36 1.24 4.47 3.19 5.86-.1.75-.44 1.94-1.29 3.14a.4.4 0 0 0 .43.62c1.5-.4 2.9-1.18 3.68-1.69.78.17 1.6.27 2.49.27 4.7 0 8.5-3.36 8.5-7.5S16.7 3.5 12 3.5z" />
       </svg>
     ),
@@ -125,7 +125,7 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="relative flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="relative flex flex-col gap-3 min-[1025px]:gap-4">
       <GlowField
         id="username"
         label="Tài khoản"
@@ -145,7 +145,7 @@ export default function LoginForm() {
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="cursor-pointer text-white/60 transition-colors hover:text-cyan"
+            className="grid min-h-[44px] min-w-[44px] place-items-center text-white/60 transition-colors hover:text-cyan"
             aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
           >
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -153,16 +153,16 @@ export default function LoginForm() {
         }
       />
 
-      <Link href="/quen-mat-khau" className="link-glow -mt-2 w-fit text-sm font-semibold text-white/70 hover:text-cyan">
+      <Link href="/quen-mat-khau" className="link-glow -mt-1 inline-flex min-h-[44px] w-fit items-center text-xs font-semibold text-white/70 hover:text-cyan min-[1025px]:-mt-2 min-[1025px]:min-h-0 min-[1025px]:text-sm">
         Quên mật khẩu?
       </Link>
 
-      {error && <p className="text-base text-[#FF8A8A]">{error}</p>}
+      {error && <p className="text-sm text-[#FF8A8A] min-[1025px]:text-base">{error}</p>}
 
       <button
         type="submit"
         disabled={loading}
-        className="group/button relative mt-1 inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-blue-cta to-cyan px-4 py-3 text-base font-semibold uppercase tracking-wide text-white transition-transform duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 lg:text-lg"
+        className="group/button relative mt-1 inline-flex min-h-[44px] cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-blue-cta to-cyan px-4 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-transform duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 min-[1025px]:py-3 min-[1025px]:text-lg"
       >
         <span className="relative z-10">{loading ? 'Đang đăng nhập…' : 'Đăng nhập'}</span>
         <span className="absolute inset-0 flex h-full w-full justify-center transition-transform duration-[2000ms] ease-in-out [transform:skew(-13deg)_translateX(-150%)] group-hover/button:[transform:skew(-13deg)_translateX(150%)]">
@@ -176,7 +176,7 @@ export default function LoginForm() {
         <div className="flex items-center justify-center gap-4 [perspective:800px]">
           {SOCIAL_BADGES.map((badge) => {
             const badgeClassName =
-              'group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5 transition-[border-color,box-shadow] duration-500 hover:border-cyan/50 hover:shadow-[0_0_24px_-4px_rgba(0,210,255,0.6)] lg:h-14 lg:w-14';
+              'group relative flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5 transition-[border-color,box-shadow] duration-500 hover:border-cyan/50 hover:shadow-[0_0_24px_-4px_rgba(0,210,255,0.6)] sm:h-12 sm:w-12 min-[1025px]:h-14 min-[1025px]:w-14';
             const badgeContent = (
               <>
                 <span
@@ -207,7 +207,7 @@ export default function LoginForm() {
             );
           })}
         </div>
-        <p className="mt-3 text-center text-sm text-white/75">Ethan Ecom trên mạng xã hội</p>
+        <p className="mt-2 text-center text-xs text-white/75 min-[1025px]:mt-3 min-[1025px]:text-sm">Ethan Ecom trên mạng xã hội</p>
       </div>
     </form>
   );

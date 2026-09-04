@@ -581,13 +581,35 @@
       color: #d0a0a0; line-height: 1.75;
     }
 
-    @media (max-width: 600px) {
-      body { font-size: 16px; line-height: 1.6; }
-      .container { padding: var(--space-4); }
-      header { padding: var(--space-16) var(--space-2) var(--space-8); }
-      h1 { font-size: clamp(2.5rem, 12vw, 3rem); }
-      .subtitle { font-size: 0.875rem; line-height: 1.7; letter-spacing: 0.1em; }
+    @media (max-width: 1024px) {
+      body { font-size: 16px; line-height: 1.55; }
+      .container { padding: var(--space-6); }
+      header { padding: var(--space-16) var(--space-4) var(--space-8); }
+      h1 { font-size: clamp(2.25rem, 7vw, 3rem); margin-bottom: var(--space-4); }
+      .subtitle { font-size: 0.875rem; }
       .divider { margin-bottom: var(--space-12); }
+      .daily-role-grid { gap: var(--space-3); padding-bottom: var(--space-6); }
+      .daily-role-btn { min-height: 44px; min-width: 132px; padding: var(--space-2) var(--space-4); font-size: 0.8125rem; }
+      .daily-bar { margin-bottom: var(--space-16); }
+      .daily-bar-body { padding: 0 var(--space-6) var(--space-8); }
+      .daily-layout-mini { gap: var(--space-8); }
+      .daily-card { width: 140px; height: 228px; }
+      .daily-candle-stage { width: 120px; height: 156px; }
+      .all-cards-modal, .card-detail-modal { padding: var(--space-6); }
+      .all-cards-panel { padding: var(--space-12) var(--space-8); }
+      .all-cards-grid { grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: var(--space-8) var(--space-4); }
+      .card-thumb img { width: 140px; height: 228px; }
+      .card-detail-panel { padding: var(--space-8); }
+      footer { padding: var(--space-12) var(--space-6) var(--space-8); font-size: 0.875rem; }
+    }
+
+    @media (max-width: 600px) {
+      body { font-size: 15px; line-height: 1.55; }
+      .container { padding: var(--space-4); }
+      header { padding: var(--space-12) var(--space-2) var(--space-6); }
+      h1 { font-size: clamp(2rem, 10vw, 2.5rem); }
+      .subtitle { font-size: 0.75rem; line-height: 1.6; letter-spacing: 0.08em; }
+      .divider { margin-bottom: var(--space-8); }
       .daily-role-grid {
         display: flex; flex-wrap: wrap;
         justify-content: center; align-content: center;
@@ -599,15 +621,21 @@
         padding: var(--space-3) var(--space-1); font-size: 0.75rem; letter-spacing: 0.04em;
         text-align: center;
       }
-      .daily-bar { margin-bottom: var(--space-16); }
+      .daily-bar { margin-bottom: var(--space-12); }
       .daily-bar-body { padding: 0 var(--space-4) var(--space-8); }
       .daily-bar-title { align-items: center; flex-direction: column; gap: var(--space-2); }
       .daily-info { flex-basis: 100%; min-width: 0; max-width: 100%; }
-      .daily-affirmation { padding: var(--space-6); }
-      .card-detail-panel { padding: var(--space-12) var(--space-6); }
+      .daily-card { width: 120px; height: 196px; }
+      .daily-affirmation { padding: var(--space-4); }
+      .affirmation-text { font-size: 0.875rem; }
+      .all-cards-modal, .card-detail-modal { padding: var(--space-3); }
+      .card-detail-panel { padding: var(--space-8) var(--space-4); }
       .cd-header { flex-direction: column; align-items: center; }
       .cd-meta { text-align: center; }
-      .all-cards-panel { padding: var(--space-16) var(--space-4); }
+      .all-cards-panel { padding: var(--space-12) var(--space-4); }
+      .all-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-3); }
+      .card-thumb img { width: min(128px, 100%); height: auto; aspect-ratio: 11 / 18; }
+      footer { padding-inline: var(--space-4); }
     }
 
     @media (prefers-reduced-motion: reduce) {

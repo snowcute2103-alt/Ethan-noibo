@@ -8,10 +8,8 @@ import { createQuote, type Quote, type QuoteInput } from '@/lib/quotes';
 import {
   listStickyNotes,
   createStickyNote,
-  moveStickyNote,
   updateStickyNoteText,
   deleteStickyNote,
-  toggleStickyNotePin,
   type StickyNote,
   type StickyNoteInput,
 } from '@/lib/sticky-notes';
@@ -70,7 +68,7 @@ export async function createQuoteAction(input: QuoteInput): Promise<Quote> {
 export async function listStickyNotesAction(): Promise<StickyNote[]> {
   const session = await getSession();
   if (!session) throw new Error('Chưa đăng nhập.');
-  return listStickyNotes(session.userId);
+  return listStickyNotes();
 }
 
 /** Note đầu tiên "kéo ra" khỏi chồng note trắng — author luôn là người đang đăng nhập
@@ -83,13 +81,6 @@ export async function createStickyNoteAction(input: StickyNoteInput): Promise<St
     { x: input.x, y: input.y, color: input.color, text: input.text.slice(0, STICKY_NOTE_TEXT_MAX_LEN) },
     session.userId
   );
-}
-
-/** Vị trí "giống bảng vật lý thật" — ai cũng kéo/di chuyển note của bất kỳ ai. */
-export async function moveStickyNoteAction(id: number, x: number, y: number): Promise<void> {
-  const session = await getSession();
-  if (!session) throw new Error('Chưa đăng nhập.');
-  await moveStickyNote(id, x, y);
 }
 
 /** Chỉ tác giả mới sửa được nội dung note của mình — trả ok:false nếu không phải tác giả
@@ -107,14 +98,4 @@ export async function deleteStickyNoteAction(id: number): Promise<{ ok: boolean 
   if (!session) throw new Error('Chưa đăng nhập.');
   const ok = await deleteStickyNote(id, session.userId, session.tier === 'full');
   return { ok };
-}
-
-/** Mỗi tài khoản ghim một note tối đa một lần; bấm lần nữa để bỏ ghim. */
-export async function toggleStickyNotePinAction(
-  id: number
-): Promise<{ ok: boolean; pinned: boolean; pinCount: number }> {
-  const session = await getSession();
-  if (!session) throw new Error('Chưa đăng nhập.');
-  const result = await toggleStickyNotePin(id, session.userId);
-  return result ? { ok: true, ...result } : { ok: false, pinned: false, pinCount: 0 };
 }

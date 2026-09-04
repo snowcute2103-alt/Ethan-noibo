@@ -27,16 +27,15 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
   const prefetchMember = (fullName: string) => router.prefetch(`/dashboard/giao-task/${nameSlug(fullName)}`);
 
   return (
-    <div className="mt-8">
-      <div className="h-1 w-full rounded-full bg-blue" />
-      <p className="mt-4 font-heading text-5xl font-light uppercase tracking-wide text-navy">Bộ phận khác</p>
+    <div className="mt-6 border-t-2 border-[#dbe4f2] pt-6 min-[1025px]:mt-10 min-[1025px]:pt-10">
+      <p className="font-heading text-2xl font-light uppercase tracking-wide text-navy sm:text-3xl min-[1025px]:text-5xl">Bộ phận khác</p>
       <p className="mt-0.5 text-xs text-muted">
         Nhân sự không thuộc 6 đội kinh doanh — mỗi người tự quản lý task cá nhân của mình.
       </p>
 
-      <div className="mt-4 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 min-[1025px]:mt-4 min-[1025px]:gap-5 xl:grid-cols-3">
         {groups.map((group) => (
-          <div key={group.department} className="rounded-[16px] border border-[#e8edf5] bg-white p-4">
+          <div key={group.department} className="stat-panel rounded-[16px] bg-white p-3 min-[1025px]:p-4">
             <p className="font-heading text-base font-bold text-navy">{group.departmentLabel}</p>
             <ul className="mt-3 flex flex-col gap-2">
               {group.members.map((member) => {
@@ -49,7 +48,7 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
                       onMouseEnter={() => prefetchMember(member.fullName)}
                       onFocus={() => prefetchMember(member.fullName)}
                       onTouchStart={() => prefetchMember(member.fullName)}
-                      className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left hover:bg-surface-2"
+                      className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left transition-colors duration-150 hover:bg-surface-2"
                     >
                       {member.avatarUrl ? (
                         <Image
@@ -70,7 +69,7 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
                           <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
                         </span>
                       </span>
-                      <span className="shrink-0 text-xs font-semibold text-muted">
+                      <span className="shrink-0 text-xs font-semibold tabular-nums text-muted">
                         {member.monthProgress.done}/{member.monthProgress.total}
                       </span>
                     </Link>

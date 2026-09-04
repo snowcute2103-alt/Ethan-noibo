@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 import Image from 'next/image';
 import logo from '@/public/images/brand/logo.png';
 import ScratchCoin from '@/components/ui/scratch-coin';
@@ -20,6 +20,8 @@ type AdmitOneTicketProps = {
   stubText: string;
   /** Bề rộng vé tính bằng px — toàn bộ chữ/khoảng cách co giãn theo giá trị này. */
   width?: number;
+  /** Co vé theo bề rộng vùng chứa, nhưng không vượt quá `width`. */
+  responsive?: boolean;
   /** Màu nền xung quanh vé — dùng để "khoét" hai vết bấm lỗ ở đường xé cho khớp nền. */
   frameColor?: string;
   className?: string;
@@ -35,6 +37,7 @@ export default function AdmitOneTicket({
   scratchPrizes,
   stubText,
   width = 640,
+  responsive = false,
   frameColor = '#281d14',
   className,
 }: AdmitOneTicketProps) {
@@ -49,8 +52,12 @@ export default function AdmitOneTicket({
     <div
       role="img"
       aria-label={name ? `${name} — ${event.replace('\n', ' ')}` : event.replace('\n', ' ')}
-      style={{ width, fontSize: baseFontSize }}
-      className={`relative mx-auto aspect-[2.35/1] select-none ${className ?? ''}`}
+      style={
+        responsive
+          ? ({ '--ticket-width': `${width}px`, '--ticket-font-size': `${baseFontSize}px` } as CSSProperties)
+          : { width, fontSize: baseFontSize }
+      }
+      className={`relative mx-auto aspect-[2.35/1] select-none ${responsive ? 'admit-one-ticket-responsive' : ''} ${className ?? ''}`}
     >
       <svg width="0" height="0" aria-hidden="true" focusable="false" className="absolute">
         <defs>

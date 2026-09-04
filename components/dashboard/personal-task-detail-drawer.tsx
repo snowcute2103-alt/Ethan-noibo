@@ -242,7 +242,7 @@ export default function PersonalTaskDetailDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="personal-task-detail-title"
-        className="theme-light-surface absolute inset-y-0 right-0 flex w-full flex-col border-l-2 border-black bg-[#f8fafc] shadow-[-24px_0_60px_-32px_rgba(16,26,48,0.55)] sm:w-[min(70vw,440px)] lg:w-[clamp(360px,33vw,520px)]"
+        className="theme-light-surface absolute inset-y-0 right-0 flex w-full flex-col border-l-2 border-black bg-[#f8fafc] shadow-[-24px_0_60px_-32px_rgba(16,26,48,0.55)] sm:w-[min(70vw,440px)] min-[1025px]:w-[clamp(360px,33vw,520px)]"
       >
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[#e2e8f0] bg-white/95 px-3.5 py-2.5 backdrop-blur sm:px-4">
           <div>
@@ -256,7 +256,7 @@ export default function PersonalTaskDetailDrawer({
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="grid h-9 w-9 place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue"
+            className="grid h-[44px] w-[44px] place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue min-[1025px]:h-9 min-[1025px]:w-9"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -317,7 +317,7 @@ export default function PersonalTaskDetailDrawer({
               </div>
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted">Trạng thái</span>
-                <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)} className="mt-1 h-10 w-full rounded-[10px] border border-[#dbe4f2] bg-white px-2.5 text-sm text-navy outline-none focus:border-blue">
+                <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)} className="mt-1 h-[44px] w-full rounded-[10px] border border-[#dbe4f2] bg-white px-2.5 text-sm text-navy outline-none focus:border-blue min-[1025px]:h-10">
                   {STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </label>
@@ -335,7 +335,7 @@ export default function PersonalTaskDetailDrawer({
               </div>
             </fieldset>
 
-            <button type="submit" disabled={isPending || !title.trim()} className="flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-blue px-4 text-sm font-semibold text-white hover:bg-blue-cta disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="submit" disabled={isPending || !title.trim()} className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[10px] bg-blue px-4 text-sm font-semibold text-white hover:bg-blue-cta disabled:cursor-not-allowed disabled:opacity-50 min-[1025px]:h-10">
               <Save className="h-4 w-4" aria-hidden="true" /> Lưu thay đổi
             </button>
           </form>

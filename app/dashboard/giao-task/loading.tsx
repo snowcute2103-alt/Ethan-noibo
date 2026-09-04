@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  *  PersonalTaskBoard để không tạo layout shift lớn khi nội dung thật thay vào. */
 export default function GiaoTaskLoading() {
   return (
-    <div className="px-4 py-10 sm:px-6 lg:px-10" aria-busy="true" aria-live="polite">
+    <div className="px-4 py-6 sm:px-6 sm:py-8 min-[1025px]:px-10 min-[1025px]:py-10" aria-busy="true" aria-live="polite">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-3 w-24 rounded-full" />

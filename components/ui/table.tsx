@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 const Table = React.forwardRef<HTMLTableElement, React.TableHTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <table ref={ref} className={cn('w-full caption-bottom text-left text-sm tabular-nums', className)} {...props} />
+    <table ref={ref} className={cn('w-full caption-bottom text-left text-sm tabular-nums max-[1024px]:text-xs', className)} {...props} />
   )
 );
 Table.displayName = 'Table';
@@ -43,14 +43,14 @@ TableRow.displayName = 'TableRow';
 
 const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
-    <th ref={ref} className={cn('h-11 px-4 text-left align-middle font-semibold text-muted', className)} {...props} />
+    <th ref={ref} className={cn('h-11 px-4 text-left align-middle font-semibold text-muted max-[1024px]:h-10 max-[1024px]:px-3', className)} {...props} />
   )
 );
 TableHead.displayName = 'TableHead';
 
 const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn('px-4 py-3 align-middle text-ink', className)} {...props} />
+    <td ref={ref} className={cn('px-4 py-3 align-middle text-ink max-[1024px]:px-3 max-[1024px]:py-2.5', className)} {...props} />
   )
 );
 TableCell.displayName = 'TableCell';

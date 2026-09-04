@@ -9,19 +9,19 @@ export default function NoticeBanner({ notices }: { notices: Notice[] }) {
       {notices.map((n) => (
         <div
           key={n.id}
-          className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-gold to-gold-2 p-6 shadow-[0_12px_28px_-14px_rgba(245,166,35,0.55)]"
+          className="relative overflow-hidden rounded-[14px] bg-gradient-to-br from-gold to-gold-2 p-4 shadow-[0_12px_28px_-14px_rgba(245,166,35,0.55)] min-[1025px]:rounded-[20px] min-[1025px]:p-6"
         >
           <div
             className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/15"
             aria-hidden="true"
           />
-          <div className="relative flex items-start gap-4">
+          <div className="relative flex items-start gap-3 min-[1025px]:gap-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/90">
               <TriangleAlert size={18} strokeWidth={2.25} className="text-gold" aria-hidden="true" />
             </span>
             <div className="flex-1">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-heading text-lg font-medium tracking-wide text-navy">{n.title}</h3>
+                <h3 className="font-heading text-base font-medium tracking-wide text-navy min-[1025px]:text-lg">{n.title}</h3>
                 <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-navy">{n.date}</span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-navy/90">{n.body}</p>

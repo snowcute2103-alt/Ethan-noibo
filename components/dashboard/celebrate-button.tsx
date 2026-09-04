@@ -18,7 +18,7 @@ export default function CelebrateButton({ originRef }: CelebrateButtonProps) {
       streamerWidthMax={40}
       streamerHeightMax={0}
       originRef={originRef}
-      className="inline-flex items-center rounded-xl bg-gradient-to-r from-blue-cta to-cyan px-6 py-3 text-base font-semibold uppercase tracking-wide text-white transition-transform duration-200 hover:scale-[1.02]"
+      className="inline-flex min-h-[44px] items-center rounded-xl bg-gradient-to-r from-blue-cta to-cyan px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white transition-transform duration-200 hover:scale-[1.02] min-[1025px]:min-h-0 min-[1025px]:px-6 min-[1025px]:py-3 min-[1025px]:text-base"
     >
       Bấm vô đây
     </PartyPopper>

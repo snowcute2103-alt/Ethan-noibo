@@ -49,17 +49,17 @@ export default function WhatsNewModal({ items, avatarUrl }: { items: WhatsNewIte
     <div
       role="presentation"
       onClick={() => setOpen(false)}
-      className="fixed inset-0 z-[60] flex items-end justify-end bg-navy/30 p-4 backdrop-blur-[2px] sm:p-8"
+      className="fixed inset-0 z-[60] flex items-end justify-end bg-navy/30 p-3 backdrop-blur-[2px] sm:p-5 min-[1025px]:p-8"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Có gì mới"
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-y-auto border-2 border-navy bg-white shadow-[0_24px_48px_-20px_rgba(16,26,48,0.45)]"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-y-auto border-2 border-navy bg-white shadow-[0_24px_48px_-20px_rgba(16,26,48,0.45)] min-[1025px]:max-h-[85vh]"
       >
         <div className="h-1.5 bg-gradient-to-r from-cyan via-blue-cta to-gold-2" aria-hidden="true" />
-        <div className="flex items-start justify-between gap-4 px-6 pt-6">
+        <div className="flex items-start justify-between gap-3 px-4 pt-4 min-[1025px]:gap-4 min-[1025px]:px-6 min-[1025px]:pt-6">
           <div>
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.3em] text-blue-cta">Mới cập nhật</p>
             <h2 className="mt-1 font-heading text-xl font-medium uppercase tracking-wide text-navy">Có gì mới</h2>
@@ -68,12 +68,12 @@ export default function WhatsNewModal({ items, avatarUrl }: { items: WhatsNewIte
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Đóng"
-            className="shrink-0 border border-navy/15 p-1.5 text-navy/60 transition hover:border-navy hover:text-navy"
+            className="grid h-[44px] w-[44px] shrink-0 place-items-center border border-navy/15 text-navy/60 transition hover:border-navy hover:text-navy min-[1025px]:h-auto min-[1025px]:w-auto min-[1025px]:p-1.5"
           >
             <X size={16} strokeWidth={2.25} aria-hidden="true" />
           </button>
         </div>
-        <ul className="mt-5 flex flex-col gap-2 px-6 pb-6">
+        <ul className="mt-3 flex flex-col gap-2 px-4 pb-4 min-[1025px]:mt-5 min-[1025px]:px-6 min-[1025px]:pb-6">
           {items.map((item) => (
             <li key={item.key}>
               <Link

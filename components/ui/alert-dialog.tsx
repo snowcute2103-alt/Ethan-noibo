@@ -30,7 +30,7 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        'ui-dialog-content ui-floating-surface fixed left-1/2 top-1/2 z-[70] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[var(--ui-radius-card)] bg-popover p-6 text-popover-foreground outline-none',
+        'ui-dialog-content ui-floating-surface fixed left-1/2 top-1/2 z-[70] grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-3 overflow-y-auto rounded-[var(--ui-radius-card)] bg-popover p-4 text-popover-foreground outline-none sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:gap-4 sm:p-6',
         className
       )}
       {...props}

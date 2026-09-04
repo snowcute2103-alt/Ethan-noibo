@@ -58,7 +58,7 @@ export default function FloatingGreeting({ fullName }: { fullName: string }) {
 
   return (
     <div
-      className="pointer-events-none absolute z-40"
+      className="floating-greeting-widget pointer-events-none absolute z-40"
       style={{
         top: position.top,
         ...(alignLeft ? { left: position.offset } : { right: position.offset }),

@@ -79,7 +79,8 @@ export default function BirthdayTicket() {
         scratchPrizes={BIRTHDAY_PRIZES}
         stubText="Scratch to reveal your gift"
         width={980}
-        className="relative z-10 shrink-0"
+        responsive
+        className="relative z-10"
       />
     </div>
   );

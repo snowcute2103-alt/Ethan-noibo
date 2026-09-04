@@ -110,6 +110,44 @@
   }
 }
 
+/* Thẻ dữ liệu (donut/KPI/bảng/biểu đồ) dùng bóng đổ tinted theo --theme-shadow
+ * thay cho viền phẳng đơn thuần — tạo chiều sâu nhẹ, nhất quán giữa light/dark
+ * vì cùng đọc lại 2 token --theme-border/--theme-shadow đã đổi theo theme. */
+.stat-card {
+  border: 1px solid color-mix(in oklch, var(--theme-border) 55%, transparent);
+  box-shadow:
+    0 1px 2px var(--theme-shadow),
+    0 12px 28px -20px var(--theme-shadow);
+  transition: transform 200ms var(--theme-ease), box-shadow 200ms var(--theme-ease), border-color 200ms var(--theme-ease);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in oklch, var(--blue) 32%, var(--theme-border));
+  box-shadow:
+    0 2px 4px var(--theme-shadow),
+    0 22px 40px -20px var(--theme-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-card,
+  .stat-card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Cùng bóng đổ với .stat-card nhưng không nhấc lên khi hover — dùng cho khối
+ * lớn chứa nhiều phần tử tương tác riêng bên trong (bảng, danh sách thành
+ * viên): các hàng con đã tự có phản hồi hover riêng, nhấc cả khối trong lúc
+ * con trỏ dừng lâu bên trong sẽ gây rung mắt thay vì tinh tế. */
+.stat-panel {
+  border: 1px solid color-mix(in oklch, var(--theme-border) 55%, transparent);
+  box-shadow:
+    0 1px 2px var(--theme-shadow),
+    0 12px 28px -20px var(--theme-shadow);
+}
+
 @keyframes ui-overlay-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -313,30 +351,64 @@ body {
 :root[data-theme='dark'] .theme-light-surface [class~='text-navy/90'] { color: color-mix(in oklch, var(--navy) 90%, transparent); }
 
 .theme-toggle {
+  position: relative;
   display: inline-flex;
-  min-width: 84px;
-  min-height: 44px;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 4px;
+  width: 84px;
+  height: 40px;
+  padding: 4px;
   border: 1px solid var(--theme-border);
   border-radius: 999px;
   color: var(--ink);
   background: var(--surface);
+  overflow: hidden;
   cursor: pointer;
-  transition: transform 150ms var(--theme-ease), background-color 250ms var(--theme-ease), color 250ms var(--theme-ease);
+  transition: transform 150ms var(--theme-ease), background-color 400ms var(--theme-ease), border-color 400ms var(--theme-ease);
 }
 
 .theme-toggle:hover { transform: translateY(-2px); }
 .theme-toggle:active { transform: translateY(1px) scale(0.98); }
 .theme-toggle:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
-.theme-toggle__track { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 999px; background: var(--surface-2); }
-.theme-toggle__thumb { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 999px; color: var(--navy-deep); background: var(--gold-2); }
-.theme-toggle__thumb svg { width: 18px; height: 18px; }
-.theme-toggle__label { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; }
+
+.theme-toggle[data-active='dark'] {
+  background: var(--navy-deep);
+  border-color: var(--navy-deep);
+}
+
+.theme-toggle__bar {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 38px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--gold-2);
+  transform: translateX(0);
+  transition: transform 400ms var(--theme-ease);
+  z-index: 1;
+}
+
+.theme-toggle[data-active='dark'] .theme-toggle__bar { transform: translateX(38px); }
+
+.theme-toggle__option {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  flex: 1;
+  place-items: center;
+  color: var(--muted);
+  transition: color 400ms var(--theme-ease);
+}
+
+.theme-toggle__option svg { width: 18px; height: 18px; }
+
+.theme-toggle__option--light { color: var(--navy-deep); }
+
+.theme-toggle[data-active='dark'] .theme-toggle__option--light { color: rgba(255, 255, 255, 0.55); }
+.theme-toggle[data-active='dark'] .theme-toggle__option--dark { color: var(--navy-deep); }
 
 @media (prefers-reduced-motion: reduce) {
-  body, .theme-toggle { transition: none; }
+  body, .theme-toggle, .theme-toggle__bar, .theme-toggle__option { transition: none; }
 }
 
 ::selection {
@@ -801,6 +873,26 @@ body {
   }
 }
 
+/* Carousel dùng CSS để có kích thước đúng ngay từ first paint; JavaScript chỉ
+ * điều khiển thứ tự thẻ, không còn đổi chiều cao sau hydration. */
+.notice-carousel-stage {
+  --notice-card-size: 420px;
+  height: calc(var(--notice-card-size) + 140px);
+}
+
+@media (min-width: 1536px) {
+  .notice-carousel-stage {
+    --notice-card-size: 380px;
+  }
+}
+
+/* Vé giữ nguyên kích thước cố định trên desktop; responsive chỉ được bật ở
+ * đúng phạm vi tablet/mobile của yêu cầu. */
+.admit-one-ticket-responsive {
+  width: var(--ticket-width);
+  font-size: var(--ticket-font-size);
+}
+
 /* ---- Tablet + mobile: bố cục cân bằng, ít hiệu ứng hơn desktop. ---- */
 .culture-gallery-static,
 .rule-laptop-mobile-brand {
@@ -808,16 +900,123 @@ body {
 }
 
 @media (max-width: 1024px) {
+  .notice-carousel-stage {
+    --notice-card-size: min(360px, calc(100vw - 64px));
+  }
+
+  .admit-one-ticket-responsive {
+    width: 100%;
+    max-width: var(--ticket-width);
+    font-size: min(var(--ticket-font-size), calc(5.333333vw - 3.413333px));
+  }
+
   html,
   body {
     max-width: 100%;
     overflow-x: hidden;
   }
 
+  html {
+    font-size: 15px;
+  }
+
+  :root {
+    --responsive-page-gutter: 24px;
+    --responsive-section-space: 48px;
+    --responsive-panel-padding: 20px;
+    --responsive-card-padding: 16px;
+    --ui-radius-card: 0.875rem;
+    --ui-radius-panel: 1.25rem;
+  }
+
+  .dashboard-shell,
+  .dashboard-shell main,
+  .dashboard-shell main > *,
+  .dashboard-shell section,
+  .dashboard-shell article {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dashboard-shell img,
+  .dashboard-shell video,
+  .dashboard-shell canvas {
+    max-width: 100%;
+  }
+
+  .dashboard-shell .floating-greeting-widget {
+    display: none;
+  }
+
+  .dashboard-shell .panel-lift:hover,
+  .dashboard-shell .panel-lift:focus-within,
+  .dashboard-shell .card-glow:hover,
+  .dashboard-shell .stat-card:hover {
+    transform: none;
+  }
+
+  .dashboard-shell [class~='px-8'] {
+    padding-right: var(--responsive-page-gutter);
+    padding-left: var(--responsive-page-gutter);
+  }
+
+  .dashboard-shell [class~='p-8'],
+  .dashboard-shell [class~='p-10'],
+  .dashboard-shell [class~='p-12'],
+  .dashboard-shell [class~='sm:p-8'],
+  .dashboard-shell [class~='sm:p-10'],
+  .dashboard-shell [class~='sm:p-12'] {
+    padding: var(--responsive-panel-padding);
+  }
+
+  .dashboard-shell [class~='gap-16'],
+  .dashboard-shell [class~='gap-20'],
+  .dashboard-shell [class~='gap-24'],
+  .dashboard-shell [class~='gap-32'],
+  .dashboard-shell [class~='gap-36'],
+  .dashboard-shell [class~='sm:gap-16'],
+  .dashboard-shell [class~='lg:gap-16'],
+  .dashboard-shell [class~='lg:gap-32'],
+  .dashboard-shell [class~='lg:gap-36'] {
+    gap: 32px;
+  }
+
+  .dashboard-shell [class~='py-20'],
+  .dashboard-shell [class~='py-24'],
+  .dashboard-shell [class~='py-28'],
+  .dashboard-shell [class~='py-32'],
+  .dashboard-shell [class~='py-36'],
+  .dashboard-shell [class~='sm:py-20'],
+  .dashboard-shell [class~='sm:py-28'],
+  .dashboard-shell [class~='sm:py-32'],
+  .dashboard-shell [class~='sm:py-36'],
+  .dashboard-shell [class~='lg:py-24'],
+  .dashboard-shell [class~='lg:py-28'],
+  .dashboard-shell [class~='lg:py-36'] {
+    padding-top: var(--responsive-section-space);
+    padding-bottom: var(--responsive-section-space);
+  }
+
+  .dashboard-shell p[class*='whitespace-nowrap'] {
+    white-space: normal;
+  }
+
+  .auth-page input,
+  .auth-page select,
+  .auth-page textarea,
   .site-shell input,
   .site-shell select,
   .site-shell textarea {
     font-size: 16px;
+  }
+
+  .rule-hover-banner {
+    --rule-banner-padding: 18px;
+    min-height: clamp(220px, 38vw, 300px);
+  }
+
+  .rule-page-title {
+    font-size: clamp(2.25rem, 7vw, 4rem);
   }
 
   .dashboard-shell .glow-orb,
@@ -911,9 +1110,14 @@ body {
 
   .culture-gallery-static {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
     padding: 0 24px 64px;
+  }
+
+  .day-chart-total--zero,
+  .day-chart-date--dense {
+    visibility: hidden;
   }
 
   [data-flow-section] {
@@ -939,18 +1143,6 @@ body {
     will-change: auto;
   }
 
-  .sticky-board-widget {
-    height: 80dvh;
-    min-height: 620px;
-    padding: 32px;
-    perspective: none;
-  }
-
-  .sticky-board-widget .stickynote {
-    transform: none;
-    box-shadow: inset 0 12px 20px -12px rgba(0, 0, 0, 0.24);
-  }
-
   .box-wave-section {
     min-height: 96px;
   }
@@ -974,6 +1166,23 @@ body {
 }
 
 @media (max-width: 640px) {
+  .notice-carousel-stage {
+    --notice-card-size: min(300px, calc(100vw - 32px));
+  }
+
+  html {
+    font-size: 14px;
+  }
+
+  :root {
+    --responsive-page-gutter: 16px;
+    --responsive-section-space: 40px;
+    --responsive-panel-padding: 16px;
+    --responsive-card-padding: 12px;
+    --ui-radius-card: 0.75rem;
+    --ui-radius-panel: 1rem;
+  }
+
   .auth-card {
     max-width: calc(100vw - 32px);
   }
@@ -991,7 +1200,8 @@ body {
   }
 
   .culture-gallery-static {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
     padding-right: 16px;
     padding-bottom: 48px;
     padding-left: 16px;
@@ -1005,12 +1215,6 @@ body {
   .parallax__header {
     height: 64dvh;
     min-height: 440px;
-  }
-
-  .sticky-board-widget {
-    height: 72dvh;
-    min-height: 560px;
-    padding: 24px;
   }
 
   .rule-laptop-mobile-brand {
@@ -1664,7 +1868,7 @@ body {
   column-gap: 2.75rem;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1025px) {
   .nyt-columns {
     columns: 2;
     column-rule: 1px solid rgba(26, 39, 69, 0.15);

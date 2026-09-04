@@ -306,7 +306,7 @@ export default function PersonalTaskBoard({
       : `${formatVi(range.fromDate)} — ${formatVi(range.toDate)}`;
 
   return (
-    <div className="px-4 py-10 sm:px-6 lg:px-10">
+    <div className="personal-task-board-page px-4 py-6 sm:px-6 sm:py-8 min-[1025px]:px-10 min-[1025px]:py-10">
       <div className="mb-6">
         {viewerIsBgd && onBack && (
           <button
@@ -347,7 +347,7 @@ export default function PersonalTaskBoard({
         <div className="mb-4 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">{error}</div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="personal-task-board-layout grid gap-5 min-[1025px]:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           <PersonalKanban
             tasks={tasks}
@@ -508,7 +508,7 @@ function PersonalKanban({
   const bossTaskIds = new Set(bossTasks.map((t) => t.id));
 
   return (
-    <div className="flex flex-col gap-4 rounded-[16px] bg-navy-deep p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-[16px] bg-navy-deep p-3 min-[1025px]:gap-4 min-[1025px]:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
@@ -534,7 +534,7 @@ function PersonalKanban({
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-2 rounded-[10px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-xs">
+        <div className="flex w-full max-w-full items-center gap-2 overflow-x-auto rounded-[10px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-xs sm:w-auto">
           <button type="button" onClick={() => onShiftDate(-1)} className="rounded px-1.5 py-0.5 text-muted hover:bg-surface-2 hover:text-navy">
             ‹
           </button>
@@ -550,7 +550,7 @@ function PersonalKanban({
         </div>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto">
+      <div className="flex max-w-full gap-3 overflow-x-auto pb-1">
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -1113,7 +1113,7 @@ function PersonalTaskCreateDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="personal-task-create-title"
-        className="absolute inset-y-0 right-0 flex w-full flex-col border-l-2 border-black bg-[#f8fafc] shadow-[-24px_0_60px_-32px_rgba(16,26,48,0.55)] sm:w-[min(70vw,440px)] lg:w-[clamp(360px,33vw,520px)]"
+        className="absolute inset-y-0 right-0 flex w-full flex-col border-l-2 border-black bg-[#f8fafc] shadow-[-24px_0_60px_-32px_rgba(16,26,48,0.55)] sm:w-[min(70vw,440px)] min-[1025px]:w-[clamp(360px,33vw,520px)]"
       >
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[#e2e8f0] bg-white/95 px-3.5 py-2.5 backdrop-blur sm:px-4">
           <div>
@@ -1124,7 +1124,7 @@ function PersonalTaskCreateDrawer({
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="grid h-9 w-9 place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue"
+            className="grid h-[44px] w-[44px] place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue min-[1025px]:h-9 min-[1025px]:w-9"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -1218,7 +1218,7 @@ function PersonalTaskCreateDrawer({
                 <select
                   value={taskStatus}
                   onChange={(event) => setTaskStatus(event.target.value as TaskStatus)}
-                  className="mt-1 h-10 w-full rounded-[10px] border border-[#dbe4f2] bg-white px-2.5 text-sm text-navy outline-none focus:border-blue"
+                  className="mt-1 h-[44px] w-full rounded-[10px] border border-[#dbe4f2] bg-white px-2.5 text-sm text-navy outline-none focus:border-blue min-[1025px]:h-10"
                 >
                   <option value="not_started">Chưa làm</option>
                   <option value="in_progress">Đang làm</option>
@@ -1242,7 +1242,7 @@ function PersonalTaskCreateDrawer({
               </div>
             </fieldset>
 
-            <button type="submit" disabled={isPending || !title.trim()} className="flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-blue px-4 text-sm font-semibold text-white hover:bg-blue-cta disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="submit" disabled={isPending || !title.trim()} className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[10px] bg-blue px-4 text-sm font-semibold text-white hover:bg-blue-cta disabled:cursor-not-allowed disabled:opacity-50 min-[1025px]:h-10">
               <Plus className="h-4 w-4" aria-hidden="true" /> Tạo task
             </button>
           </form>

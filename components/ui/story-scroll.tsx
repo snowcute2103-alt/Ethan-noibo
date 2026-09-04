@@ -61,7 +61,8 @@ export default function FlowArt({ children, className, 'aria-label': ariaLabel =
 
   useGSAP(
     () => {
-      if (!containerRef.current || reducedMotion) return;
+      const prefersStaticLayout = window.matchMedia('(max-width: 1024px), (prefers-reduced-motion: reduce)').matches;
+      if (!containerRef.current || reducedMotion || prefersStaticLayout) return;
 
       const sections = Array.from(containerRef.current.querySelectorAll<HTMLElement>('[data-flow-section]'));
       if (sections.length === 0) return;
@@ -109,7 +110,7 @@ export default function FlowArt({ children, className, 'aria-label': ariaLabel =
         triggers.forEach((t) => t.kill());
       };
     },
-    { scope: containerRef, dependencies: [Children.count(children), reducedMotion] },
+    { scope: containerRef, dependencies: [Children.count(children), reducedMotion], revertOnUpdate: true },
   );
 
   // Ảnh (team photo, parallax layer...) load bất đồng bộ sau khi ScrollTrigger.refresh() đã chạy

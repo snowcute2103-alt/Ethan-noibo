@@ -26,7 +26,7 @@ const STARS = [
 
 export default function GreetingHero({ greeting, department }: { greeting: string; department: string }) {
   return (
-    <div className="relative h-[460px] overflow-hidden rounded-[var(--ui-radius-panel)] bg-black sm:h-[500px] lg:h-[560px]">
+    <div className="greeting-hero relative h-[340px] overflow-hidden rounded-[var(--ui-radius-panel)] bg-black sm:h-[400px] min-[1025px]:h-[560px]">
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
         {STARS.map((star, i) => (
           <span
@@ -46,16 +46,16 @@ export default function GreetingHero({ greeting, department }: { greeting: strin
       <Spotlight className="-top-40 left-0 md:-top-20 md:left-60" fill="white" />
 
       <div className="flex h-full flex-col-reverse sm:flex-row">
-        <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center p-8 sm:basis-1/2 sm:p-12">
-          <p className="font-heading text-xl font-medium uppercase tracking-[0.3em] text-cyan sm:text-2xl">
+        <div className="greeting-hero-copy relative z-10 flex min-w-0 flex-1 flex-col justify-center p-5 sm:basis-1/2 sm:p-6 min-[1025px]:p-12">
+          <p className="font-heading text-sm font-medium uppercase tracking-[0.2em] text-cyan sm:text-base min-[1025px]:text-2xl min-[1025px]:tracking-[0.3em]">
             Cổng thông tin nội bộ
           </p>
-          <h2 className="title-glow font-heading mt-6 text-4xl font-light uppercase leading-[1.3] tracking-normal text-white sm:text-5xl lg:text-6xl">
+          <h2 className="title-glow font-heading mt-3 text-3xl font-light uppercase leading-[1.2] tracking-normal text-white sm:mt-4 sm:text-4xl min-[1025px]:mt-6 min-[1025px]:text-6xl min-[1025px]:leading-[1.3]">
             {greeting},
             <br />
             {department}
           </h2>
-          <div className="gradient-divider animate-gradient-divider mt-6 w-24" aria-hidden="true" />
+          <div className="gradient-divider animate-gradient-divider mt-4 w-16 min-[1025px]:mt-6 min-[1025px]:w-24" aria-hidden="true" />
         </div>
 
         <div className="relative flex h-1/2 flex-1 items-center justify-center overflow-hidden [container-type:size] sm:h-full sm:basis-1/2">

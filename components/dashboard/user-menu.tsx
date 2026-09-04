@@ -97,7 +97,7 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
   const unavailable = 'Chưa cập nhật';
 
   return (
-    <div className="hidden sm:block">
+    <div className="block">
       <input
         ref={fileInputRef}
         type="file"
@@ -110,12 +110,12 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex min-h-11 items-center gap-3 rounded-[var(--ui-radius-control)] text-left outline-none transition-[transform,opacity] duration-150 ease-[var(--theme-ease)] hover:-translate-y-0.5 hover:opacity-90 focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none"
+            className="flex min-h-11 items-center gap-2 rounded-[var(--ui-radius-control)] text-left outline-none transition-[transform,opacity] duration-150 ease-[var(--theme-ease)] hover:-translate-y-0.5 hover:opacity-90 focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy active:translate-y-px sm:gap-3 motion-reduce:transform-none motion-reduce:transition-none"
             aria-label={`Mở menu của ${user.fullName}`}
           >
-            <div className="text-right">
-              <p className="font-semibold text-white">{departmentLabel(user.department)}</p>
-              <p className="flex items-center justify-end gap-1.5 text-white/70">
+            <div className="hidden text-right sm:block">
+              <p className="text-xs font-semibold text-white min-[1025px]:text-base">{departmentLabel(user.department)}</p>
+              <p className="flex items-center justify-end gap-1.5 text-xs text-white/70 min-[1025px]:text-base">
                 {user.fullName}
                 <ChevronDown
                   className={`size-4 transition-transform duration-150 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
@@ -127,7 +127,7 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
           </button>
         </PopoverTrigger>
 
-        <PopoverContent align="end" className="w-80 p-3">
+        <PopoverContent align="end" collisionPadding={12} className="w-[calc(100vw-2rem)] max-w-80 p-3">
           <div className="flex items-center gap-3 px-2 py-2">
             <ProfileAvatar url={avatarUrl} alt={user.fullName} size={52} />
             <div className="min-w-0">
@@ -152,7 +152,7 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
           </Button>
 
           <Separator className="my-2" />
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-2 py-3">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 px-2 py-3 sm:grid-cols-2">
             <InfoRow label="Mã nhân viên" value={user.employeeCode ?? unavailable} />
             <InfoRow label="Team" value={user.teamLabel ?? unavailable} />
             <InfoRow label="Chức danh" value={user.jobTitle ?? unavailable} />
@@ -161,13 +161,13 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
             <InfoRow label="Quyền" value={tierLabel(user.tier)} />
             <InfoRow label="Văn phòng" value={user.office ?? unavailable} />
             <InfoRow label="Điện thoại" value={user.phone ?? unavailable} />
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <InfoRow label="Email cá nhân" value={user.personalEmail ?? unavailable} />
             </div>
           </div>
 
           <Separator className="my-2" />
-          <div className="flex min-h-14 items-center justify-between gap-4 px-2 py-2">
+          <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 px-2 py-2">
             <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">Giao diện</span>
             <ThemeToggle />
           </div>
@@ -184,7 +184,7 @@ export default function UserMenu({ user }: { user: UserMenuInfo }) {
           if (!uploading) setAvatarModalOpen(nextOpen);
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Ảnh đại diện</DialogTitle>
             <DialogDescription>Xem trước ảnh vuông trước khi thay đổi.</DialogDescription>

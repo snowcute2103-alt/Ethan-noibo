@@ -27,7 +27,7 @@ function InfoTip({ text }: { text: string }) {
       >
         <CircleHelp className="h-4 w-4" aria-hidden="true" />
       </button>
-      <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-60 -translate-x-1/2 rounded-lg bg-navy px-3 py-2 text-left text-xs font-medium normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover:block group-focus-within:block">
+      <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-60 -translate-x-1/2 rounded-lg bg-navy px-3 py-2 text-left text-xs font-medium normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover:block group-focus-within:block max-[1024px]:left-auto max-[1024px]:right-0 max-[1024px]:w-36 max-[1024px]:translate-x-0">
         {text}
       </span>
     </span>
@@ -55,9 +55,9 @@ function BilingualText({
 
 function MetricGrid({ metrics, accent = 'blue' }: { metrics: ReportMetric[]; accent?: 'blue' | 'violet' }) {
   return (
-    <div className="grid grid-cols-2 gap-px overflow-visible rounded-[18px] border border-[#e7edf7] bg-[#e7edf7] lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-visible rounded-[18px] border border-[#e7edf7] bg-[#e7edf7] min-[1025px]:grid-cols-4">
       {metrics.map((metric) => (
-        <div key={metric.label} className="bg-white p-4 sm:p-5">
+        <div key={metric.label} className="bg-white p-3 sm:p-4 min-[1025px]:p-5">
           <div className="flex items-start justify-between gap-2">
             <BilingualText
               text={metric.label}
@@ -247,21 +247,21 @@ export default function ReportDashboard({ reports }: { reports: WebsiteReport[] 
   if (!report) return null;
 
   return (
-    <div>
-      <div className="mb-5 flex items-center gap-3 text-xs text-muted">
+    <div className="report-dashboard min-w-0">
+      <div className="mb-4 flex items-start gap-2 text-[11px] leading-relaxed text-muted min-[1025px]:mb-5 min-[1025px]:items-center min-[1025px]:gap-3 min-[1025px]:text-xs">
         <Globe2 className="h-4 w-4 text-blue" aria-hidden="true" />
         <span>Nguồn: Google Analytics, Google Search Console và Google Lighthouse.</span>
       </div>
-      <div className="flex flex-col gap-4 border-b border-[#dce4f0] pb-8 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-[#dce4f0] pb-5 sm:flex-row sm:items-end sm:justify-between min-[1025px]:pb-8">
         <div>
-          <p className="font-heading text-sm font-bold uppercase tracking-[0.28em] text-blue">Website Ethan Ecom</p>
+          <p className="font-heading text-xs font-bold uppercase tracking-[0.18em] text-blue min-[1025px]:text-sm min-[1025px]:tracking-[0.28em]">Website Ethan Ecom</p>
           <h1 className="mt-3 font-heading">
-            <span className="block text-[clamp(2.5rem,6vw,5rem)] font-light uppercase leading-none tracking-wide text-navy">Report</span>
+            <span className="block text-[clamp(2rem,6vw,3.5rem)] font-light uppercase leading-none tracking-wide text-navy min-[1025px]:text-[clamp(2.5rem,6vw,5rem)]">Report</span>
             <span className="mt-2 block text-sm font-semibold uppercase tracking-[0.22em] text-muted sm:text-base">Báo cáo</span>
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-muted md:whitespace-nowrap">Theo dõi hiệu quả truy cập, tìm kiếm và chất lượng kỹ thuật của website theo từng lần cập nhật.</p>
+          <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base min-[1025px]:mt-4 min-[1025px]:whitespace-nowrap">Theo dõi hiệu quả truy cập, tìm kiếm và chất lượng kỹ thuật của website theo từng lần cập nhật.</p>
         </div>
-        <label className="flex min-w-[230px] flex-col gap-2 font-heading text-xs font-bold uppercase tracking-wider text-muted">
+        <label className="flex w-full min-w-0 flex-col gap-2 font-heading text-xs font-bold uppercase tracking-wider text-muted sm:w-auto sm:min-w-[230px]">
           Chọn ngày báo cáo
           <span className="relative">
             <CalendarDays className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-blue" aria-hidden="true" />
@@ -272,23 +272,23 @@ export default function ReportDashboard({ reports }: { reports: WebsiteReport[] 
         </label>
       </div>
 
-      <div className="mt-8 flex items-center gap-3 rounded-[18px] border border-blue/15 bg-blue/10 px-5 py-4 text-sm font-semibold text-navy">
+      <div className="mt-5 flex items-center gap-2 rounded-[14px] border border-blue/15 bg-blue/10 px-4 py-3 text-xs font-semibold text-navy min-[1025px]:mt-8 min-[1025px]:gap-3 min-[1025px]:rounded-[18px] min-[1025px]:px-5 min-[1025px]:py-4 min-[1025px]:text-sm">
         <CalendarDays className="h-5 w-5 shrink-0 text-blue" aria-hidden="true" />
         {report.periodLabel}
       </div>
 
-      <div className="mt-10 space-y-14">
+      <div className="mt-7 space-y-9 min-[1025px]:mt-10 min-[1025px]:space-y-14">
         <section aria-labelledby="quality-title">
           <div className="mb-4 flex items-center gap-3"><span className="rounded-full bg-[#e8f8ee] p-2.5 text-emerald-600"><Gauge className="h-5 w-5" aria-hidden="true" /></span><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">Google Lighthouse · Desktop</p><div className="flex items-start gap-2"><h2 id="quality-title" className="font-heading"><span className="block text-xl font-semibold text-navy sm:text-2xl">Website quality</span><span className="mt-0.5 block text-xs font-medium text-muted">Chất lượng website</span></h2><InfoTip text="Tổng hợp các chỉ số chất lượng kỹ thuật đo bằng Google Lighthouse trên máy tính." /></div></div></div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 min-[1025px]:grid-cols-4">
             {report.lighthouse.scores.map((score) => (
-              <div key={score.label} className="flex items-center gap-4 rounded-[20px] border border-emerald-100 bg-white p-4 shadow-[0_18px_45px_-32px_rgba(16,185,129,0.5)] sm:justify-center">
-                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full border-[5px] border-emerald-400 bg-emerald-50 font-heading text-xl font-semibold text-emerald-700">{score.value}</div>
+              <div key={score.label} className="flex min-w-0 flex-col items-start gap-2 rounded-[14px] border border-emerald-100 bg-white p-3 shadow-[0_18px_45px_-32px_rgba(16,185,129,0.5)] sm:flex-row sm:items-center sm:justify-center min-[1025px]:gap-4 min-[1025px]:rounded-[20px] min-[1025px]:p-4">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-4 border-emerald-400 bg-emerald-50 font-heading text-base font-semibold text-emerald-700 min-[1025px]:h-16 min-[1025px]:w-16 min-[1025px]:border-[5px] min-[1025px]:text-xl">{score.value}</div>
                 <div className="flex items-start gap-1.5"><BilingualText text={score.label} englishClassName="text-sm font-bold text-navy" vietnameseClassName="mt-0.5 text-[10px] font-medium text-muted" />{score.description && <InfoTip text={score.description} />}</div>
               </div>
             ))}
           </div>
-          <div className="mt-3 grid gap-px overflow-visible rounded-[20px] border border-[#e6ecf4] bg-[#e6ecf4] sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-3 grid gap-px overflow-visible rounded-[20px] border border-[#e6ecf4] bg-[#e6ecf4] sm:grid-cols-2 min-[1025px]:grid-cols-5">
             {report.lighthouse.metrics.map((metric) => (
               <div key={metric.label} className="bg-white p-4"><div className="flex items-center justify-between gap-2"><Activity className="h-4 w-4 text-emerald-500" aria-hidden="true" />{metric.description && <InfoTip text={metric.description} />}</div><div className="mt-2"><BilingualText text={metric.label} englishClassName="text-xs font-bold text-navy" vietnameseClassName="mt-0.5 text-[10px] font-medium text-muted" /></div><p className="mt-1 font-heading text-xl font-bold text-navy">{metric.value}</p></div>
             ))}
@@ -317,7 +317,7 @@ export default function ReportDashboard({ reports }: { reports: WebsiteReport[] 
               <h3 className="font-heading text-sm font-bold">Key insights</h3>
               <p className="mt-0.5 text-[10px] font-medium text-white/55">Điểm nổi bật từ dữ liệu Search Console</p>
             </div>
-            <div className="grid grid-cols-2 divide-x divide-y divide-white/10 lg:grid-cols-4 lg:divide-y-0">
+            <div className="grid grid-cols-2 divide-x divide-y divide-white/10 min-[1025px]:grid-cols-4 min-[1025px]:divide-y-0">
               {report.searchConsole.highlights.map((metric) => (
                 <div key={metric.label} className="p-4">
                   <p className="font-heading text-2xl font-semibold text-cyan">{metric.value}</p>
@@ -341,7 +341,7 @@ export default function ReportDashboard({ reports }: { reports: WebsiteReport[] 
               </div>
               <span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-bold text-muted shadow-sm">{report.analytics.pagesAndScreens.period}</span>
             </div>
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 min-[1025px]:grid-cols-3 xl:grid-cols-6">
               {report.analytics.pagesAndScreens.metrics.map((metric) => (
                 <div key={metric.label} className="rounded-[14px] bg-white p-3 shadow-sm">
                   <div className="flex items-start justify-between gap-1">

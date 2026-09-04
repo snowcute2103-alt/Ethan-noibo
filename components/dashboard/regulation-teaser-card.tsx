@@ -78,7 +78,7 @@ export default function RegulationTeaserCard({
               type="button"
               onClick={() => setIsOpen(false)}
               aria-label="Đóng"
-              className="absolute -right-3 -top-3 z-20 flex h-10 w-10 items-center justify-center border border-navy/15 bg-white text-navy/70 shadow-sm transition hover:border-navy hover:text-navy"
+              className="absolute -right-2 -top-2 z-20 flex h-[44px] w-[44px] items-center justify-center border border-navy/15 bg-white text-navy/70 shadow-sm transition hover:border-navy hover:text-navy min-[1025px]:-right-3 min-[1025px]:-top-3 min-[1025px]:h-10 min-[1025px]:w-10"
             >
               <X size={18} strokeWidth={2.25} aria-hidden="true" />
             </button>

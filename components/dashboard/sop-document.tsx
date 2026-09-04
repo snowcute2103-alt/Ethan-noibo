@@ -212,7 +212,7 @@ export default function SopDocumentView({ doc, image }: { doc: RuleDocument; ima
       <article
         ref={articleRef}
         id={doc.id}
-        className="scroll-mt-24 border-t-2 border-navy pt-12 first:border-t-0 first:pt-0"
+        className="scroll-mt-24 border-t-2 border-navy pt-8 first:border-t-0 first:pt-0 min-[1025px]:pt-12"
       >
         <button
           type="button"
@@ -221,9 +221,9 @@ export default function SopDocumentView({ doc, image }: { doc: RuleDocument; ima
             setIsOpen(true);
           }}
           aria-haspopup="dialog"
-          className="group flex w-full flex-col gap-6 text-left sm:flex-row sm:items-start"
+          className="group flex w-full flex-col gap-4 text-left sm:flex-row sm:items-start min-[1025px]:gap-6"
         >
-          <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-surface-2 sm:w-72">
+          <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-surface-2 sm:w-60 min-[1025px]:w-72">
             <Image src={image} alt={doc.title} fill sizes="(min-width: 640px) 288px, 100vw" className="object-cover" />
           </div>
           <div className="min-w-0 flex-1">
@@ -258,13 +258,13 @@ export default function SopDocumentView({ doc, image }: { doc: RuleDocument; ima
             aria-modal="true"
             aria-label={doc.title}
             onClick={(e) => e.stopPropagation()}
-            className="theme-light-surface animate-nyt-panel-in fixed inset-y-0 left-0 flex h-full w-full flex-col overflow-hidden border-r-2 border-navy bg-[#f7f3e8] shadow-[24px_0_60px_-24px_rgba(16,26,48,0.45)] sm:w-1/2 sm:min-w-[480px] lg:max-w-[820px]"
+            className="theme-light-surface animate-nyt-panel-in fixed inset-y-0 left-0 flex h-full w-full flex-col overflow-hidden border-r-2 border-navy bg-[#f7f3e8] shadow-[24px_0_60px_-24px_rgba(16,26,48,0.45)] sm:w-[min(72vw,680px)] min-[1025px]:w-1/2 min-[1025px]:min-w-[480px] min-[1025px]:max-w-[820px]"
           >
             <button
               type="button"
               onClick={() => setIsOpen(false)}
               aria-label="Đóng"
-              className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center border border-navy/15 bg-white text-navy/70 shadow-sm transition hover:border-navy hover:text-navy sm:right-6 sm:top-6"
+              className="absolute right-3 top-3 z-20 flex h-[44px] w-[44px] items-center justify-center border border-navy/15 bg-white text-navy/70 shadow-sm transition hover:border-navy hover:text-navy min-[1025px]:right-6 min-[1025px]:top-6"
             >
               <X size={18} strokeWidth={2.25} aria-hidden="true" />
             </button>
@@ -275,18 +275,18 @@ export default function SopDocumentView({ doc, image }: { doc: RuleDocument; ima
               aria-label={showDetails ? 'Quay lại phần tổng quan' : 'Xem nội dung quy trình'}
               aria-pressed={showDetails}
               title={showDetails ? 'Quay lại tổng quan' : 'Xem nội dung quy trình'}
-              className="group absolute right-4 top-1/2 z-20 grid h-14 w-14 -translate-y-1/2 place-items-center rounded-full border-2 border-white bg-navy text-white shadow-[0_12px_30px_rgba(16,26,48,0.3)] transition duration-300 hover:scale-110 hover:bg-blue-cta focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-navy/25 sm:right-6"
+              className="group absolute bottom-4 right-4 z-20 grid h-[44px] w-[44px] place-items-center rounded-full border-2 border-white bg-navy text-white shadow-[0_12px_30px_rgba(16,26,48,0.3)] transition duration-300 hover:bg-blue-cta focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-navy/25 min-[1025px]:bottom-auto min-[1025px]:right-6 min-[1025px]:top-1/2 min-[1025px]:h-14 min-[1025px]:w-14 min-[1025px]:-translate-y-1/2 min-[1025px]:hover:scale-110"
             >
               <ChevronsRight
                 size={28}
                 strokeWidth={2.8}
-                className={`transition-transform duration-700 ease-in-out ${showDetails ? 'rotate-180' : 'rotate-0'}`}
+                className={`max-[1024px]:h-6 max-[1024px]:w-6 transition-transform duration-700 ease-in-out ${showDetails ? 'rotate-180' : 'rotate-0'}`}
                 aria-hidden="true"
               />
             </button>
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto">
-              <div className="px-8 pb-10 pt-14 sm:px-12 sm:pb-12 sm:pt-16">
+              <div className="px-4 pb-16 pt-16 sm:px-6 sm:pb-16 min-[1025px]:px-12 min-[1025px]:pb-12">
                 <div className="mx-auto max-w-[820px]">
                   <div className={`sop-reading-stage ${showDetails ? 'sop-reading-stage--details' : ''}`}>
                     <div className="sop-reading-overview">
@@ -297,7 +297,7 @@ export default function SopDocumentView({ doc, image }: { doc: RuleDocument; ima
                     <FromBgdBadge />
                   </div>
 
-                  <h3 className="mt-3 font-heading text-[clamp(2rem,4.5vw,3rem)] font-bold leading-[0.98] tracking-tight text-navy">
+                  <h3 className="mt-3 font-heading text-[clamp(1.65rem,4.5vw,2.25rem)] font-bold leading-[1.02] tracking-tight text-navy min-[1025px]:text-[clamp(2rem,4.5vw,3rem)] min-[1025px]:leading-[0.98]">
                     {doc.title}
                   </h3>
                   <p className="mt-3 max-w-[38rem] font-heading text-[15px] leading-[1.55] text-[#6d675d]">
@@ -336,7 +336,7 @@ export default function SopDocumentView({ doc, image }: { doc: RuleDocument; ima
 
                   {doc.goldenRule && (
                     <Reveal>
-                      <div className="relative mt-8 flex items-start gap-4 overflow-hidden border-2 border-navy bg-navy px-6 py-7 text-white sm:px-8 sm:py-8">
+                      <div className="relative mt-6 flex items-start gap-3 overflow-hidden border-2 border-navy bg-navy px-4 py-5 text-white min-[1025px]:mt-8 min-[1025px]:gap-4 min-[1025px]:px-8 min-[1025px]:py-8">
                         <div className="glow-orb -right-10 -top-10 h-48 w-48 bg-gold-2/20" aria-hidden="true" />
                         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold-2/40 bg-gold-2/20">
                           <ShieldAlert size={20} strokeWidth={2} className="text-gold-2" aria-hidden="true" />

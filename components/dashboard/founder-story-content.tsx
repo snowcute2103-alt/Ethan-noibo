@@ -43,11 +43,11 @@ export function FounderStoryContent({ article }: { article: CultureArticle }) {
       whileInView={reduceMotion ? undefined : 'visible'}
       viewport={{ once: true, amount: 0.1 }}
       variants={staggerParent}
-      className="flex flex-col items-center gap-11 text-center"
+      className="flex flex-col items-center gap-7 text-center min-[1025px]:gap-11"
     >
       <motion.div variants={fadeUp}>
-        <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan">{article.kicker}</p>
-        <h3 className="font-heading mt-4 text-4xl font-light uppercase leading-tight tracking-wide text-white sm:text-5xl sm:leading-tight">
+        <p className="font-heading text-xs font-medium uppercase tracking-[0.2em] text-cyan min-[1025px]:text-sm min-[1025px]:tracking-[0.3em]">{article.kicker}</p>
+        <h3 className="font-heading mt-3 text-2xl font-light uppercase leading-tight tracking-wide text-white sm:text-3xl min-[1025px]:mt-4 min-[1025px]:text-5xl min-[1025px]:leading-tight">
           {article.title.split(/\s*—\s*|,\s+/).map((line, li, arr) => (
             <Fragment key={li}>
               {line}
@@ -61,7 +61,7 @@ export function FounderStoryContent({ article }: { article: CultureArticle }) {
       </motion.div>
       <motion.div variants={revealBlur} className="relative mx-auto text-center">
         <Quote size={40} strokeWidth={1.5} className="mx-auto mb-2 text-cyan/50" aria-hidden="true" />
-        <p className="font-heading mx-auto max-w-prose text-2xl font-light leading-snug tracking-wide text-white/90 sm:text-3xl sm:leading-snug">
+        <p className="font-heading mx-auto max-w-prose text-lg font-light leading-snug tracking-wide text-white/90 sm:text-xl min-[1025px]:text-3xl min-[1025px]:leading-snug">
           {article.intro.split(/(?<=\.)\s+/).map((line, li, arr) => (
             <Fragment key={li}>
               {line}
@@ -70,12 +70,12 @@ export function FounderStoryContent({ article }: { article: CultureArticle }) {
           ))}
         </p>
       </motion.div>
-      <motion.div variants={staggerParent} className="flex flex-col items-center gap-11 text-center">
+      <motion.div variants={staggerParent} className="flex flex-col items-center gap-7 text-center min-[1025px]:gap-11">
         {article.blocks.map((block) => (
           <motion.div key={block.heading} variants={fadeUp}>
             <h4 className="font-heading text-sm font-medium uppercase tracking-wide text-cyan/80">{block.heading}</h4>
             {block.paragraphs?.map((p, pi) => (
-              <p key={pi} className="mx-auto mt-4 max-w-prose font-light text-lg leading-relaxed text-white/85">
+              <p key={pi} className="mx-auto mt-3 max-w-prose text-sm font-light leading-relaxed text-white/85 sm:text-base min-[1025px]:mt-4 min-[1025px]:text-lg">
                 {renderParagraphWithEmphasis(p)}
               </p>
             ))}

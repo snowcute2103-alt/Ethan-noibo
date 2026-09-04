@@ -162,7 +162,7 @@ export default function PermissionChecklist({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 min-[1025px]:gap-6">
       <Field className="max-w-lg">
         <FieldLabel htmlFor="permission-document">Tài liệu</FieldLabel>
         <NativeSelect
@@ -179,7 +179,7 @@ export default function PermissionChecklist({
         </NativeSelect>
       </Field>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,1fr)_minmax(12rem,0.6fr)_minmax(10rem,0.4fr)]">
+      <div className="grid gap-3 sm:grid-cols-2 min-[1025px]:grid-cols-[minmax(16rem,1fr)_minmax(12rem,0.6fr)_minmax(10rem,0.4fr)]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
           <Input
@@ -255,7 +255,7 @@ export default function PermissionChecklist({
       )}
 
       <div className="max-h-[560px] overflow-auto border border-navy/15">
-        <Table className="min-w-[640px]">
+        <Table className="min-w-[560px] min-[1025px]:min-w-[640px]">
           <TableHeader className="sticky top-0 z-10">
             <TableRow className="border-0 bg-navy text-cyan hover:bg-navy">
               <TableHead className="whitespace-nowrap bg-navy px-4 py-3 text-cyan">

@@ -14,7 +14,7 @@ export default function RecognitionMonthCard({ list, listIndex }: { list: Recogn
   return (
     <article
       ref={cardRef}
-      className="relative overflow-hidden rounded-[40px] bg-gradient-to-b from-[#0b1220] via-[#0e1730] to-[#101a30] px-6 py-16 sm:px-16 sm:py-20"
+      className="relative overflow-hidden rounded-[18px] bg-gradient-to-b from-[#0b1220] via-[#0e1730] to-[#101a30] px-4 py-6 sm:px-6 sm:py-8 min-[1025px]:rounded-[40px] min-[1025px]:px-16 min-[1025px]:py-20"
     >
       <svg
         className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 opacity-20 blur-2xl"
@@ -38,22 +38,22 @@ export default function RecognitionMonthCard({ list, listIndex }: { list: Recogn
         <circle cx="100" cy="100" r="100" fill="#F5A623" />
       </svg>
 
-      <div className="relative flex flex-wrap items-center gap-5">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/15">
+      <div className="relative flex flex-wrap items-center gap-3 min-[1025px]:gap-5">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/15 min-[1025px]:h-16 min-[1025px]:w-16">
           <PartyPopper size={28} strokeWidth={2.25} className="text-[#FF9EB4]" aria-hidden="true" />
         </span>
         <div>
-          <p className="font-heading text-sm font-medium uppercase tracking-[0.25em] text-white/50">
+          <p className="font-heading text-[10px] font-medium uppercase tracking-[0.16em] text-white/50 min-[1025px]:text-sm min-[1025px]:tracking-[0.25em]">
             Thành viên tích cực
           </p>
-          <h3 className="font-heading text-4xl font-medium tracking-wide text-white sm:text-5xl">{list.month}</h3>
+          <h3 className="font-heading text-2xl font-medium tracking-wide text-white sm:text-3xl min-[1025px]:text-5xl">{list.month}</h3>
         </div>
         <div className="ml-auto">
           <CelebrateButton originRef={cardRef} />
         </div>
       </div>
 
-      <ul className="relative mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1025px]:mt-12 min-[1025px]:grid-cols-3 min-[1025px]:gap-6">
         {list.names.map((name, i) => (
           <li key={name}>
             <AwardCard

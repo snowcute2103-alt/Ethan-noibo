@@ -241,7 +241,7 @@ export default function InspireQuoteWidget({ initialQuotes }: InspireQuoteWidget
     <>
       <div
         ref={cardRef}
-        className="relative flex h-full min-h-[580px] w-full flex-col overflow-hidden border border-white/15 bg-navy-deep shadow-[0_28px_80px_-36px_rgba(0,210,255,0.45)] sm:min-h-[700px] lg:min-h-[760px] xl:min-h-[820px]"
+        className="relative flex h-full min-h-[460px] w-full flex-col overflow-hidden border border-white/15 bg-navy-deep shadow-[0_28px_80px_-36px_rgba(0,210,255,0.45)] sm:min-h-[520px] min-[1025px]:min-h-[760px] xl:min-h-[820px]"
       >
         <div className="absolute inset-0 z-0 bg-navy-deep" aria-hidden="true" />
         <video
@@ -262,7 +262,7 @@ export default function InspireQuoteWidget({ initialQuotes }: InspireQuoteWidget
           aria-hidden="true"
         />
 
-        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12 text-center sm:px-14 sm:py-16">
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-4 px-4 py-8 text-center sm:px-8 sm:py-10 min-[1025px]:gap-6 min-[1025px]:px-14 min-[1025px]:py-16">
           <div className="flex items-center gap-3" aria-hidden="true">
             <span className="h-px w-8 bg-gold-2/60" />
             <span className="h-1.5 w-1.5 rotate-45 bg-gold-2" />
@@ -284,7 +284,7 @@ export default function InspireQuoteWidget({ initialQuotes }: InspireQuoteWidget
               &ldquo;
             </span>
             <p
-              className={`mt-4 text-pretty text-xl font-medium leading-relaxed text-white transition-opacity duration-300 sm:text-[1.7rem] ${fading ? 'opacity-0' : 'opacity-100'}`}
+              className={`mt-4 text-pretty text-lg font-medium leading-relaxed text-white transition-opacity duration-300 sm:text-xl min-[1025px]:text-[1.7rem] ${fading ? 'opacity-0' : 'opacity-100'}`}
               aria-live="polite"
             >
               {typedText}

@@ -18,7 +18,7 @@ const PopoverContent = React.forwardRef<
       align={align}
       sideOffset={sideOffset}
       className={cn(
-        'ui-popover-content ui-floating-surface z-50 w-72 rounded-[var(--ui-radius-card)] bg-popover p-4 text-popover-foreground outline-none',
+        'ui-popover-content ui-floating-surface z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-[var(--ui-radius-card)] bg-popover p-3 text-popover-foreground outline-none sm:p-4',
         className
       )}
       {...props}

@@ -31,14 +31,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'ui-dialog-content ui-floating-surface fixed left-1/2 top-1/2 z-[70] grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-[var(--ui-radius-card)] bg-popover p-6 text-popover-foreground outline-none',
+        'ui-dialog-content ui-floating-surface fixed left-1/2 top-1/2 z-[70] grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-3 overflow-y-auto rounded-[var(--ui-radius-card)] bg-popover p-4 text-popover-foreground outline-none sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:gap-4 sm:p-6',
         className
       )}
       {...props}
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close className="absolute right-3 top-3 grid size-11 place-items-center rounded-[var(--ui-radius-control)] text-muted outline-none transition-[transform,background-color,color] duration-150 ease-[var(--theme-ease)] hover:-translate-y-0.5 hover:bg-surface-2 hover:text-navy focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 active:translate-y-px disabled:pointer-events-none motion-reduce:transform-none motion-reduce:transition-none">
+        <DialogPrimitive.Close className="absolute right-3 top-3 grid h-[44px] w-[44px] place-items-center rounded-[var(--ui-radius-control)] text-muted outline-none transition-[transform,background-color,color] duration-150 ease-[var(--theme-ease)] hover:-translate-y-0.5 hover:bg-surface-2 hover:text-navy focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 active:translate-y-px disabled:pointer-events-none motion-reduce:transform-none motion-reduce:transition-none min-[1025px]:size-11">
           <X className="size-5" aria-hidden="true" />
           <span className="sr-only">Đóng</span>
         </DialogPrimitive.Close>

@@ -102,27 +102,27 @@ export default async function DashboardHome() {
   const departmentCounts = await countActiveUsersByDepartment();
   const birthdays = await listActiveBirthdaysThisMonth();
   const quotes = await listQuotes();
-  const stickyNotes = await listStickyNotes(session.userId);
+  const stickyNotes = await listStickyNotes();
 
   return (
     <div className="flex flex-col">
-      <div className="mx-auto w-full max-w-[1500px] px-4 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-28">
-        <div className="dashboard-brand-lockup mb-12 text-center">
-          <p className="font-heading text-4xl font-light uppercase tracking-wide sm:text-5xl">
+      <div className="dashboard-home-intro mx-auto w-full max-w-[1500px] px-4 pt-8 sm:px-6 sm:pt-10 min-[1025px]:px-8 min-[1025px]:pt-28">
+        <div className="dashboard-brand-lockup mb-8 text-center sm:mb-10 min-[1025px]:mb-12">
+          <p className="font-heading text-2xl font-light uppercase tracking-wide sm:text-3xl min-[1025px]:text-5xl">
             Ethan Ecom
           </p>
-          <div className="mt-2 flex items-center justify-center gap-4">
-            <span className="h-px w-10 bg-current sm:w-16" aria-hidden="true" />
-            <p className="text-base font-semibold uppercase tracking-[0.15em] sm:text-lg">
+          <div className="mt-2 flex items-center justify-center gap-2 sm:gap-3 min-[1025px]:gap-4">
+            <span className="h-px w-6 bg-current sm:w-8 min-[1025px]:w-16" aria-hidden="true" />
+            <p className="max-w-[28rem] text-[11px] font-semibold uppercase leading-snug tracking-[0.1em] sm:text-xs min-[1025px]:max-w-none min-[1025px]:text-lg min-[1025px]:tracking-[0.15em]">
               Đồng lòng đồng sức, bứt phá gặt thành công
             </p>
-            <span className="h-px w-10 bg-current sm:w-16" aria-hidden="true" />
+            <span className="h-px w-6 bg-current sm:w-8 min-[1025px]:w-16" aria-hidden="true" />
           </div>
         </div>
         <GreetingHero greeting={greeting} department={departmentLabel(session.department)} />
       </div>
 
-      <div className="mx-auto mb-16 flex w-full max-w-[1500px] flex-col gap-16 px-4 py-12 sm:px-6 sm:py-16 lg:mb-[140px] lg:gap-36 lg:px-8 lg:py-24">
+      <div className="dashboard-home-content mx-auto mb-10 flex w-full max-w-[1500px] flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10 min-[1025px]:mb-[140px] min-[1025px]:gap-36 min-[1025px]:px-8 min-[1025px]:py-24">
         <Reveal>
           <div id="thong-bao">
             <ThongBaoSection session={session} />
@@ -146,12 +146,12 @@ export default async function DashboardHome() {
           <Reveal>
             <HoverToneSection>
               <div className="theme-light-surface relative">
-                <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-blue">Mới nhất</p>
-                <h2 id="other-content-title" className="font-heading mt-3 text-4xl font-light uppercase tracking-wide text-navy sm:text-5xl">
+                <p className="font-heading text-xs font-medium uppercase tracking-[0.2em] text-blue min-[1025px]:text-sm min-[1025px]:tracking-[0.3em]">Mới nhất</p>
+                <h2 id="other-content-title" className="font-heading mt-2 text-2xl font-light uppercase tracking-wide text-navy sm:text-3xl min-[1025px]:mt-3 min-[1025px]:text-5xl">
                   Nội dung khác
                 </h2>
               </div>
-              <div className="other-content-grid relative grid grid-cols-1 items-start gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+              <div className="other-content-grid relative grid grid-cols-1 items-start gap-6 sm:grid-cols-2 min-[1025px]:grid-cols-4 min-[1025px]:gap-8">
                 {contentCards.map(({ key, hoverTone, ...card }) => (
                   <div key={key} data-hover-tone={hoverTone}>
                     <ContentTeaserCard {...card} />
@@ -169,7 +169,7 @@ export default async function DashboardHome() {
         )}
       </div>
 
-      <Reveal>
+      <Reveal className="mb-10 px-4 sm:px-6 min-[1025px]:mb-[140px] min-[1025px]:px-8">
         <StickyBoard
           initialNotes={stickyNotes}
           currentUserId={session.userId}

@@ -528,10 +528,10 @@ export default function UserTable({ users }: { users: UserRow[] }) {
 
   return (
     <TooltipProvider delayDuration={500}>
-      <div className="flex flex-col gap-6">
+      <div className="flex min-w-0 flex-col gap-4 min-[1025px]:gap-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="relative sm:col-span-2 lg:col-span-1">
+        <div className="grid gap-3 sm:grid-cols-2 min-[1025px]:grid-cols-4">
+          <div className="relative sm:col-span-2 min-[1025px]:col-span-1">
             <Search
               size={16}
               strokeWidth={2}
@@ -584,7 +584,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
           </NativeSelect>
           <Popover open={colPickerOpen} onOpenChange={setColPickerOpen}>
             <PopoverTrigger asChild>
-              <Button type="button" variant="outline" className="justify-start sm:col-span-2 lg:col-span-1">
+              <Button type="button" variant="outline" className="justify-start sm:col-span-2 min-[1025px]:col-span-1">
                 <SlidersHorizontal aria-hidden="true" />
                 Cột hiển thị
               </Button>

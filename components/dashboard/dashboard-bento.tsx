@@ -8,7 +8,7 @@ import type { CultureArticle } from '@/lib/content';
 import type { FeedItem } from '@/lib/content/feed';
 import type { HeadcountByGender, HeadcountByDepartment, BirthdayPerson } from '@/lib/users';
 import { departmentLabel } from '@/lib/roles';
-import { CULTURE_ARTICLE_IMAGE } from '@/lib/content/images';
+import { CULTURE_ARTICLE_IMAGE, ORG_CHART_IMAGE } from '@/lib/content/images';
 import TextBlockAnimation from '@/components/ui/text-block-animation';
 import { CoreValuesStair } from '@/components/dashboard/core-values-stair';
 import { BorderBeamPanel } from '@/components/ui/border-beam-panel';
@@ -101,7 +101,7 @@ function BentoCard({
     <Link
       href={href}
       style={{ '--glow-color': 'rgba(245, 166, 35, 0.3)', animationDelay: `${index * 80}ms` } as React.CSSProperties}
-      className={`card-glow animate-fade-up group relative flex flex-col justify-between overflow-hidden rounded-[var(--ui-radius-panel)] border border-white/10 bg-white/[0.02] p-8 transition-colors duration-300 ease-[var(--theme-ease)] hover:border-white/25 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gold-2/40 ${className}`}
+      className={`dashboard-bento-card card-glow animate-fade-up group relative flex flex-col justify-between overflow-hidden rounded-[var(--ui-radius-panel)] border border-white/10 bg-white/[0.02] p-5 transition-colors duration-300 ease-[var(--theme-ease)] hover:border-white/25 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gold-2/40 sm:p-6 min-[1025px]:p-8 ${className}`}
     >
       {children}
     </Link>
@@ -162,15 +162,15 @@ export default function DashboardBento({
       onMouseLeave={() => {
         birthdayHoveredRef.current = false;
       }}
-      className="animate-fade-up flex min-h-[340px] flex-col justify-start border-navy/10 bg-white p-8 text-navy"
+      className="dashboard-bento-panel animate-fade-up flex min-h-[280px] flex-col justify-start border-navy/10 bg-white p-5 text-navy sm:min-h-[300px] sm:p-6 min-[1025px]:min-h-[340px] min-[1025px]:p-8"
       style={{ animationDelay: '80ms' }}
     >
       <FireworkBurst autoPlay={false} trigger={birthdayFirework} burstCount={3} particlesPerBurst={28} lifetimeMs={2200} />
       <div className="relative z-30">
-        <h3 className="font-heading text-xl font-light uppercase tracking-wide text-navy sm:text-2xl">
+        <h3 className="font-heading text-lg font-light uppercase tracking-wide text-navy sm:text-xl min-[1025px]:text-2xl">
           Chương trình sinh nhật
         </h3>
-        <p className="mt-2 text-base leading-relaxed text-muted sm:w-[46%] sm:max-w-[45ch] sm:text-[13px]">
+        <p className="mt-2 text-sm leading-relaxed text-muted sm:w-[52%] sm:max-w-[45ch] sm:text-xs min-[1025px]:w-[46%] min-[1025px]:text-[13px]">
           Ethan luôn đồng hành và gửi lời chúc đến từng thành viên trong ngày đặc biệt của bạn. Và sẽ có những
           món quà đặc biệt bất ngờ dành cho bạn.
         </p>
@@ -217,7 +217,7 @@ export default function DashboardBento({
         Xem ai sinh nhật tháng này
         <ArrowUpRight size={16} strokeWidth={2.5} className="birthday-cta-arrow text-gold-2" aria-hidden="true" />
       </button>
-      <div className="pointer-events-none relative z-20 mt-4 h-64 w-full sm:absolute sm:bottom-[8%] sm:right-[1%] sm:mt-0 sm:h-[64%] sm:w-[48%]">
+      <div className="pointer-events-none relative z-20 mt-3 h-40 w-full sm:absolute sm:bottom-[8%] sm:right-[1%] sm:mt-0 sm:h-[56%] sm:w-[44%] min-[1025px]:h-[64%] min-[1025px]:w-[48%]">
         <Image
           src={birthdayCelebration}
           alt="Minh hoạ chương trình sinh nhật của Ethan"
@@ -236,7 +236,7 @@ export default function DashboardBento({
       radius={28}
       glow
       colors={['#00D2FF', '#F5A623']}
-      className="animate-fade-up flex min-h-[340px] flex-col justify-between p-8"
+      className="dashboard-bento-panel animate-fade-up flex min-h-[280px] flex-col justify-between p-5 sm:min-h-[300px] sm:p-6 min-[1025px]:min-h-[340px] min-[1025px]:p-8"
       style={{ animationDelay: '240ms' }}
     >
       <TextBlockAnimation blockColor="#101A30" duration={0.6} stagger={0.04} delay={0.1}>
@@ -270,17 +270,17 @@ export default function DashboardBento({
 
   return (
     <>
-      <div className="relative left-1/2 w-screen -translate-x-1/2 bg-navy-deep py-20 sm:py-32">
-        <div className="mx-auto w-full max-w-[1500px] px-8">
+      <div className="dashboard-bento-band relative left-1/2 w-screen -translate-x-1/2 bg-navy-deep py-12 min-[1025px]:py-20 min-[1280px]:py-32">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 min-[1025px]:px-8">
         <TextBlockAnimation blockColor="#101A30" duration={0.7} stagger={0.05}>
-          <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-gold-2">Về Ethan</p>
-          <h2 className="font-heading mt-3 text-4xl font-light uppercase tracking-wide text-white sm:text-5xl">
+          <p className="font-heading text-xs font-medium uppercase tracking-[0.2em] text-gold-2 min-[1025px]:text-sm min-[1025px]:tracking-[0.3em]">Về Ethan</p>
+          <h2 className="font-heading mt-2 text-2xl font-light uppercase tracking-wide text-white sm:text-3xl min-[1025px]:mt-3 min-[1025px]:text-5xl">
             Con người &amp; văn hoá
           </h2>
         </TextBlockAnimation>
 
         {hasTopRow && (
-          <div className="mt-20 grid grid-cols-1 gap-16 sm:grid-cols-2">
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 min-[1025px]:mt-20 min-[1025px]:gap-16">
             {headcount && orgArticle && (
               <BentoCard href={`/dashboard/van-hoa#${orgArticle.id}`} index={0} className="min-h-[280px]">
                 <svg
@@ -291,10 +291,10 @@ export default function DashboardBento({
                   <circle cx="100" cy="100" r="100" fill="#00D2FF" />
                 </svg>
                 <div className="relative">
-                  <div className="flex items-start justify-between gap-6">
+                  <div className="flex items-start justify-between gap-4 min-[1025px]:gap-6">
                     <div>
                       <TextBlockAnimation blockColor="#101A30" duration={0.6} stagger={0.05}>
-                        <p className="font-heading origin-left text-5xl font-medium text-white transition-transform duration-300 group-hover:scale-105 sm:text-6xl">
+                        <p className="font-heading origin-left text-3xl font-medium text-white transition-transform duration-300 group-hover:scale-105 sm:text-4xl min-[1025px]:text-6xl">
                           {headcount.total}
                         </p>
                         <p className="mt-2 text-base text-white/70">Nhân sự Ethan</p>
@@ -349,10 +349,10 @@ export default function DashboardBento({
 
         {hasCoreValues && visionArticle && coreValues && (
           <section
-            className="dashboard-feature-grid mt-24 grid grid-cols-1 items-stretch gap-16 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] lg:gap-16 xl:gap-20"
+            className="dashboard-feature-grid mt-12 grid grid-cols-1 items-stretch gap-6 min-[1025px]:mt-24 min-[1025px]:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] min-[1025px]:gap-16 xl:gap-20"
             aria-labelledby="core-values-title"
           >
-            <div className="flex min-h-[620px] flex-col items-start text-left sm:min-h-[700px] lg:min-h-[760px] xl:min-h-[820px]">
+            <div className="dashboard-core-values-column flex min-h-[460px] flex-col items-start text-left sm:min-h-[520px] min-[1025px]:min-h-[760px] xl:min-h-[820px]">
               <TextBlockAnimation blockColor="#101A30" duration={0.6} stagger={0.05}>
                 <p id="core-values-title" className="font-heading text-sm font-medium uppercase tracking-[0.34em] text-gold-2 sm:text-base">
                   5 giá trị cốt lõi
@@ -368,14 +368,14 @@ export default function DashboardBento({
               </Link>
             </div>
 
-            <div className="min-h-[580px] w-full sm:min-h-[700px] lg:min-h-[760px] xl:min-h-[820px]">
+            <div className="dashboard-quote-column min-h-[460px] w-full sm:min-h-[520px] min-[1025px]:min-h-[760px] xl:min-h-[820px]">
               <InspireQuoteWidget initialQuotes={quotes} />
             </div>
           </section>
         )}
 
         {hasBottomRow && (
-          <div className="mt-20 grid grid-cols-1 gap-16 sm:grid-cols-2">
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 min-[1025px]:mt-20 min-[1025px]:gap-16">
             {recognitionPanel}
 
             {cultureArticle && (() => {
@@ -384,7 +384,7 @@ export default function DashboardBento({
                 <BentoCard
                   href={`/dashboard/van-hoa#${cultureArticle.id}`}
                   index={4}
-                  className="min-h-[340px] sm:flex-row sm:items-center sm:gap-8"
+                  className="min-h-[280px] sm:flex-row sm:items-center sm:gap-5 min-[1025px]:min-h-[340px] min-[1025px]:gap-8"
                 >
                   <svg
                     className="pointer-events-none absolute -right-14 -top-14 h-60 w-60 opacity-[0.15] blur-3xl transition-opacity duration-300 ease-[var(--theme-ease)] group-hover:opacity-25"
@@ -407,7 +407,7 @@ export default function DashboardBento({
                       <p className="font-heading text-xs font-medium uppercase tracking-[0.25em] text-[#B7ADF2]">
                         Đời sống Ethan
                       </p>
-                      <h3 className="font-heading mt-2 whitespace-nowrap text-base font-light uppercase tracking-wide text-white sm:text-lg">
+                      <h3 className="font-heading mt-2 text-base font-light uppercase tracking-wide text-white sm:text-lg min-[1025px]:whitespace-nowrap">
                         {cultureArticle.title}
                       </h3>
                       <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-white/70">{cultureArticle.intro}</p>
@@ -446,6 +446,36 @@ export default function DashboardBento({
                 </BentoCard>
               );
             })()}
+          </div>
+        )}
+
+        {orgArticle && (
+          <div className="mt-10 min-[1025px]:mt-20">
+            <BentoCard href={`/dashboard/van-hoa#${orgArticle.id}`} index={5}>
+              <svg
+                className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 opacity-[0.15] blur-3xl transition-opacity duration-300 ease-[var(--theme-ease)] group-hover:opacity-25"
+                viewBox="0 0 200 200"
+                aria-hidden="true"
+              >
+                <circle cx="100" cy="100" r="100" fill="#00D2FF" />
+              </svg>
+              <div className="relative">
+                <TextBlockAnimation blockColor="#101A30" duration={0.7} stagger={0.05}>
+                  <p className="font-heading text-xs font-medium uppercase tracking-[0.25em] text-gold-2">Cơ cấu tổ chức</p>
+                  <h3 className="font-heading mt-2 text-base font-light uppercase tracking-wide text-white sm:text-lg">
+                    Sơ đồ tổ chức Ethan
+                  </h3>
+                </TextBlockAnimation>
+                <div className="mt-6 w-full overflow-x-auto rounded-2xl border border-white/10 bg-white">
+                  <Image
+                    src={ORG_CHART_IMAGE}
+                    alt="Sơ đồ tổ chức Ethan"
+                    unoptimized
+                    className="h-auto w-full min-w-[820px]"
+                  />
+                </div>
+              </div>
+            </BentoCard>
           </div>
         )}
       </div>

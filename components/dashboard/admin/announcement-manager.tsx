@@ -186,13 +186,13 @@ export default function AnnouncementManager({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
+    <div className="grid min-w-0 grid-cols-1 gap-5 min-[1025px]:grid-cols-[320px_1fr] min-[1025px]:gap-8">
       <div className="flex flex-col gap-4">
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm thông báo…" aria-label="Tìm thông báo" />
         <Button type="button" onClick={startNew}>
           <Plus size={16} /> Thông báo mới
         </Button>
-        <div className="flex max-h-[640px] flex-col gap-2 overflow-y-auto">
+        <div className="flex max-h-[320px] flex-col gap-2 overflow-y-auto min-[1025px]:max-h-[640px]">
           {filteredStatic.map((s) => (
             <button
               key={s.id}
@@ -236,7 +236,7 @@ export default function AnnouncementManager({
       </div>
 
       {selectedStatic ? (
-        <div className="flex flex-col gap-6 border border-navy/15 p-6 sm:p-8">
+        <div className="flex min-w-0 flex-col gap-4 border border-navy/15 p-4 sm:p-5 min-[1025px]:gap-6 min-[1025px]:p-8">
           <Alert variant="info">
             <Info aria-hidden="true" />
             <AlertDescription>
@@ -257,7 +257,7 @@ export default function AnnouncementManager({
           </div>
         </div>
       ) : (
-      <div className="flex flex-col gap-6 border border-navy/15 p-6 sm:p-8">
+      <div className="flex min-w-0 flex-col gap-4 border border-navy/15 p-4 sm:p-5 min-[1025px]:gap-6 min-[1025px]:p-8">
         {error && (
           <Alert variant="destructive">
             <AlertCircle aria-hidden="true" />

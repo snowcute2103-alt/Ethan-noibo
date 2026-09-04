@@ -77,17 +77,17 @@ export default function CultureGalleryHero() {
         ))}
       </div>
 
-      <ContainerStagger className="culture-gallery-heading relative z-20 -mb-12 place-self-center px-4 pt-12 text-center sm:px-6">
+      <ContainerStagger className="culture-gallery-heading relative z-20 -mb-12 place-self-center px-4 pt-8 text-center sm:px-6 sm:pt-10 min-[1025px]:pt-12">
         <ContainerAnimated>
-          <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-cyan">Câu chuyện Ethan</p>
+          <p className="font-heading text-xs font-medium uppercase tracking-[0.2em] text-cyan min-[1025px]:text-sm min-[1025px]:tracking-[0.3em]">Câu chuyện Ethan</p>
         </ContainerAnimated>
         <ContainerAnimated>
-          <h2 className="title-glow mt-6 font-heading text-[clamp(2.5rem,6.5vw,5.5rem)] font-light uppercase tracking-wide leading-[1.02] text-white">
+          <h2 className="title-glow mt-3 font-heading text-[clamp(2.25rem,6.5vw,4rem)] font-light uppercase tracking-wide leading-[1.02] text-white min-[1025px]:mt-6 min-[1025px]:text-[clamp(2.5rem,6.5vw,5.5rem)]">
             Văn hoá
           </h2>
         </ContainerAnimated>
-        <ContainerAnimated className="my-4">
-          <p className="mx-auto max-w-2xl text-lg leading-relaxed text-white/80">
+        <ContainerAnimated className="my-3 min-[1025px]:my-4">
+          <p className="mx-auto max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base min-[1025px]:text-lg">
             &ldquo;Đồng lòng đồng sức, bứt phá gặt thành công&rdquo;, tầm nhìn, con người và những câu chuyện làm nên
             Ethan, dành riêng cho nhân sự nội bộ.
           </p>
@@ -136,7 +136,7 @@ export default function CultureGalleryHero() {
       <div className="culture-gallery-static" aria-label="Hình ảnh văn hoá Ethan">
         {[officeImg, teamBuildingImg, passionImg, dongLongImg, connguoiImg, hanhtrinhImg].map((img, index) => (
           <div key={index} className="relative aspect-[4/3] overflow-hidden">
-            <Image src={img} alt="" fill sizes="(min-width: 640px) 50vw, 100vw" className="object-cover" />
+            <Image src={img} alt="" fill sizes="(max-width: 1024px) 33vw, 100vw" className="object-cover" />
           </div>
         ))}
       </div>

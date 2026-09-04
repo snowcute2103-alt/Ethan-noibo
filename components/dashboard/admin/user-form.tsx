@@ -179,7 +179,7 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex max-w-4xl flex-col gap-8">
+    <form onSubmit={handleSubmit} className="flex max-w-4xl flex-col gap-6 min-[1025px]:gap-8">
       <FieldSet>
         <FieldLegend>Tài khoản</FieldLegend>
         <FieldDescription>Thông tin định danh dùng để đăng nhập và hiển thị trong hệ thống.</FieldDescription>
@@ -264,7 +264,7 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
         <FieldSet className="border-t border-[var(--theme-border)] pt-6">
           <FieldLegend>Ảnh đại diện</FieldLegend>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Avatar className="size-[72px] border border-[var(--theme-border)]">
+            <Avatar className="size-14 border border-[var(--theme-border)] min-[1025px]:size-[72px]">
               {avatarUrl ? (
                 <Image src={avatarUrl} alt={fullName} width={72} height={72} className="size-full object-cover" />
               ) : (

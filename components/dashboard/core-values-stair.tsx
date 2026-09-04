@@ -61,8 +61,8 @@ export function CoreValuesStair({ values }: CoreValuesStairProps) {
   }, [values]);
 
   return (
-    <div ref={containerRef} className="flex min-h-0 w-full flex-1 py-8 sm:py-10 lg:py-12">
-      <div className="flex w-full flex-1 flex-col items-start justify-between gap-8 text-left sm:gap-10 lg:gap-12">
+    <div ref={containerRef} className="flex min-h-0 w-full flex-1 py-6 sm:py-8 min-[1025px]:py-12">
+      <div className="flex w-full flex-1 flex-col items-start justify-between gap-5 text-left sm:gap-6 min-[1025px]:gap-12">
         {values.map((value, i) => (
           <div
             key={value}
@@ -76,7 +76,7 @@ export function CoreValuesStair({ values }: CoreValuesStairProps) {
               aria-hidden="true"
             />
             <p
-              className={`font-heading whitespace-nowrap text-[clamp(1.65rem,3.25vw,3.6rem)] font-black uppercase leading-none tracking-[-0.04em] transition-[color,text-shadow] duration-300 ${activeIndex === i ? 'core-value-neon' : 'text-white'}`}
+              className={`min-w-0 font-heading text-[clamp(1.35rem,5vw,2.25rem)] font-black uppercase leading-[1.05] tracking-[-0.03em] transition-[color,text-shadow] duration-300 min-[1025px]:whitespace-nowrap min-[1025px]:text-[clamp(1.65rem,3.25vw,3.6rem)] min-[1025px]:leading-none min-[1025px]:tracking-[-0.04em] ${activeIndex === i ? 'core-value-neon' : 'text-white'}`}
             >
               {value}
             </p>

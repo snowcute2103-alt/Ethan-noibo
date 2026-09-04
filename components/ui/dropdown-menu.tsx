@@ -38,7 +38,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      'ui-popover-content ui-floating-surface z-50 min-w-40 overflow-hidden rounded-[var(--ui-radius-card)] bg-popover p-1 text-popover-foreground outline-none',
+      'ui-popover-content ui-floating-surface z-50 min-w-40 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--ui-radius-card)] bg-popover p-1 text-popover-foreground outline-none',
       className
     )}
     {...props}
@@ -56,7 +56,7 @@ const DropdownMenuContent = React.forwardRef<
       sideOffset={sideOffset}
       collisionPadding={12}
       className={cn(
-        'ui-popover-content ui-floating-surface z-50 min-w-48 overflow-hidden rounded-[var(--ui-radius-card)] bg-popover p-1 text-popover-foreground outline-none',
+        'ui-popover-content ui-floating-surface z-50 min-w-48 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--ui-radius-card)] bg-popover p-1 text-popover-foreground outline-none',
         className
       )}
       {...props}
