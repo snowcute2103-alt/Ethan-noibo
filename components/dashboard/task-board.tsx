@@ -1823,7 +1823,12 @@ function TaskTable({
               ) : (
                 <motion.tr
                   key={task.id}
-                  layout
+                  // Chỉ bật animation đổi vị trí (layout) đúng lúc đang kéo-thả hoặc vừa
+                  // thả xong (draggingTaskId/justMovedTaskId) — KHÔNG bật lúc khác, để
+                  // sửa task (autosave từng ô), đổi trạng thái, hay poll nền không bao
+                  // giờ làm hàng tự "trôi/nhảy" theo animation dù thứ tự không đổi. Giống
+                  // Notion: hàng đứng yên tuyệt đối trừ khi chính tay kéo-thả.
+                  layout={draggingTaskId != null || justMovedTaskId != null}
                   transition={DRAG_SPRING_TRANSITION}
                   onDragOver={(e) => handleRowDragOver(e, task)}
                   onDrop={(e) => handleRowDrop(e, task)}
