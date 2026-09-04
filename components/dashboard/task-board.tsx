@@ -716,6 +716,12 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     const tempId = -Date.now();
     const member = board.team.members.find((item) => item.userId === input.assigneeUserId);
     const now = new Date().toISOString();
+    // Khớp đúng công thức "sort_order lớn nhất hiện có +1" bên server
+    // (createTask, lib/tasks.ts) để lúc lạc quan task mới không hiện tạm ở vị
+    // trí sai (vd đứng trước cả nhóm đã từng bị kéo-thả) rồi mới nhảy đúng chỗ
+    // khi server phản hồi — máy chủ vẫn là nguồn xác nhận cuối, đây chỉ để
+    // khớp ngay từ khung hình lạc quan đầu tiên.
+    const nextSortOrder = Math.max(0, ...board.tasks.map((t) => t.sortOrder)) + 1;
     const optimisticTask: Task = {
       id: tempId,
       teamId,
@@ -741,7 +747,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       originalTaskDate: null,
       rolledOverAt: null,
       status: input.status ?? 'not_started',
-      sortOrder: 0,
+      sortOrder: nextSortOrder,
       duplicatedFromTaskId: null,
       createdBy: null,
       createdByFullName: null,

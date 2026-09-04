@@ -205,11 +205,19 @@ export async function listTasksForTeam(teamId: number, filter: ListTasksFilter):
 // HTTP cho mỗi query, không giữ kết nối TCP).
 export async function createTask(teamId: number, input: TaskInput, createdBy: number | null): Promise<Task> {
   const rows = await sql.query(
-    `/* write */ WITH ins AS (
+    `/* write */ WITH next_order AS (
+       -- Task mới luôn xếp CUỐI nhóm (kiểu Excel: hàng mới thêm không chen vào
+       -- giữa) — lấy sort_order lớn nhất đang có trong đội +1, KHÔNG để mặc
+       -- định 0 (default cột) như trước: 1 khi trong đội đã có task từng bị
+       -- kéo-thả (sort_order > 0), default 0 sẽ ĐỨNG TRƯỚC cả nhóm đó thay vì
+       -- ở cuối — đúng lỗi "task mới nhảy lên đầu/giữa" người dùng gặp.
+       SELECT coalesce(max(sort_order), 0) + 1 AS value FROM tasks WHERE team_id = $1
+     ), ins AS (
        INSERT INTO tasks
          (team_id, category_id, task_date, assignee_user_id, account_name, title, channel_name, channel,
-          video_count, product, option_tag, reference_link, note, status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          video_count, product, option_tag, reference_link, note, status, sort_order, created_by)
+       SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, next_order.value, $15
+       FROM next_order
        RETURNING *
      )
      SELECT ${TEAM_TASK_SELECT} FROM ins t ${TASK_JOINS}`,
@@ -300,11 +308,18 @@ export async function updateTask(taskId: number, teamId: number, patch: TaskPatc
 export async function reorderTasks(teamId: number, orderedTaskIds: number[]): Promise<void> {
   if (orderedTaskIds.length === 0) return;
   await sql.query(
-    `/* write */ WITH payload AS (
+    `/* write */ WITH bounds AS (
+       -- Cộng thêm vào sort_order LỚN NHẤT hiện có của cả đội (không reset về
+       -- 1,2,3...) — nếu gán lại từ 1 mỗi lần kéo-thả, task tạo mới sau đó
+       -- (sort_order = max+1 của lúc tạo, xem createTask) rất dễ có giá trị
+       -- NHỎ HƠN 1,2,3 vừa gán, khiến task mới lại đứng trước cả nhóm vừa
+       -- kéo — cùng lỗi "nhảy vị trí" nhưng theo chiều ngược lại.
+       SELECT coalesce(max(sort_order), 0) AS base FROM tasks WHERE team_id = $1
+     ), payload AS (
        SELECT id, ord FROM unnest($2::int[]) WITH ORDINALITY AS r(id, ord)
      )
-     UPDATE tasks t SET sort_order = payload.ord::int, updated_at = now()
-     FROM payload
+     UPDATE tasks t SET sort_order = bounds.base + payload.ord, updated_at = now()
+     FROM payload, bounds
      WHERE t.id = payload.id AND t.team_id = $1`,
     [teamId, orderedTaskIds]
   );
