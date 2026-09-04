@@ -234,6 +234,35 @@ body {
   background-color: color-mix(in oklch, var(--tint-color) 40%, black);
 }
 
+/* Ô đích khi kéo-thả task (TaskTable, handleRowDragOver) — ngoài gạch chỉ thị
+ * mỏng ở đúng mép trên/dưới (báo chính xác chèn trước hay sau), phủ thêm 1 lớp
+ * màu xanh mờ khắp cả hàng (box-shadow inset spread rất lớn, không đụng
+ * background-color nên không phải tranh cascade layer với .task-row-tint) để
+ * dễ nhận ra ngay đang rê tới đúng hàng nào giữa nhiều hàng cùng màu. */
+.task-drop-target-top {
+  box-shadow:
+    inset 0 3px 0 0 var(--blue),
+    inset 0 0 0 9999px color-mix(in srgb, var(--blue) 16%, transparent);
+}
+
+.task-drop-target-bottom {
+  box-shadow:
+    inset 0 -3px 0 0 var(--blue),
+    inset 0 0 0 9999px color-mix(in srgb, var(--blue) 16%, transparent);
+}
+
+:root[data-theme='dark'] .task-drop-target-top {
+  box-shadow:
+    inset 0 3px 0 0 var(--blue),
+    inset 0 0 0 9999px color-mix(in oklch, var(--blue) 30%, black);
+}
+
+:root[data-theme='dark'] .task-drop-target-bottom {
+  box-shadow:
+    inset 0 -3px 0 0 var(--blue),
+    inset 0 0 0 9999px color-mix(in oklch, var(--blue) 30%, black);
+}
+
 /* Nắm kéo sắp xếp task (TaskTable) dùng hover:bg-surface-2 + hover:text-navy —
  * ở bản tối cả 2 token đều là màu tối (surface-2 ~16% lightness, navy ~25%),
  * nền hover và chấm gần như cùng độ sáng nên gần như biến mất. Ép hẳn về

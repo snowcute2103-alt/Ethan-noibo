@@ -1829,8 +1829,8 @@ function TaskTable({
                   onDrop={(e) => handleRowDrop(e, task)}
                   className={`group/row task-row-tint divide-x divide-[#edf1f7] transition-[filter,box-shadow] duration-300 hover:brightness-95 ${
                     draggingTaskId === task.id ? 'opacity-40' : ''
-                  } ${dropTarget?.taskId === task.id && dropTarget.edge === 'top' ? 'shadow-[inset_0_2px_0_0_var(--blue)]' : ''} ${
-                    dropTarget?.taskId === task.id && dropTarget.edge === 'bottom' ? 'shadow-[inset_0_-2px_0_0_var(--blue)]' : ''
+                  } ${dropTarget?.taskId === task.id && dropTarget.edge === 'top' ? 'task-drop-target-top' : ''} ${
+                    dropTarget?.taskId === task.id && dropTarget.edge === 'bottom' ? 'task-drop-target-bottom' : ''
                   } ${justMovedTaskId === task.id ? 'shadow-[inset_0_0_0_2px_var(--blue)]' : ''}`}
                   style={{ '--tint-color': rowColor } as React.CSSProperties}
                 >
