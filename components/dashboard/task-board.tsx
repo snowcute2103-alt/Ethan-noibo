@@ -28,6 +28,10 @@ import type { DepartmentGroup, TeamWithRoster, TeamSummary, TeamTaskCategory, Te
 import type { Task, TaskInput, TaskStatus, DailyAssigneeCount, TeamMonthProgress, BulkDuplicatePattern, MonthDayCategoryCount } from '@/lib/tasks';
 import { TASK_COLUMN_KEYS, type TaskColumnKey } from '@/lib/task-columns';
 import { getAnchoredPopoverPosition, type AnchoredPopoverPosition } from '@/lib/anchored-popover';
+import {
+  clearServerActionRecoveryMarker,
+  recoverFromStaleServerActionResponse,
+} from '@/lib/server-action-recovery';
 import { shopsForTeamCode, type ShopEntry } from '@/lib/shops';
 import {
   getMyTeamBoardTasksAction,
@@ -403,7 +407,17 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       };
       for (const change of changes) {
         const removeId = change.removeId ?? change.previous?.id;
-        if (removeId !== undefined) nextById.delete(removeId);
+        // Map giữ thứ tự theo lần chèn. Xoá rồi set lại cùng ID sẽ đẩy task
+        // vừa được server xác nhận xuống cuối nhóm, sau đó polling lại kéo nó
+        // về thứ tự từ DB. Thay value trực tiếp để hàng đứng yên; chỉ xoá khi
+        // task rời range hoặc khi đổi từ ID tạm sang ID thật.
+        const replacingTaskInPlace =
+          removeId !== undefined &&
+          change.next !== null &&
+          change.next.id === removeId &&
+          inRange(change.next) &&
+          nextById.has(removeId);
+        if (!replacingTaskInPlace && removeId !== undefined) nextById.delete(removeId);
         if (change.next && inRange(change.next)) nextById.set(change.next.id, change.next);
         if (change.previous && change.previousWasCounted !== false && inMonth(change.previous)) {
           total -= 1;
@@ -470,6 +484,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
         : await getMyTeamBoardTasksAction(range, calendarYearMonth);
       if (requestId !== refreshBoardRequestRef.current) return;
       if ('needsBgdOverview' in result) return;
+      clearServerActionRecoveryMarker();
       const tasks = result.tasks.map((task) => {
         const optimisticTask = optimisticTasksRef.current.get(task.id);
         const optimisticStatus = optimisticStatusesRef.current.get(task.id);
@@ -496,7 +511,9 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     } catch (err) {
       if (requestId !== refreshBoardRequestRef.current) return;
       if (opts?.silent) {
-        console.error('refreshBoard (nền) lỗi:', err);
+        if (!recoverFromStaleServerActionResponse(err)) {
+          console.warn('refreshBoard (nền) lỗi:', err);
+        }
         return;
       }
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải dữ liệu.');
@@ -526,12 +543,15 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     try {
       const data = await getAllTeamsOverviewAction(anchorDate.slice(0, 7), today);
       if (requestId !== refreshOverviewRequestRef.current) return;
+      clearServerActionRecoveryMarker();
       setOverview(data);
       setError(null);
     } catch (err) {
       if (requestId !== refreshOverviewRequestRef.current) return;
       if (opts?.silent) {
-        console.error('refreshOverview (nền) lỗi:', err);
+        if (!recoverFromStaleServerActionResponse(err)) {
+          console.warn('refreshOverview (nền) lỗi:', err);
+        }
         return;
       }
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải tổng quan.');
@@ -1000,7 +1020,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col gap-5 border-t-2 border-[#dbe4f2] pt-8">
+          <div className="mt-10 flex flex-col gap-5 border-t-2 border-[#dbe4f2] pt-10">
             <h2 className="font-heading text-3xl font-light uppercase tracking-wide text-navy sm:text-4xl">Biểu đồ tổng</h2>
             <MonthlyDailyChart chart={anchorMonthChart} members={board.team.members} monthAnchor={calendarMonthAnchor} />
             <MonthlyDailyChart chart={previousMonthChart} members={board.team.members} monthAnchor={previousMonthAnchor} />
@@ -1047,7 +1067,7 @@ function StatusCountBadge({ count, tone }: { count: number; tone: 'neutral' | 'b
   if (count === 0) {
     return <span className="text-xs font-semibold text-muted">0</span>;
   }
-  const toneClass = tone === 'blue' ? 'bg-[#E7F0FF] text-blue' : tone === 'emerald' ? 'bg-emerald-50 text-emerald-600' : 'bg-surface-2 text-navy';
+  const toneClass = tone === 'blue' ? 'bg-blue/10 text-blue' : tone === 'emerald' ? 'bg-emerald-50 text-emerald-600' : 'bg-surface-2 text-navy';
   return <span className={`inline-flex min-w-[36px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold ${toneClass}`}>{count}</span>;
 }
 
@@ -1147,7 +1167,7 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
       value: totals.inProgress,
       caption: `${pct(totals.inProgress)}% công việc`,
       icon: CircleDot,
-      toneBg: 'bg-[#E7F0FF]',
+      toneBg: 'bg-blue/10',
       toneText: 'text-blue',
     },
     {
@@ -1300,7 +1320,7 @@ function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; month
                   const displayManagerNames =
                     team.code === 'kd1' ? team.managerNames.filter((name) => name !== 'LÊ THỊ MỸ HUYỀN') : team.managerNames;
                   return (
-                    <tr key={team.id} className="divide-x divide-[#edf1f7] hover:bg-[#f6f9ff]">
+                    <tr key={team.id} className="divide-x divide-[#edf1f7] hover:bg-surface-2">
                       <td className="px-3 py-2">
                         <p className="font-semibold text-navy">{team.name}</p>
                         <p className="text-[11px] uppercase tracking-wide text-muted">{team.code}</p>
@@ -1479,7 +1499,14 @@ function TaskTable({
       const idx = nameOrder.indexOf(name);
       return idx === -1 ? nameOrder.length : idx;
     };
-    return [...tasks].sort((a, b) => orderOf(a.assigneeFullName) - orderOf(b.assigneeFullName));
+    // So le theo `id` khi cùng người phụ trách — chặn đứng việc dòng vừa lưu
+    // nhảy vị trí: `tasks` đến từ 1 Map trong reconcileBoardTasks, thứ tự lặp
+    // của Map đổi theo lần chèn/xoá key gần nhất, nên nếu chỉ so `orderOf` (2
+    // dòng cùng người ra 0 - 0, coi như bằng nhau) thì Array.sort dù stable
+    // vẫn giữ nguyên thứ tự "tình cờ" đó của mảng đầu vào, dòng vừa sửa xong
+    // dễ bị đẩy lên đầu/xuống cuối nhóm. Thêm id làm tiêu chí phụ để thứ tự
+    // hiển thị luôn cố định, không phụ thuộc mảng gốc đến theo trật tự nào.
+    return [...tasks].sort((a, b) => orderOf(a.assigneeFullName) - orderOf(b.assigneeFullName) || a.id - b.id);
   }, [tasks, nameOrder]);
 
   // Mỗi sản phẩm 1 màu ổn định, dùng chung giữa ô hiển thị và ô chọn khi sửa.
@@ -1557,7 +1584,7 @@ function TaskTable({
         <table className="w-full min-w-[1000px] table-fixed border-collapse text-left text-sm">
           <colgroup>
             <col style={{ width: 44 }} />
-            <col style={{ width: 90 }} />
+            <col style={{ width: 160 }} />
             <col style={{ width: 130 }} />
             {leadingColumns.map((key) => (
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
@@ -1571,8 +1598,8 @@ function TaskTable({
             {trailingColumns.map((key) => (
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
             ))}
-            <col style={{ width: 120 }} />
-            <col style={{ width: 96 }} />
+            <col style={{ width: 100 }} />
+            <col style={{ width: 100 }} />
           </colgroup>
           <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-ink">
             <tr className="divide-x divide-[#e8edf5]">
@@ -1639,7 +1666,11 @@ function TaskTable({
                   onSubmit={(input) => onUpdate(task.id, input)}
                 />
               ) : (
-                <tr key={task.id} className="divide-x divide-[#edf1f7] transition-[filter] hover:brightness-95" style={{ backgroundColor: `${rowColor}26` }}>
+                <tr
+                  key={task.id}
+                  className="task-row-tint divide-x divide-[#edf1f7] transition-[filter] hover:brightness-95"
+                  style={{ '--tint-color': rowColor } as React.CSSProperties}
+                >
                   <td className="px-3 py-2.5" style={{ borderLeft: `3px solid ${rowColor}` }}>
                     <input
                       type="checkbox"
@@ -1900,7 +1931,7 @@ function TaskCard({
       : task.taskDate < today
         ? 'bg-red-50 text-red-600'
         : task.taskDate === today
-          ? 'bg-[#E7F0FF] text-blue'
+          ? 'bg-blue/10 text-blue'
           : 'bg-surface-2 text-muted';
 
   return (
@@ -1930,7 +1961,7 @@ function TaskCard({
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               aria-label="Tuỳ chọn task"
-              className="grid h-7 w-7 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
+              className="grid h-7 w-7 place-items-center rounded text-muted hover:bg-surface-2 hover:text-ink"
             >
               <MoreVertical size={16} aria-hidden="true" />
             </button>
@@ -1946,7 +1977,7 @@ function TaskCard({
                     setConfirmDelete(true);
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-[#f2f5fa]"
+                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-surface-2"
                 >
                   Xoá
                 </button>
@@ -2138,7 +2169,7 @@ function MemberPickerCell({ members, value, onChange }: { members: TeamMember[];
             {selected && (
               <>
                 <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Đã chọn</p>
-                <div className="flex w-full items-center gap-2 bg-[#f2f5fa] px-3 py-1.5 font-medium text-navy">
+                <div className="flex w-full items-center gap-2 bg-surface-2 px-3 py-1.5 font-medium text-navy">
                   {memberAvatar(selected, 18)}
                   {givenNameOf(selected.fullName)}
                 </div>
@@ -2152,7 +2183,7 @@ function MemberPickerCell({ members, value, onChange }: { members: TeamMember[];
                 onChange(null);
                 setOpen(false);
               }}
-              className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]"
+              className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-surface-2"
             >
               — Chưa gán —
             </button>
@@ -2164,7 +2195,7 @@ function MemberPickerCell({ members, value, onChange }: { members: TeamMember[];
                   onChange(m.userId);
                   setOpen(false);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#f2f5fa]"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-2"
               >
                 {memberAvatar(m, 18)}
                 {givenNameOf(m.fullName)}
@@ -2212,7 +2243,7 @@ function AccountNameCell({ value, onChange, shops }: { value: string; onChange: 
         aria-expanded={open}
         className="flex w-full min-w-0 max-w-full items-center rounded-[6px] border border-[#dbe4f2] bg-white px-2 py-1.5 text-left text-sm outline-none focus:border-blue"
       >
-        <span className="truncate">{selected ? selected.name : <span className="text-muted">— Chưa chọn —</span>}</span>
+        <span className="truncate">{selected ? selected.name : <span className="whitespace-nowrap text-muted">Chưa chọn</span>}</span>
       </button>
       {open &&
         position &&
@@ -2226,7 +2257,7 @@ function AccountNameCell({ value, onChange, shops }: { value: string; onChange: 
             {selected && (
               <>
                 <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Đã chọn</p>
-                <div className="flex items-center justify-between gap-2 bg-[#f2f5fa] px-3 py-1.5 font-medium text-navy">
+                <div className="flex items-center justify-between gap-2 bg-surface-2 px-3 py-1.5 font-medium text-navy">
                   <span className="truncate">{selected.name}</span>
                   {!selected.active && <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">Inactive</span>}
                 </div>
@@ -2243,8 +2274,8 @@ function AccountNameCell({ value, onChange, shops }: { value: string; onChange: 
               />
             </div>
             <div className="min-h-0 max-h-56 overflow-y-auto pb-1.5">
-              <button type="button" onClick={() => select('')} className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]">
-                — Chưa chọn —
+              <button type="button" onClick={() => select('')} className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-surface-2">
+                Chưa chọn
               </button>
               {results.length === 0 && <p className="px-3 py-2 text-xs text-muted">Không tìm thấy acc nào.</p>}
               {results.map((s) => (
@@ -2252,7 +2283,7 @@ function AccountNameCell({ value, onChange, shops }: { value: string; onChange: 
                   key={s.name}
                   type="button"
                   onClick={() => select(s.name)}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-[#f2f5fa]"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-surface-2"
                 >
                   <span className="truncate">{s.name}</span>
                   {!s.active && <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">Inactive</span>}
@@ -2308,7 +2339,7 @@ function ProductCell({ value, onChange, products }: { value: string; onChange: (
             {value}
           </span>
         ) : (
-          <span className="text-muted">— Chưa chọn —</span>
+          <span className="whitespace-nowrap text-muted">Chưa chọn</span>
         )}
       </button>
       {open &&
@@ -2336,21 +2367,21 @@ function ProductCell({ value, onChange, products }: { value: string; onChange: (
               />
             </div>
             <div className="min-h-0 max-h-56 overflow-y-auto pb-1.5">
-              <button type="button" onClick={() => select('')} className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-[#f2f5fa]">
-                — Chưa chọn —
+              <button type="button" onClick={() => select('')} className="flex w-full items-center px-3 py-1.5 text-left text-muted hover:bg-surface-2">
+                Chưa chọn
               </button>
               {trimmedQuery && !exactMatch && (
                 <button
                   type="button"
                   onClick={() => select(trimmedQuery)}
-                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left font-semibold text-blue hover:bg-[#f2f5fa]"
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left font-semibold text-blue hover:bg-surface-2"
                 >
                   + Dùng "{trimmedQuery}"
                 </button>
               )}
               {results.length === 0 && !trimmedQuery && <p className="px-3 py-2 text-xs text-muted">Chưa có sản phẩm nào.</p>}
               {results.map((name) => (
-                <button key={name} type="button" onClick={() => select(name)} className="flex w-full items-center px-3 py-1.5 text-left hover:bg-[#f2f5fa]">
+                <button key={name} type="button" onClick={() => select(name)} className="flex w-full items-center px-3 py-1.5 text-left hover:bg-surface-2">
                   <span className="truncate rounded-full px-2 py-0.5 text-xs font-semibold text-white" style={{ background: colorOf(name) }}>
                     {name}
                   </span>
@@ -2487,8 +2518,15 @@ function TaskRowEditor({
     commit();
   }
 
+  // Sửa task có sẵn: Enter vừa lưu vừa đóng luôn ô sửa (như bấm "Xong") — mỗi
+  // field đã tự lưu ngay khi đổi nên chỉ còn thiếu bước đóng lại, không cần
+  // người dùng bấm thêm lần nữa. Thêm task mới thì giữ nguyên hành vi cũ (Enter
+  // chỉ lưu, không đóng) để gõ liên tiếp nhiều task không bị bật ra ngoài.
   function handleEnterSave(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave();
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      handleSave();
+      if (isEditingExisting) onCancel();
+    }
   }
 
   function renderColumnInput(key: TaskColumnKey) {
@@ -2533,7 +2571,7 @@ function TaskRowEditor({
   }
 
   return (
-    <tr className="divide-x divide-[#edf1f7] bg-[#f6f9ff]">
+    <tr className="divide-x divide-[#edf1f7] bg-surface-2">
       <td className="px-3 py-2.5" />
       <td className={editorCellClass}>
         <input
@@ -2591,7 +2629,17 @@ function TaskRowEditor({
       </td>
       <td className="min-w-0 whitespace-nowrap px-3 py-2 text-right text-xs">
         {isEditingExisting ? (
-          <button type="button" onClick={onCancel} className="font-semibold text-muted hover:text-navy">
+          <button
+            type="button"
+            onClick={() => {
+              // Ô nhập chữ (Chủ đề, Up kênh, SL Vid…) chỉ lưu khi bấm Enter,
+              // chưa tự lưu theo từng ký tự gõ — bấm Xong phải lưu nốt phần
+              // đang gõ dở trước khi đóng, không thì mất trắng nội dung.
+              handleSave();
+              onCancel();
+            }}
+            className="font-semibold text-muted hover:text-navy"
+          >
             Xong
           </button>
         ) : (
@@ -2696,7 +2744,7 @@ function TeamRosterCard({
               aria-haspopup="menu"
               aria-expanded={openMenuUserId === member.userId}
               aria-label="Tuỳ chọn thành viên"
-              className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
+              className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-surface-2 hover:text-ink"
             >
               <MoreVertical size={16} aria-hidden="true" />
             </button>
@@ -2712,7 +2760,7 @@ function TeamRosterCard({
                     onSetRole(member.userId, member.role === 'manager' ? 'member' : 'manager');
                     setOpenMenuUserId(null);
                   }}
-                  className="block w-full px-3 py-1.5 text-left font-semibold text-blue hover:bg-[#f2f5fa]"
+                  className="block w-full px-3 py-1.5 text-left font-semibold text-blue hover:bg-surface-2"
                 >
                   {member.role === 'manager' ? 'Bỏ quản lý' : 'Đặt quản lý'}
                 </button>
@@ -2729,7 +2777,7 @@ function TeamRosterCard({
                         setOpenMenuUserId(null);
                       }}
                       style={{ color: categoryColor(categories, cat.id) }}
-                      className="block w-full px-3 py-1.5 text-left font-semibold hover:bg-[#f2f5fa]"
+                      className="block w-full px-3 py-1.5 text-left font-semibold hover:bg-surface-2"
                     >
                       {cat.name.toUpperCase()}
                     </button>
@@ -2742,7 +2790,7 @@ function TeamRosterCard({
                       onSetMemberCategory(member.userId, null);
                       setOpenMenuUserId(null);
                     }}
-                    className="block w-full px-3 py-1.5 text-left font-semibold text-muted hover:bg-[#f2f5fa]"
+                    className="block w-full px-3 py-1.5 text-left font-semibold text-muted hover:bg-surface-2"
                   >
                     Bỏ khỏi nhóm
                   </button>
@@ -2755,7 +2803,7 @@ function TeamRosterCard({
                     onRemoveMember(member.userId);
                     setOpenMenuUserId(null);
                   }}
-                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-[#f2f5fa]"
+                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-surface-2"
                 >
                   Gỡ khỏi đội
                 </button>
@@ -2847,8 +2895,8 @@ function AssigneeTotalsGrid({ totalsByAssignee }: { totalsByAssignee: ReturnType
       {totalsByAssignee.map(({ name, color, member, total, done }) => (
         <div
           key={name}
-          className="flex items-center justify-between gap-2 rounded-[10px] border border-[#e8edf5] p-2"
-          style={{ borderLeftWidth: 3, borderLeftColor: color, backgroundColor: `${color}33` }}
+          className="assignee-tint-card flex items-center justify-between gap-2 rounded-[10px] border border-[#e8edf5] p-2"
+          style={{ borderLeftWidth: 3, borderLeftColor: color, '--tint-color': color } as React.CSSProperties}
         >
           <div className="flex min-w-0 items-center gap-2">
             {member ? (
@@ -3055,7 +3103,7 @@ function DuplicateDatePicker({
           type="button"
           onClick={() => setViewMonth(shiftMonth(viewMonth, -1))}
           aria-label="Tháng trước"
-          className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
+          className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-surface-2 hover:text-ink"
         >
           ‹
         </button>
@@ -3064,7 +3112,7 @@ function DuplicateDatePicker({
           type="button"
           onClick={() => setViewMonth(shiftMonth(viewMonth, 1))}
           aria-label="Tháng sau"
-          className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
+          className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-surface-2 hover:text-ink"
         >
           ›
         </button>
@@ -3085,7 +3133,7 @@ function DuplicateDatePicker({
               disabled={!inMonth}
               onClick={() => onToggle(dateStr)}
               className={`h-8 rounded-[6px] text-xs font-semibold ${
-                !inMonth ? 'invisible' : isSelected ? 'bg-blue text-white' : 'border border-[#e8edf5] text-navy hover:bg-[#f2f5fa]'
+                !inMonth ? 'invisible' : isSelected ? 'bg-blue text-white' : 'border border-[#e8edf5] text-navy hover:bg-surface-2'
               }`}
             >
               {inMonth ? Number(dateStr.slice(8, 10)) : ''}
@@ -3096,7 +3144,7 @@ function DuplicateDatePicker({
       <button
         type="button"
         onClick={() => onToggleMonth(monthDays, allMonthSelected)}
-        className="mt-2 w-full rounded-[8px] bg-surface-2 px-3 py-1.5 text-xs font-semibold text-blue hover:bg-[#e7f0ff]"
+        className="mt-2 w-full rounded-[8px] bg-surface-2 px-3 py-1.5 text-xs font-semibold text-blue hover:bg-blue/10"
       >
         {allMonthSelected ? 'Bỏ chọn cả tháng' : 'Chọn cả tháng'}
       </button>
@@ -3228,7 +3276,7 @@ function BulkSelectedDuplicateModal({
                 <label
                   key={member.userId}
                   className={`flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1.5 text-xs font-semibold ${
-                    checked ? 'bg-[#E7F0FF] text-blue' : 'text-navy hover:bg-[#f2f5fa]'
+                    checked ? 'bg-blue/10 text-blue' : 'text-navy hover:bg-surface-2'
                   }`}
                 >
                   <input
@@ -3384,7 +3432,7 @@ function AddMemberModal({
             key={u.id}
             type="button"
             onClick={() => onAdd(u.id)}
-            className="flex items-center justify-between rounded-[10px] border border-[#e8edf5] px-3 py-2 text-left text-sm hover:bg-[#f6f9ff]"
+            className="flex items-center justify-between rounded-[10px] border border-[#e8edf5] px-3 py-2 text-left text-sm hover:bg-surface-2"
           >
             <span>
               {u.fullName} <span className="text-muted">· {u.username}</span>
@@ -3415,7 +3463,7 @@ function ConfirmDeleteDialog({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-[8px] border border-[#dbe4f2] px-3 py-1.5 text-sm font-semibold text-muted hover:bg-[#f2f5fa]"
+          className="rounded-[8px] border border-[#dbe4f2] px-3 py-1.5 text-sm font-semibold text-muted hover:bg-surface-2"
         >
           Huỷ
         </button>

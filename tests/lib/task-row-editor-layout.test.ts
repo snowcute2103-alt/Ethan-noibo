@@ -42,3 +42,19 @@ test('các control của hàng sửa không ép chiều rộng vượt khỏi c�
     'Ô của hàng sửa phải chặn nội dung tràn sang ô kế bên'
   );
 });
+
+test('ô chưa chọn hiển thị nhãn ngắn trên một dòng', () => {
+  const accountCellStart = taskBoardSource.indexOf('function AccountNameCell');
+  const productCellStart = taskBoardSource.indexOf('function ProductCell', accountCellStart);
+  const editorStart = taskBoardSource.indexOf('/** Hàng nhập liệu', productCellStart);
+  const pickerSource = taskBoardSource.slice(accountCellStart, editorStart);
+
+  assert.notEqual(accountCellStart, -1, 'Không tìm thấy AccountNameCell');
+  assert.notEqual(productCellStart, -1, 'Không tìm thấy ProductCell');
+  assert.doesNotMatch(pickerSource, /—\s*Chưa chọn\s*—/, 'Nhãn chưa chọn không được có dấu gạch hai bên');
+  assert.equal(
+    (pickerSource.match(/whitespace-nowrap text-muted">Chưa chọn/g) ?? []).length,
+    2,
+    'Placeholder của Tên Acc và Sản phẩm phải nằm trên một dòng'
+  );
+});

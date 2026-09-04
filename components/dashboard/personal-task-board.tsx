@@ -13,6 +13,10 @@ const PersonalTaskDetailDrawer = dynamic(() => import('@/components/dashboard/pe
 import TaskDateRangePicker, { type TaskRecurrence } from '@/components/dashboard/task-date-range-picker';
 import { useCheckboxConfetti } from '@/components/dashboard/checkbox-confetti';
 import {
+  clearServerActionRecoveryMarker,
+  recoverFromStaleServerActionResponse,
+} from '@/lib/server-action-recovery';
+import {
   getMyPersonalBoardAction,
   getPersonalBoardAsBgdAction,
   createPersonalTasksAction,
@@ -167,6 +171,7 @@ export default function PersonalTaskBoard({
         ? await getPersonalBoardAsBgdAction(ownerUserId, range, calendarYearMonth)
         : await getMyPersonalBoardAction(range, calendarYearMonth);
       if (requestId !== refreshRequestRef.current) return;
+      clearServerActionRecoveryMarker();
       setTasks(result.tasks);
       setMonthProgress(result.monthProgress);
       setMonthDayCounts(result.monthDayCounts);
@@ -174,7 +179,9 @@ export default function PersonalTaskBoard({
     } catch (err) {
       if (requestId !== refreshRequestRef.current) return;
       if (opts?.silent) {
-        console.error('refresh board cá nhân (nền) lỗi:', err);
+        if (!recoverFromStaleServerActionResponse(err)) {
+          console.warn('refresh board cá nhân (nền) lỗi:', err);
+        }
         return;
       }
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải dữ liệu.');
@@ -734,7 +741,7 @@ function PersonalKanbanCard({
       : task.taskDate < today
         ? 'bg-red-50 text-red-600'
         : task.taskDate === today
-          ? 'bg-[#E7F0FF] text-blue'
+          ? 'bg-blue/10 text-blue'
           : 'bg-surface-2 text-muted';
 
   return (
@@ -854,7 +861,7 @@ function PersonalKanbanCard({
                     setDuplicating(true);
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-3 py-1.5 text-left font-semibold text-navy hover:bg-[#f2f5fa]"
+                  className="block w-full px-3 py-1.5 text-left font-semibold text-navy hover:bg-surface-2"
                 >
                   Nhân bản…
                 </button>
@@ -865,7 +872,7 @@ function PersonalKanbanCard({
                     onDelete();
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-[#f2f5fa]"
+                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-surface-2"
                 >
                   Xoá
                 </button>
@@ -932,7 +939,7 @@ function PersonalKanbanCard({
               type="button"
               onClick={() => setDuplicating(false)}
               aria-label="Huỷ"
-              className="grid h-6 w-6 shrink-0 place-items-center rounded text-muted hover:bg-[#f2f5fa]"
+              className="grid h-6 w-6 shrink-0 place-items-center rounded text-muted hover:bg-surface-2"
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
