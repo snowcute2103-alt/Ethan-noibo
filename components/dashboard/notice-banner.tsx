@@ -25,6 +25,7 @@ export default function NoticeBanner({ notices }: { notices: Notice[] }) {
                 <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-navy">{n.date}</span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-navy/90">{n.body}</p>
+              {n.author && <p className="mt-2 text-sm font-semibold text-navy">Người đăng: {n.author}</p>}
               <ul className="mt-3 flex flex-col gap-1.5">
                 {n.details.map((d, i) => (
                   <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-navy/90">

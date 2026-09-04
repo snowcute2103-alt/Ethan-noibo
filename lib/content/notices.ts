@@ -8,6 +8,7 @@ export interface Notice {
   body: string;
   details: string[];
   callout?: string;
+  author?: string;
   visibility: Visibility;
 }
 
@@ -23,6 +24,7 @@ export const NOTICES: Notice[] = [
       'Văn phòng 1 ngày hôm đó dùng pin dự trữ, không đủ tải cho máy lạnh — vui lòng không sử dụng máy lạnh, có thể dùng quạt.',
     ],
     callout: 'Mọi người chủ động sắp xếp công việc để không ảnh hưởng đến tiến độ.',
+    author: 'Chị Nguyệt',
     visibility: { departments: 'all' },
   },
   {
@@ -36,6 +38,7 @@ export const NOTICES: Notice[] = [
       'Anh chị em nhớ note lại vào lịch để không bị "lạc quẻ" giữa hàng ngũ đồng đội nha.',
     ],
     callout: 'Cảm ơn sự hợp tác siêu tốc của cả nhà ạ! 🎉🖤',
+    author: 'Chị Nguyệt',
     visibility: { departments: 'all' },
   },
   {
@@ -49,6 +52,7 @@ export const NOTICES: Notice[] = [
       '👥 Thành phần tham dự: Tất cả các thành viên Team Ethan.',
     ],
     callout: 'Rất mong mọi người sắp xếp công việc và có mặt đúng giờ để buổi họp diễn ra thuận lợi. Cảm ơn mọi người!',
+    author: 'Chị Nguyệt',
     visibility: { departments: 'all' },
   },
   {
@@ -62,6 +66,7 @@ export const NOTICES: Notice[] = [
       '📦 Hàng còn siêu nhiều, không sợ hết. Mua bao nhiêu tụi mình cũng bán.',
     ],
     callout: 'Ai cần thì nhắn Bắp hoặc order trực tiếp trên Sheet (tab "Mua giấy") — Team R&D sẽ giao tận nơi cho mọi người luôn ạaaa 👉🏻👈🏻',
+    author: 'Chị Nguyệt',
     visibility: { departments: 'all' },
   },
 ];

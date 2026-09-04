@@ -85,7 +85,7 @@ function ThongBaoCard({
       aria-hidden={!visible}
       tabIndex={visible ? 0 : -1}
       className={cn(
-        'absolute left-1/2 top-1/2 flex flex-col items-start p-6 text-left text-navy transition-all duration-500 ease-in-out sm:p-7',
+        'theme-light-surface absolute left-1/2 top-1/2 flex flex-col items-start p-6 text-left text-navy transition-all duration-500 ease-in-out sm:p-7',
         !visible && 'pointer-events-none opacity-0',
         isCenter ? 'z-10 shadow-[0_20px_40px_-14px_rgba(16,26,48,0.45)]' : 'z-0'
       )}

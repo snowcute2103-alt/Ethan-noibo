@@ -17,9 +17,10 @@ export default async function ThongBaoSection({ session }: { session: SessionPay
 
   const allAnnouncements = [...ANNOUNCEMENTS, ...(await listAnnouncements())];
   const visibleAnnouncementIds = await announcementIdsVisibleTo(session.userId, session.tier);
-  const [avatarUrl, duyAvatarUrl] = await Promise.all([
+  const [avatarUrl, duyAvatarUrl, nguyetAvatarUrl] = await Promise.all([
     findFullTierAvatarUrl(),
     findActiveUserAvatarUrlByUsername('duynguyen'),
+    findActiveUserAvatarUrlByUsername('minhnguyet'),
   ]);
   const announcements = allAnnouncements.filter(
     (a) => canView(session, a.visibility) || visibleAnnouncementIds === 'all' || visibleAnnouncementIds.has(Number(a.id))
@@ -33,6 +34,8 @@ export default async function ThongBaoSection({ session }: { session: SessionPay
       excerpt: n.body,
       date: n.date,
       details: n.details,
+      author: n.author,
+      authorAvatarUrl: n.author === 'Chị Nguyệt' ? nguyetAvatarUrl : undefined,
       rank: daysSince(n.date) ?? Number.POSITIVE_INFINITY,
       node: <NoticeBanner notices={[n]} />,
     })),
