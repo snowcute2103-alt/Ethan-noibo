@@ -56,6 +56,21 @@ function endOfMonth(dateStr: string): string {
 }
 
 const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+const VIETNAM_FLAG_DATES = new Set(['2026-09-02']);
+
+function VietnamFlag() {
+  return (
+    <svg
+      viewBox="0 0 30 20"
+      role="img"
+      aria-label="Lá cờ Việt Nam"
+      className="mt-1.5 h-3 w-[18px] shrink-0"
+    >
+      <rect width="30" height="20" fill="#DA251D" />
+      <path d="M15 4l1.35 4.15h4.36l-3.53 2.56 1.35 4.14L15 12.29l-3.53 2.56 1.35-4.14-3.53-2.56h4.36z" fill="#FFCD00" />
+    </svg>
+  );
+}
 
 const CALENDAR_LEGEND: { color: string; label: string; ring?: boolean }[] = [
   { color: '#FFB84D', label: 'Ngày đã qua' },
@@ -147,6 +162,7 @@ function MonthGrid({
               {inMonth && (
                 <>
                   <span className="text-xs font-bold">{Number(dateStr.slice(8, 10))}</span>
+                  {VIETNAM_FLAG_DATES.has(dateStr) && <VietnamFlag />}
                   {categories.length > 0
                     ? categories.map((cat) => {
                         const count = dayCounts?.get(cat.id) ?? 0;
@@ -242,7 +258,7 @@ export default function TaskCalendar({
           type="button"
           onClick={() => onShiftMonth(-1)}
           aria-label="Tháng trước"
-          className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
+          className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-surface-2 hover:text-ink"
         >
           ‹
         </button>
@@ -251,7 +267,7 @@ export default function TaskCalendar({
           type="button"
           onClick={() => onShiftMonth(1)}
           aria-label="Tháng sau"
-          className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-[#f2f5fa] hover:text-ink"
+          className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-surface-2 hover:text-ink"
         >
           ›
         </button>

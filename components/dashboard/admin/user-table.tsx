@@ -485,13 +485,13 @@ export default function UserTable({ users }: { users: UserRow[] }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm theo tên hoặc username…"
-              className="border border-[#e0e7f3] bg-[#fafbff] py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue"
+              className="border border-[var(--theme-border)] bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue"
             />
           </div>
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue"
+            className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
           >
             <option value="">Tất cả khối</option>
             {DEPARTMENTS.map((d) => (
@@ -503,7 +503,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
           <select
             value={tierFilter}
             onChange={(e) => setTierFilter(e.target.value)}
-            className="border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue"
+            className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
           >
             <option value="">Tất cả cấp</option>
             {TIERS.map((t) => (
@@ -515,7 +515,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue"
+            className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
@@ -525,7 +525,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
             <button
               type="button"
               onClick={() => setColPickerOpen((v) => !v)}
-              className="flex items-center gap-2 border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm text-ink outline-none hover:border-blue"
+              className="flex items-center gap-2 border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm text-ink outline-none hover:border-blue"
             >
               <SlidersHorizontal size={16} strokeWidth={2} aria-hidden="true" />
               Cột hiển thị
@@ -596,7 +596,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
             <select
               value={bulkDepartment}
               onChange={(e) => handleBulkDepartmentChange(e.target.value as Department | '')}
-              className="border border-[#e0e7f3] bg-white px-3 py-1.5 text-sm outline-none focus:border-blue"
+              className="border border-[var(--theme-border)] bg-white px-3 py-1.5 text-sm outline-none focus:border-blue"
             >
               <option value="">Giữ nguyên khối</option>
               {DEPARTMENTS.map((d) => (
@@ -608,7 +608,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
             <select
               value={bulkTier}
               onChange={(e) => setBulkTier(e.target.value as Tier | '')}
-              className="border border-[#e0e7f3] bg-white px-3 py-1.5 text-sm outline-none focus:border-blue"
+              className="border border-[var(--theme-border)] bg-white px-3 py-1.5 text-sm outline-none focus:border-blue"
             >
               <option value="">Giữ nguyên cấp</option>
               {bulkAllowedTiers.map((t) => (
@@ -743,7 +743,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
           <select
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
-            className="border border-[#e0e7f3] bg-[#fafbff] px-3 py-1.5 text-sm outline-none focus:border-blue"
+            className="border border-[var(--theme-border)] bg-white px-3 py-1.5 text-sm outline-none focus:border-blue"
           >
             {PAGE_SIZES.map((size) => (
               <option key={size} value={size}>

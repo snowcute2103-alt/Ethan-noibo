@@ -16,7 +16,7 @@ import {
 } from '@/app/dashboard/admin/content-actions';
 import PermissionChecklist from '@/components/dashboard/admin/permission-checklist';
 
-const inputClass = 'w-full border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue';
+const inputClass = 'w-full border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue';
 const labelClass = 'text-xs font-semibold uppercase tracking-wide text-muted';
 const primaryBtn =
   'bg-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-gold hover:text-navy disabled:cursor-not-allowed disabled:opacity-60';

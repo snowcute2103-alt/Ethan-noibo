@@ -98,7 +98,7 @@ function DataList({ title, rows, valueLabel }: { title: string; rows: ReportRow[
           <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-5">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-ink">{row.label}</p>
-              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#eef3fb]">
+              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-2">
                 <div className="h-full rounded-full bg-blue" style={{ width: `${Math.max((Number(row.value) / max) * 100, 2)}%` }} />
               </div>
             </div>
@@ -132,7 +132,7 @@ function QueryTable({ rows }: { rows: ReportRow[] }) {
           </thead>
           <tbody className="divide-y divide-[#e8edf5]">
             {rows.map((row) => (
-              <tr key={row.label} className="transition-colors hover:bg-[#f6f9ff]">
+              <tr key={row.label} className="transition-colors hover:bg-surface-2">
                 <td className="truncate px-4 py-3 text-sm font-semibold text-ink" title={row.label}>{row.label}</td>
                 <td className="px-2 py-3 text-right text-sm font-bold text-blue">{row.value}</td>
                 <td className="px-3 py-3 text-right text-sm font-bold text-[#6542bd]">{row.secondary}</td>
@@ -221,7 +221,7 @@ function PagesAndScreensTable({ rows }: { rows: AnalyticsPageRow[] }) {
           </thead>
           <tbody className="divide-y divide-[#e8edf5]">
             {rows.map((row) => (
-              <tr key={row.path} className="transition-colors hover:bg-[#f6f9ff]">
+              <tr key={row.path} className="transition-colors hover:bg-surface-2">
                 <td className="max-w-[320px] truncate px-4 py-3 text-sm font-semibold text-ink" title={row.path}>{row.path}</td>
                 <td className="px-4 py-3 text-right text-sm font-bold text-blue">{row.views}</td>
                 <td className="px-4 py-3 text-right text-sm font-semibold text-navy">{row.activeUsers}</td>
@@ -272,7 +272,7 @@ export default function ReportDashboard({ reports }: { reports: WebsiteReport[] 
         </label>
       </div>
 
-      <div className="mt-8 flex items-center gap-3 rounded-[18px] border border-blue/15 bg-[#edf5ff] px-5 py-4 text-sm font-semibold text-navy">
+      <div className="mt-8 flex items-center gap-3 rounded-[18px] border border-blue/15 bg-blue/10 px-5 py-4 text-sm font-semibold text-navy">
         <CalendarDays className="h-5 w-5 shrink-0 text-blue" aria-hidden="true" />
         {report.periodLabel}
       </div>
@@ -296,7 +296,7 @@ export default function ReportDashboard({ reports }: { reports: WebsiteReport[] 
         </section>
 
         <section aria-labelledby="search-title">
-          <div className="mb-4 flex items-center gap-3"><span className="rounded-full bg-[#e7f0ff] p-2.5 text-blue"><Search className="h-5 w-5" aria-hidden="true" /></span><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue">Google Search Console</p><div className="flex items-start gap-2"><h2 id="search-title" className="font-heading"><span className="block text-xl font-semibold text-navy sm:text-2xl">Search performance</span><span className="mt-0.5 block text-xs font-medium text-muted">Hiệu suất tìm kiếm</span></h2><InfoTip text="Dữ liệu về cách người dùng tìm thấy website trên Google Search." /></div></div></div>
+          <div className="mb-4 flex items-center gap-3"><span className="rounded-full bg-blue/10 p-2.5 text-blue"><Search className="h-5 w-5" aria-hidden="true" /></span><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue">Google Search Console</p><div className="flex items-start gap-2"><h2 id="search-title" className="font-heading"><span className="block text-xl font-semibold text-navy sm:text-2xl">Search performance</span><span className="mt-0.5 block text-xs font-medium text-muted">Hiệu suất tìm kiếm</span></h2><InfoTip text="Dữ liệu về cách người dùng tìm thấy website trên Google Search." /></div></div></div>
           <MetricGrid metrics={report.searchConsole.metrics} accent="violet" />
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {report.searchConsole.insights.map((metric) => (

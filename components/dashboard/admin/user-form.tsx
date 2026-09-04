@@ -7,7 +7,7 @@ import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, type Department, type Tier } from '@/lib/roles';
 import { createUserAction, updateUserAction, resetPasswordAction, uploadAvatarAction } from '@/app/dashboard/admin/actions';
 
-const inputClass = 'border border-[#e0e7f3] bg-[#fafbff] px-4 py-3 text-sm outline-none focus:border-blue';
+const inputClass = 'border border-[var(--theme-border)] bg-white px-4 py-3 text-sm outline-none focus:border-blue';
 const labelClass = 'text-sm font-semibold text-ink';
 
 export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user?: UserRow }) {
@@ -147,11 +147,11 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
         </p>
         <div className="flex flex-col gap-1.5">
           <span className={labelClass}>Username</span>
-          <code className="border border-[#e0e7f3] bg-[#fafbff] px-4 py-3 text-sm">{username || user?.username}</code>
+          <code className="border border-[var(--theme-border)] bg-white px-4 py-3 text-sm">{username || user?.username}</code>
         </div>
         <div className="flex flex-col gap-1.5">
           <span className={labelClass}>Mật khẩu</span>
-          <code className="select-all border border-[#e0e7f3] bg-[#fafbff] px-4 py-3 text-sm">{generatedPassword}</code>
+          <code className="select-all border border-[var(--theme-border)] bg-white px-4 py-3 text-sm">{generatedPassword}</code>
         </div>
         <button
           type="button"

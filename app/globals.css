@@ -94,6 +94,29 @@ body {
 :root[data-theme='dark'] .via-white { --tw-gradient-via: var(--surface) var(--tw-gradient-via-position); }
 :root[data-theme='dark'] .to-white { --tw-gradient-to: var(--surface) var(--tw-gradient-to-position); }
 
+/* Dải màu theo người phụ trách ở bảng Giao Task (dòng task + thẻ "Task theo
+ * người") — light mode pha thẳng qua nền trắng như cũ, ra tông pastel nhẹ.
+ * Dark mode KHÔNG dùng cùng công thức pha qua var(--surface): nền surface tối
+ * đã mang sẵn hue navy (263°) nên pha thêm màu tươi (vàng/lục/cam...) vào đó
+ * bị "đấu" hue với navy, ra màu xỉn/lấm bùn thay vì tông màu người đó thật.
+ * Pha thẳng qua đen (achromatic, không có hue để tranh) giữ đúng hue gốc, chỉ
+ * hạ độ sáng — ra dải màu đậm, rõ, vẫn nhận ra đúng người dù ở nền tối. */
+.task-row-tint {
+  background-color: color-mix(in srgb, var(--tint-color) 15%, transparent);
+}
+
+:root[data-theme='dark'] .task-row-tint {
+  background-color: color-mix(in oklch, var(--tint-color) 34%, black);
+}
+
+.assignee-tint-card {
+  background-color: color-mix(in srgb, var(--tint-color) 20%, transparent);
+}
+
+:root[data-theme='dark'] .assignee-tint-card {
+  background-color: color-mix(in oklch, var(--tint-color) 40%, black);
+}
+
 /* Các bề mặt chủ ý giữ giao diện sáng (trang báo, hero sáng, badge màu kem)
  * cần một ngữ cảnh màu riêng để dark mode không đổi chữ navy thành trắng. */
 .theme-light-surface {
@@ -114,10 +137,15 @@ body {
   color: var(--ink);
 }
 
-.theme-light-surface.text-navy,
-.theme-light-surface.text-navy-deep,
-.theme-light-surface .text-navy,
-.theme-light-surface .text-navy-deep {
+/* :root[data-theme='dark'] phải lặp lại ở đây (không chỉ ".theme-light-surface .text-navy" suông) —
+ * thiếu tiền tố này độ đặc thù chỉ bằng 2 lớp, thua độ đặc thù 3 lớp của chính rule
+ * ":root[data-theme='dark'] .text-navy" phía trên nên trình duyệt vẫn tô trắng, chữ biến mất
+ * trên nền sáng cố định (banner Khen thưởng, badge trạng thái SOP...). Cùng lỗi với khối
+ * text-navy/NN ngay dưới đây, khối đó đã có sẵn tiền tố nên không dính. */
+:root[data-theme='dark'] .theme-light-surface.text-navy,
+:root[data-theme='dark'] .theme-light-surface.text-navy-deep,
+:root[data-theme='dark'] .theme-light-surface .text-navy,
+:root[data-theme='dark'] .theme-light-surface .text-navy-deep {
   color: var(--navy);
 }
 

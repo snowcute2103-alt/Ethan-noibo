@@ -63,11 +63,11 @@ export default function ResetRequestsPanel({ requests }: { requests: PendingRese
           <div className="mt-3 flex flex-wrap gap-4">
             <div>
               <span className="text-xs font-semibold uppercase tracking-wide text-muted">Username</span>
-              <code className="mt-1 block border border-[#e0e7f3] bg-[#fafbff] px-4 py-2 text-sm">{generated.username}</code>
+              <code className="mt-1 block border border-[var(--theme-border)] bg-white px-4 py-2 text-sm">{generated.username}</code>
             </div>
             <div>
               <span className="text-xs font-semibold uppercase tracking-wide text-muted">Mật khẩu mới</span>
-              <code className="mt-1 block select-all border border-[#e0e7f3] bg-[#fafbff] px-4 py-2 text-sm">
+              <code className="mt-1 block select-all border border-[var(--theme-border)] bg-white px-4 py-2 text-sm">
                 {generated.password}
               </code>
             </div>

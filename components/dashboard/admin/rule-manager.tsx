@@ -18,7 +18,7 @@ import {
 } from '@/app/dashboard/admin/actions';
 import PermissionChecklist from '@/components/dashboard/admin/permission-checklist';
 
-const inputClass = 'w-full border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue';
+const inputClass = 'w-full border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue';
 const labelClass = 'text-xs font-semibold uppercase tracking-wide text-muted';
 const primaryBtn =
   'bg-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-gold hover:text-navy disabled:cursor-not-allowed disabled:opacity-60';
@@ -180,7 +180,7 @@ function TableEditor({
         <p className={labelClass}>Cột (headers)</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {headers.map((h, i) => (
-            <div key={i} className="flex items-center gap-1 border border-[#e0e7f3] bg-[#fafbff] px-2 py-1">
+            <div key={i} className="flex items-center gap-1 border border-[var(--theme-border)] bg-white px-2 py-1">
               <input
                 value={h}
                 onChange={(e) => {

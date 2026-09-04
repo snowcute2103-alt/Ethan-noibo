@@ -150,7 +150,7 @@ export default function PermissionChecklist({
         <select
           value={selectedDocId}
           onChange={(e) => selectDoc(e.target.value)}
-          className="max-w-md border border-[#e0e7f3] bg-[#fafbff] px-4 py-3 text-sm outline-none focus:border-blue"
+          className="max-w-md border border-[var(--theme-border)] bg-white px-4 py-3 text-sm outline-none focus:border-blue"
         >
           {docs.map((d) => (
             <option key={d.id} value={d.id}>
@@ -165,12 +165,12 @@ export default function PermissionChecklist({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tìm theo tên hoặc username…"
-          className="max-w-md border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue"
+          className="max-w-md border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
         />
         <select
           value={departmentFilter}
           onChange={(e) => setDepartmentFilter(e.target.value)}
-          className="border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue"
+          className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
         >
           <option value="">Tất cả khối</option>
           {DEPARTMENTS.map((d) => (
@@ -182,7 +182,7 @@ export default function PermissionChecklist({
         <select
           value={tierFilter}
           onChange={(e) => setTierFilter(e.target.value)}
-          className="border border-[#e0e7f3] bg-[#fafbff] px-4 py-2.5 text-sm outline-none focus:border-blue"
+          className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
         >
           <option value="">Tất cả cấp</option>
           {TIERS.map((t) => (

@@ -145,7 +145,7 @@ export default async function DashboardHome() {
         {contentCards.length > 0 && (
           <Reveal>
             <HoverToneSection>
-              <div className="relative">
+              <div className="theme-light-surface relative">
                 <p className="font-heading text-sm font-medium uppercase tracking-[0.3em] text-blue">Mới nhất</p>
                 <h2 id="other-content-title" className="font-heading mt-3 text-4xl font-light uppercase tracking-wide text-navy sm:text-5xl">
                   Nội dung khác
