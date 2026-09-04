@@ -1,8 +1,18 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import { AlertCircle, ListChecks, Search, SearchX, ShieldCheck } from 'lucide-react';
 import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, departmentLabel, tierLabel, type Tier } from '@/lib/roles';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const TIERS: Tier[] = ['staff', 'leader', 'full'];
 
@@ -140,37 +150,51 @@ export default function PermissionChecklist({
   }
 
   if (docs.length === 0) {
-    return <p className="text-muted">Chưa có tài liệu rule nào trong hệ thống.</p>;
+    return (
+      <Empty className="border border-[var(--theme-border)] bg-surface">
+        <EmptyMedia><ShieldCheck aria-hidden="true" /></EmptyMedia>
+        <EmptyHeader>
+          <EmptyTitle>Chưa có tài liệu rule</EmptyTitle>
+          <EmptyDescription>Tạo rule trước, sau đó quay lại đây để cấp quyền đọc.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-semibold text-ink">Tài liệu</label>
-        <select
+      <Field className="max-w-lg">
+        <FieldLabel htmlFor="permission-document">Tài liệu</FieldLabel>
+        <NativeSelect
+          id="permission-document"
           value={selectedDocId}
           onChange={(e) => selectDoc(e.target.value)}
-          className="max-w-md border border-[var(--theme-border)] bg-white px-4 py-3 text-sm outline-none focus:border-blue"
+          containerClassName="w-full"
         >
           {docs.map((d) => (
             <option key={d.id} value={d.id}>
               {d.title}
             </option>
           ))}
-        </select>
-      </div>
+        </NativeSelect>
+      </Field>
 
-      <div className="flex flex-wrap gap-3">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm theo tên hoặc username…"
-          className="max-w-md border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
-        />
-        <select
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,1fr)_minmax(12rem,0.6fr)_minmax(10rem,0.4fr)]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm theo tên hoặc username…"
+            aria-label="Tìm nhân sự để cấp quyền"
+            className="pl-10"
+          />
+        </div>
+        <NativeSelect
           value={departmentFilter}
           onChange={(e) => setDepartmentFilter(e.target.value)}
-          className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
+          aria-label="Lọc nhân sự theo khối"
+          containerClassName="w-full"
         >
           <option value="">Tất cả khối</option>
           {DEPARTMENTS.map((d) => (
@@ -178,11 +202,12 @@ export default function PermissionChecklist({
               {d.label}
             </option>
           ))}
-        </select>
-        <select
+        </NativeSelect>
+        <NativeSelect
           value={tierFilter}
           onChange={(e) => setTierFilter(e.target.value)}
-          className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
+          aria-label="Lọc nhân sự theo cấp"
+          containerClassName="w-full"
         >
           <option value="">Tất cả cấp</option>
           {TIERS.map((t) => (
@@ -190,96 +215,103 @@ export default function PermissionChecklist({
               {tierLabel(t)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle aria-hidden="true" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {selectedIds.size > 0 && (
-        <div className="flex flex-wrap items-center gap-4 border-2 border-gold/60 bg-[#fffaf0] px-5 py-3">
-          <span className="text-sm font-semibold text-navy">Đã chọn {selectedIds.size} user</span>
-          <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide">
-            <button
+        <Alert variant="warning">
+          <ListChecks aria-hidden="true" />
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            <Badge variant="warning">{selectedIds.size} đã chọn</Badge>
+            <Button
               type="button"
+              size="sm"
               disabled={isPending}
               onClick={handleBulkGrant}
-              className="text-blue hover:underline disabled:opacity-50"
             >
               Cấp quyền đọc
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              size="sm"
+              variant="destructive"
               disabled={isPending}
               onClick={handleBulkRevoke}
-              className="text-red-600 hover:underline disabled:opacity-50"
             >
               Thu hồi quyền đọc
-            </button>
-            <button type="button" onClick={clearSelection} className="text-ink hover:underline">
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
               Bỏ chọn
-            </button>
-          </div>
-        </div>
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="max-h-[560px] overflow-auto border border-navy/15">
-        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-          <thead className="sticky top-0">
-            <tr className="bg-navy text-cyan">
-              <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">
-                <input
-                  type="checkbox"
-                  checked={allFilteredSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = !allFilteredSelected && someFilteredSelected;
-                  }}
-                  onChange={toggleSelectAllFiltered}
+        <Table className="min-w-[640px]">
+          <TableHeader className="sticky top-0 z-10">
+            <TableRow className="border-0 bg-navy text-cyan hover:bg-navy">
+              <TableHead className="whitespace-nowrap bg-navy px-4 py-3 text-cyan">
+                <Checkbox
+                  checked={allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false}
+                  onCheckedChange={toggleSelectAllFiltered}
                   aria-label="Chọn tất cả user đang lọc"
-                  className="h-4 w-4 accent-gold"
+                  className="border-cyan/50 bg-navy data-[state=checked]:border-gold data-[state=checked]:bg-gold data-[state=checked]:text-navy"
                 />
-              </th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">Được đọc</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">Họ tên</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">Username</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">Khối</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold uppercase tracking-wide">Cấp</th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+              {['Được đọc', 'Họ tên', 'Username', 'Khối', 'Cấp'].map((label) => (
+                <TableHead key={label} className="whitespace-nowrap bg-navy px-4 py-3 font-semibold uppercase tracking-wide text-cyan">
+                  {label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filteredUsers.map((u) => (
-              <tr key={u.id} className="odd:bg-white even:bg-surface-2/60">
-                <td className="border-b border-navy/10 px-4 py-3">
-                  <input
-                    type="checkbox"
+              <TableRow key={u.id} className="odd:bg-white even:bg-surface-2/60">
+                <TableCell>
+                  <Checkbox
                     checked={selectedIds.has(u.id)}
-                    onChange={() => toggleSelectOne(u.id)}
+                    onCheckedChange={() => toggleSelectOne(u.id)}
                     aria-label={`Chọn ${u.fullName}`}
-                    className="h-4 w-4 accent-gold"
                   />
-                </td>
-                <td className="border-b border-navy/10 px-4 py-3">
-                  <input
-                    type="checkbox"
+                </TableCell>
+                <TableCell>
+                  <Checkbox
                     disabled={isPending}
                     checked={granted.has(u.id)}
-                    onChange={(e) => toggle(u.id, e.target.checked)}
+                    onCheckedChange={(checked) => toggle(u.id, checked === true)}
+                    aria-label={`${granted.has(u.id) ? 'Thu hồi' : 'Cấp'} quyền đọc cho ${u.fullName}`}
                   />
-                </td>
-                <td className="border-b border-navy/10 px-4 py-3 text-ink">{u.fullName}</td>
-                <td className="border-b border-navy/10 px-4 py-3 text-ink">{u.username}</td>
-                <td className="border-b border-navy/10 px-4 py-3 text-ink">{departmentLabel(u.department)}</td>
-                <td className="border-b border-navy/10 px-4 py-3 text-ink">{tierLabel(u.tier)}</td>
-              </tr>
+                </TableCell>
+                <TableCell className="font-semibold">{u.fullName}</TableCell>
+                <TableCell>{u.username}</TableCell>
+                <TableCell>{departmentLabel(u.department)}</TableCell>
+                <TableCell><Badge variant="outline">{tierLabel(u.tier)}</Badge></TableCell>
+              </TableRow>
             ))}
             {filteredUsers.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                  Không tìm thấy user nào khớp.
-                </td>
-              </tr>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={6} className="p-0">
+                  <Empty>
+                    <EmptyMedia><SearchX aria-hidden="true" /></EmptyMedia>
+                    <EmptyHeader>
+                      <EmptyTitle>Không có nhân sự phù hợp</EmptyTitle>
+                      <EmptyDescription>Thử đổi từ khoá hoặc bộ lọc khối và cấp.</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

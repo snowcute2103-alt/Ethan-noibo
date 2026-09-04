@@ -19,6 +19,32 @@
   --theme-border: oklch(88% 0.015 254);
   --theme-shadow: oklch(24% 0.04 263 / 0.22);
   --theme-ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --background: var(--surface-2);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--navy);
+  --primary-foreground: oklch(98% 0.003 254);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--navy);
+  --accent: oklch(95% 0.022 258);
+  --accent-foreground: var(--navy);
+  --destructive: oklch(55% 0.2 25);
+  --destructive-foreground: oklch(98% 0.01 25);
+  --destructive-soft: oklch(95% 0.035 25);
+  --success: oklch(47% 0.13 150);
+  --success-foreground: oklch(98% 0.01 150);
+  --success-soft: oklch(95% 0.035 150);
+  --warning-soft: oklch(95% 0.065 80);
+  --warning-foreground: oklch(43% 0.1 70);
+  --info-soft: oklch(96% 0.025 258);
+  --input: var(--theme-border);
+  --ring: var(--blue);
+  --ui-radius-control: 0rem;
+  --ui-radius-card: 1rem;
+  --ui-radius-panel: 28px;
 }
 
 :root[data-theme='dark'] {
@@ -37,6 +63,97 @@
   --surface-2: oklch(16% 0.025 263);
   --theme-border: oklch(35% 0.03 263);
   --theme-shadow: oklch(5% 0.02 263 / 0.5);
+  --accent: oklch(29% 0.045 258);
+  --destructive: oklch(72% 0.16 25);
+  --destructive-soft: oklch(27% 0.065 25);
+  --success: oklch(72% 0.12 150);
+  --success-soft: oklch(27% 0.055 150);
+  --warning-soft: oklch(29% 0.055 80);
+  --warning-foreground: oklch(84% 0.12 80);
+  --info-soft: oklch(28% 0.055 258);
+}
+
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+.ui-floating-surface {
+  box-shadow:
+    0 2px 8px -4px var(--theme-shadow),
+    0 18px 48px -24px var(--theme-shadow);
+}
+
+/* Nâng nhẹ khi hover cho các panel lớn (bento, teaser card, thông báo) — dùng chung
+   --theme-ease + --theme-shadow để chuyển động và độ sâu bóng đồng nhất toàn trang. */
+.panel-lift {
+  transition:
+    transform 320ms var(--theme-ease),
+    box-shadow 320ms var(--theme-ease),
+    border-color 320ms var(--theme-ease);
+}
+
+.panel-lift:hover,
+.panel-lift:focus-within {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px -28px var(--theme-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-lift,
+  .panel-lift:hover,
+  .panel-lift:focus-within {
+    transition: none;
+    transform: none;
+  }
+}
+
+@keyframes ui-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes ui-dialog-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes ui-dialog-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(0.98); }
+}
+
+@keyframes ui-popover-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ui-tooltip-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.ui-overlay[data-state='open'] { animation: ui-overlay-in 180ms var(--theme-ease); }
+.ui-overlay[data-state='closed'] { animation: ui-overlay-out 140ms var(--theme-ease); }
+.ui-dialog-content[data-state='open'] { animation: ui-dialog-in 220ms var(--theme-ease); }
+.ui-dialog-content[data-state='closed'] { animation: ui-dialog-out 160ms var(--theme-ease); }
+.ui-popover-content[data-state='open'] { animation: ui-popover-in 180ms var(--theme-ease); transform-origin: var(--radix-popover-content-transform-origin, var(--radix-dropdown-menu-content-transform-origin)); }
+.ui-tooltip-content[data-state='delayed-open'] { animation: ui-tooltip-in 150ms var(--theme-ease); transform-origin: var(--radix-tooltip-content-transform-origin); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-overlay,
+  .ui-dialog-content,
+  .ui-popover-content,
+  .ui-tooltip-content {
+    animation: none !important;
+  }
 }
 
 body {
@@ -115,6 +232,15 @@ body {
 
 :root[data-theme='dark'] .assignee-tint-card {
   background-color: color-mix(in oklch, var(--tint-color) 40%, black);
+}
+
+/* Nắm kéo sắp xếp task (TaskTable) dùng hover:bg-surface-2 + hover:text-navy —
+ * ở bản tối cả 2 token đều là màu tối (surface-2 ~16% lightness, navy ~25%),
+ * nền hover và chấm gần như cùng độ sáng nên gần như biến mất. Ép hẳn về
+ * trắng/đen ở trạng thái hover cho chắc chắn tương phản, không phụ thuộc token. */
+:root[data-theme='dark'] .task-drag-handle:hover {
+  background-color: #fff;
+  color: #000;
 }
 
 /* Các bề mặt chủ ý giữ giao diện sáng (trang báo, hero sáng, badge màu kem)
@@ -910,6 +1036,23 @@ body {
   height: 1px;
   border: none;
   background: linear-gradient(90deg, transparent, rgba(0, 210, 255, 0.5), rgba(245, 166, 35, 0.5), transparent);
+}
+
+@keyframes gradient-divider-grow {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 6rem;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-gradient-divider {
+    animation: gradient-divider-grow 900ms var(--theme-ease) 300ms both;
+  }
 }
 
 .title-glow {

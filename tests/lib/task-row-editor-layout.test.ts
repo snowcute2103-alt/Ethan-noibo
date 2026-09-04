@@ -18,8 +18,8 @@ test('các control của hàng sửa không ép chiều rộng vượt khỏi c�
   assert.notEqual(editorStart, -1, 'Không tìm thấy các control của TaskRowEditor');
   assert.match(
     colgroupSource,
-    /<col style=\{\{ width: 44 \}\} \/>\s*<col style=\{\{ width: 160 \}\} \/>/,
-    'Cột Ngày phải đủ rộng để hiển thị cả ngày và nút lịch'
+    /<col style=\{\{ width: 64 \}\} \/>\s*<col style=\{\{ width: 80 \}\} \/>/,
+    'Cột chọn/kéo phải đủ rộng cho tay nắm và cột Ngày phải đủ rộng cho nút lịch'
   );
   assert.match(
     colgroupSource,

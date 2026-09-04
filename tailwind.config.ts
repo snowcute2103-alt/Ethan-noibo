@@ -17,6 +17,43 @@ const config: Config = {
         muted: 'var(--muted)',
         surface: 'var(--surface)',
         'surface-2': 'var(--surface-2)',
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        card: {
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
+        },
+        popover: {
+          DEFAULT: 'var(--popover)',
+          foreground: 'var(--popover-foreground)',
+        },
+        primary: {
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
+        },
+        secondary: {
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          foreground: 'var(--accent-foreground)',
+        },
+        destructive: {
+          DEFAULT: 'var(--destructive)',
+          foreground: 'var(--destructive-foreground)',
+        },
+        'destructive-soft': 'var(--destructive-soft)',
+        success: {
+          DEFAULT: 'var(--success)',
+          foreground: 'var(--success-foreground)',
+        },
+        'success-soft': 'var(--success-soft)',
+        'warning-soft': 'var(--warning-soft)',
+        'warning-foreground': 'var(--warning-foreground)',
+        'info-soft': 'var(--info-soft)',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
       },
       fontFamily: {
         heading: ['var(--font-heading)', 'sans-serif'],

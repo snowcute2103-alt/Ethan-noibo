@@ -231,6 +231,14 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_team_date ON tasks (team_id, task_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_team_category ON tasks (team_id, category_id);
 
+/** Thứ tự hiển thị do người dùng tự kéo-thả trong bảng Giao Task (xem
+ *  TaskTable ở task-board.tsx) — chỉ dùng làm tiêu chí phụ SAU khi đã nhóm
+ *  theo người phụ trách, nên kéo-thả chỉ đổi thứ tự trong đúng nhóm của
+ *  người đó, không đụng tới các nhóm khác. Mặc định 0 cho mọi task cũ/mới
+ *  chưa từng bị kéo — khi đó thứ tự hiển thị vẫn rơi về tie-break theo id
+ *  như trước khi có tính năng này, không đổi hành vi hiện có. */
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+
 /** team_id nullable để tasks chứa được cả task cá nhân của người không thuộc
  *  đội KD nào — task đội KD vẫn luôn có team_id, chỉ task cá nhân mới NULL. */
 ALTER TABLE tasks ALTER COLUMN team_id DROP NOT NULL;

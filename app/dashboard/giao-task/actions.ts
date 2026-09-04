@@ -29,6 +29,7 @@ import {
   listTasksForTeam,
   createTask,
   updateTask,
+  reorderTasks,
   deleteTask,
   duplicateTasksToDates,
   bulkDuplicateTasks,
@@ -600,6 +601,13 @@ export async function updateTaskAction(teamId: number, taskId: number, patch: Ta
 export async function deleteTaskAction(teamId: number, taskId: number): Promise<void> {
   const actor = await requireTeamContext(teamId);
   await deleteTask(taskId, actor.teamId);
+}
+
+/** Kéo-thả đổi thứ tự task trong bảng Giao Task — `orderedTaskIds` là ID theo
+ *  đúng thứ tự hiển thị mới của 1 nhóm (xem reorderTasks ở lib/tasks.ts). */
+export async function reorderTasksAction(teamId: number, orderedTaskIds: number[]): Promise<void> {
+  const actor = await requireTeamContext(teamId);
+  await reorderTasks(actor.teamId, orderedTaskIds);
 }
 
 // Next.js xoá message gốc của lỗi throw ra khỏi Server Action ở production

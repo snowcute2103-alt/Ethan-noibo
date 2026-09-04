@@ -2,9 +2,13 @@ import * as React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const NativeSelect = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-  ({ className, children, ...props }, ref) => (
-    <div className="relative inline-flex min-w-0">
+interface NativeSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  containerClassName?: string;
+}
+
+const NativeSelect = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
+  ({ className, containerClassName, children, ...props }, ref) => (
+    <div className={cn('relative inline-flex min-w-0', containerClassName)}>
       <select
         ref={ref}
         className={cn(

@@ -2,9 +2,14 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertCircle, CheckCircle2, KeyRound, XCircle } from 'lucide-react';
 import type { PendingResetRequest } from '@/lib/reset-requests';
 import { departmentLabel } from '@/lib/roles';
 import { approveResetRequestAction, dismissResetRequestAction } from '@/app/dashboard/admin/actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
@@ -44,77 +49,87 @@ export default function ResetRequestsPanel({ requests }: { requests: PendingRese
   if (requests.length === 0) return null;
 
   return (
-    <div className="mb-8 border-2 border-gold/60 bg-[#fffaf0] p-6">
-      <p className="font-heading text-lg font-medium text-navy">
-        Yêu cầu đặt lại mật khẩu <span className="text-gold-2">({requests.length})</span>
-      </p>
-      <p className="mt-1 text-sm text-muted">
-        Hệ thống không gửi được email tự động cho các yêu cầu này (kiểm tra RESEND_API_KEY/domain) — xác nhận đúng
-        người rồi duyệt tay bên dưới.
-      </p>
+    <Alert variant="warning" className="mb-8 p-6">
+      <KeyRound aria-hidden="true" />
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <AlertTitle>Yêu cầu đặt lại mật khẩu</AlertTitle>
+          <Badge variant="warning">{requests.length} đang chờ</Badge>
+        </div>
+        <AlertDescription>
+          Email tự động chưa gửi được. Hãy xác nhận đúng người trước khi duyệt thủ công.
+        </AlertDescription>
+      </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertCircle aria-hidden="true" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {generated && (
-        <div className="mt-4 border-2 border-navy bg-white p-5">
-          <p className="text-sm text-muted">
-            Đây là lần DUY NHẤT mật khẩu hiện ra — copy ngay và gửi cho nhân viên qua kênh an toàn.
-          </p>
+        <Alert variant="success" className="mt-4 bg-surface">
+          <CheckCircle2 aria-hidden="true" />
+          <AlertTitle>Mật khẩu mới đã được tạo</AlertTitle>
+          <AlertDescription>Mật khẩu chỉ xuất hiện một lần. Hãy sao chép và gửi qua kênh an toàn.</AlertDescription>
           <div className="mt-3 flex flex-wrap gap-4">
             <div>
               <span className="text-xs font-semibold uppercase tracking-wide text-muted">Username</span>
-              <code className="mt-1 block border border-[var(--theme-border)] bg-white px-4 py-2 text-sm">{generated.username}</code>
+              <code className="mt-1 block border border-[var(--theme-border)] bg-surface-2 px-4 py-2 text-sm text-ink">{generated.username}</code>
             </div>
             <div>
               <span className="text-xs font-semibold uppercase tracking-wide text-muted">Mật khẩu mới</span>
-              <code className="mt-1 block select-all border border-[var(--theme-border)] bg-white px-4 py-2 text-sm">
+              <code className="mt-1 block select-all border border-[var(--theme-border)] bg-surface-2 px-4 py-2 text-sm text-ink">
                 {generated.password}
               </code>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setGenerated(null)}
-            className="mt-4 bg-navy px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-gold hover:text-navy"
-          >
+          <Button type="button" size="sm" onClick={() => setGenerated(null)} className="mt-4">
             Đóng
-          </button>
-        </div>
+          </Button>
+        </Alert>
       )}
 
-      <ul className="mt-4 flex flex-col gap-2">
+      <Separator className="my-4 bg-gold/30" />
+      <ul className="grid gap-1">
         {requests.map((r) => (
           <li
             key={r.id}
-            className="flex flex-wrap items-center justify-between gap-3 border border-navy/10 bg-white px-4 py-3"
+            className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
               <span className="font-semibold text-ink">{r.fullName}</span>
-              <span className="ml-2 text-sm text-muted">
-                @{r.username} · {departmentLabel(r.department)} · {formatDateTime(r.createdAt)}
-              </span>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+                <span>@{r.username}</span>
+                <Badge variant="outline">{departmentLabel(r.department)}</Badge>
+                <span className="tabular-nums">{formatDateTime(r.createdAt)}</span>
+              </div>
             </div>
-            <div className="flex gap-3 text-xs font-semibold uppercase tracking-wide">
-              <button
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
                 type="button"
+                size="sm"
                 disabled={isPending}
                 onClick={() => handleApprove(r.id)}
-                className="text-blue hover:underline disabled:opacity-50"
               >
-                Duyệt (sinh mật khẩu mới)
-              </button>
-              <button
+                <CheckCircle2 aria-hidden="true" />
+                Duyệt
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant="outline"
                 disabled={isPending}
                 onClick={() => handleDismiss(r.id)}
-                className="text-red-600 hover:underline disabled:opacity-50"
               >
+                <XCircle aria-hidden="true" />
                 Từ chối
-              </button>
+              </Button>
             </div>
           </li>
         ))}
       </ul>
-    </div>
+    </Alert>
   );
 }

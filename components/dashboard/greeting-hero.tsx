@@ -26,7 +26,7 @@ const STARS = [
 
 export default function GreetingHero({ greeting, department }: { greeting: string; department: string }) {
   return (
-    <div className="relative h-[460px] overflow-hidden rounded-md bg-black sm:h-[500px] lg:h-[560px]">
+    <div className="relative h-[460px] overflow-hidden rounded-[var(--ui-radius-panel)] bg-black sm:h-[500px] lg:h-[560px]">
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
         {STARS.map((star, i) => (
           <span
@@ -55,7 +55,7 @@ export default function GreetingHero({ greeting, department }: { greeting: strin
             <br />
             {department}
           </h2>
-          <div className="gradient-divider mt-6 w-24" aria-hidden="true" />
+          <div className="gradient-divider animate-gradient-divider mt-6 w-24" aria-hidden="true" />
         </div>
 
         <div className="relative flex h-1/2 flex-1 items-center justify-center overflow-hidden [container-type:size] sm:h-full sm:basis-1/2">

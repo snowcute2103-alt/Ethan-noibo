@@ -2,8 +2,25 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  History,
+  KeyRound,
+  ListChecks,
+  MoreHorizontal,
+  Pencil,
+  Search,
+  SearchX,
+  SlidersHorizontal,
+  UserPlus,
+  UserRoundCheck,
+  UserRoundX,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, departmentLabel, tierLabel, type Department, type Tier } from '@/lib/roles';
@@ -16,6 +33,27 @@ import {
   getUserAuditLogAction,
 } from '@/app/dashboard/admin/actions';
 import avatarPlaceholder from '@/public/images/avatar-placeholder.jpg';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const TIERS: Tier[] = ['staff', 'leader', 'full'];
 const PAGE_SIZES = [25, 50, 100] as const;
@@ -108,6 +146,16 @@ function formatDate(value: string | null): string {
   const [y, m, d] = value.split('-');
   if (!y || !m || !d) return value;
   return `${d}/${m}/${y}`;
+}
+
+function initials(value: string): string {
+  return value
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
 }
 
 /** Số năm làm việc trọn vẹn tính từ ngày vào làm tới hôm nay. */
@@ -219,7 +267,10 @@ const COLUMNS: ColumnDef[] = [
     key: 'isActive',
     label: 'Trạng thái tài khoản',
     render: (u) => (
-      <span className={u.isActive ? 'text-blue' : 'text-muted'}>{u.isActive ? 'Hoạt động' : 'Đã vô hiệu hoá'}</span>
+      <Badge variant={u.isActive ? 'success' : 'secondary'}>
+        {u.isActive ? <UserRoundCheck aria-hidden="true" /> : <UserRoundX aria-hidden="true" />}
+        {u.isActive ? 'Hoạt động' : 'Đã vô hiệu hoá'}
+      </Badge>
     ),
     sortValue: (u) => (u.isActive ? 1 : 0),
   },
@@ -451,7 +502,7 @@ export default function UserTable({ users }: { users: UserRow[] }) {
   function SortableHeader({ colKey, label, sticky }: { colKey: string; label: string; sticky?: boolean }) {
     const active = sortKey === colKey;
     return (
-      <th
+      <TableHead
         className={`whitespace-nowrap border-r border-cyan/20 px-4 py-3 font-semibold uppercase tracking-wide ${
           sticky
             ? 'sticky left-12 top-0 z-20 bg-navy shadow-[6px_0_8px_-6px_rgba(15,23,42,0.45)]'
@@ -461,37 +512,45 @@ export default function UserTable({ users }: { users: UserRow[] }) {
         <button
           type="button"
           onClick={() => toggleSort(colKey)}
-          className="flex items-center gap-1.5 transition hover:text-gold-2"
+          className="flex min-h-11 items-center gap-1.5 text-cyan outline-none transition-[transform,color] duration-150 ease-[var(--theme-ease)] hover:-translate-y-0.5 hover:text-gold-2 focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-navy active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none"
+          aria-label={`Sắp xếp theo ${label}${active ? (sortDir === 'asc' ? ', đang tăng dần' : ', đang giảm dần') : ''}`}
         >
           {label}
-          <span className="text-[10px] leading-none">{active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+          {active ? (
+            sortDir === 'asc' ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />
+          ) : (
+            <ChevronsUpDown className="size-4" aria-hidden="true" />
+          )}
         </button>
-      </th>
+      </TableHead>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap gap-3">
-          <div className="relative">
+    <TooltipProvider delayDuration={500}>
+      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative sm:col-span-2 lg:col-span-1">
             <Search
               size={16}
               strokeWidth={2}
               className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
               aria-hidden="true"
             />
-            <input
+            <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm theo tên hoặc username…"
-              className="border border-[var(--theme-border)] bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue"
+              aria-label="Tìm tài khoản"
+              className="pl-10"
             />
           </div>
-          <select
+          <NativeSelect
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
+            aria-label="Lọc theo khối"
+            containerClassName="w-full"
           >
             <option value="">Tất cả khối</option>
             {DEPARTMENTS.map((d) => (
@@ -499,11 +558,12 @@ export default function UserTable({ users }: { users: UserRow[] }) {
                 {d.label}
               </option>
             ))}
-          </select>
-          <select
+          </NativeSelect>
+          <NativeSelect
             value={tierFilter}
             onChange={(e) => setTierFilter(e.target.value)}
-            className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
+            aria-label="Lọc theo cấp"
+            containerClassName="w-full"
           >
             <option value="">Tất cả cấp</option>
             {TIERS.map((t) => (
@@ -511,308 +571,349 @@ export default function UserTable({ users }: { users: UserRow[] }) {
                 {tierLabel(t)}
               </option>
             ))}
-          </select>
-          <select
+          </NativeSelect>
+          <NativeSelect
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue"
+            aria-label="Lọc theo trạng thái"
+            containerClassName="w-full"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
             <option value="inactive">Đã vô hiệu hoá</option>
-          </select>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setColPickerOpen((v) => !v)}
-              className="flex items-center gap-2 border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm text-ink outline-none hover:border-blue"
-            >
-              <SlidersHorizontal size={16} strokeWidth={2} aria-hidden="true" />
-              Cột hiển thị
-            </button>
-            {colPickerOpen && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setColPickerOpen(false)} />
-                <div className="absolute left-0 top-full z-40 mt-1 max-h-80 w-64 overflow-y-auto border border-navy/15 bg-white p-3 shadow-lg">
-                  {COLUMNS.map((col) => (
-                    <label key={col.key} className="flex items-center gap-2 px-1 py-1.5 text-sm text-ink hover:bg-surface-2">
-                      <input
-                        type="checkbox"
-                        checked={!hiddenCols.has(col.key)}
-                        onChange={() => toggleColumn(col.key)}
-                        className="h-4 w-4 accent-gold"
-                      />
-                      {col.label}
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          </NativeSelect>
+          <Popover open={colPickerOpen} onOpenChange={setColPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="outline" className="justify-start sm:col-span-2 lg:col-span-1">
+                <SlidersHorizontal aria-hidden="true" />
+                Cột hiển thị
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="max-h-80 overflow-y-auto p-2">
+              <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                Hiện trong bảng
+              </p>
+              <div className="grid gap-1">
+                {COLUMNS.map((col) => (
+                  <label
+                    key={col.key}
+                    className="flex min-h-10 cursor-pointer items-center gap-3 rounded-[var(--ui-radius-control)] px-2 py-2 text-sm text-ink hover:bg-surface-2"
+                  >
+                    <Checkbox
+                      checked={!hiddenCols.has(col.key)}
+                      onCheckedChange={() => toggleColumn(col.key)}
+                      aria-label={`Hiện cột ${col.label}`}
+                    />
+                    {col.label}
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
-        <Link
-          href="/dashboard/admin/users/new"
-          className="bg-navy px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-all duration-300 hover:bg-gold hover:text-navy hover:shadow-[0_0_24px_-4px_rgba(245,166,35,0.6)]"
-        >
-          + Tạo user
-        </Link>
+        <Button asChild className="w-full xl:w-auto">
+          <Link href="/dashboard/admin/users/new">
+            <UserPlus aria-hidden="true" />
+            Tạo tài khoản
+          </Link>
+        </Button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle aria-hidden="true" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {selectedIds.size > 0 && (
-        <div className="flex flex-wrap items-center gap-4 border-2 border-gold/60 bg-[#fffaf0] px-5 py-3">
-          <span className="text-sm font-semibold text-navy">Đã chọn {selectedIds.size} user</span>
-          <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => handleBulkSetActive(true)}
-              className="text-blue hover:underline disabled:opacity-50"
-            >
-              Kích hoạt
-            </button>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => handleBulkSetActive(false)}
-              className="text-red-600 hover:underline disabled:opacity-50"
-            >
-              Vô hiệu hoá
-            </button>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={handleBulkUnlock}
-              className="text-muted hover:underline disabled:opacity-50"
-            >
-              Mở khoá
-            </button>
-            <button type="button" onClick={clearSelection} className="text-ink hover:underline">
-              Bỏ chọn
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 border-l border-gold/40 pl-4 normal-case">
-            <select
-              value={bulkDepartment}
-              onChange={(e) => handleBulkDepartmentChange(e.target.value as Department | '')}
-              className="border border-[var(--theme-border)] bg-white px-3 py-1.5 text-sm outline-none focus:border-blue"
-            >
-              <option value="">Giữ nguyên khối</option>
-              {DEPARTMENTS.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={bulkTier}
-              onChange={(e) => setBulkTier(e.target.value as Tier | '')}
-              className="border border-[var(--theme-border)] bg-white px-3 py-1.5 text-sm outline-none focus:border-blue"
-            >
-              <option value="">Giữ nguyên cấp</option>
-              {bulkAllowedTiers.map((t) => (
-                <option key={t} value={t}>
-                  {tierLabel(t)}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={isPending || (!bulkDepartment && !bulkTier)}
-              onClick={handleBulkApplyDeptTier}
-              className="bg-navy px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-gold hover:text-navy disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Áp dụng
-            </button>
-          </div>
-        </div>
+        <Alert variant="warning">
+          <ListChecks aria-hidden="true" />
+          <AlertDescription className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="warning">{selectedIds.size} đã chọn</Badge>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={isPending}
+                onClick={() => handleBulkSetActive(true)}
+              >
+                Kích hoạt
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={isPending}
+                onClick={() => handleBulkSetActive(false)}
+              >
+                Vô hiệu hoá
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isPending}
+                onClick={handleBulkUnlock}
+              >
+                Mở khoá
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
+                Bỏ chọn
+              </Button>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:border-l xl:border-gold/40 xl:pl-4">
+              <NativeSelect
+                value={bulkDepartment}
+                onChange={(e) => handleBulkDepartmentChange(e.target.value as Department | '')}
+                aria-label="Đổi khối cho tài khoản đã chọn"
+                containerClassName="w-full sm:w-auto"
+                className="h-9"
+              >
+                <option value="">Giữ nguyên khối</option>
+                {DEPARTMENTS.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.label}
+                  </option>
+                ))}
+              </NativeSelect>
+              <NativeSelect
+                value={bulkTier}
+                onChange={(e) => setBulkTier(e.target.value as Tier | '')}
+                aria-label="Đổi cấp cho tài khoản đã chọn"
+                containerClassName="w-full sm:w-auto"
+                className="h-9"
+              >
+                <option value="">Giữ nguyên cấp</option>
+                {bulkAllowedTiers.map((t) => (
+                  <option key={t} value={t}>
+                    {tierLabel(t)}
+                  </option>
+                ))}
+              </NativeSelect>
+              <Button
+                type="button"
+                size="sm"
+                disabled={isPending || (!bulkDepartment && !bulkTier)}
+                onClick={handleBulkApplyDeptTier}
+              >
+                Áp dụng
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Gim hàng tiêu đề (sticky top) + gim cột Họ tên (sticky left) — cuộn ngang lẫn dọc trong khung cố định. */}
       <div className="max-h-[70vh] overflow-auto border border-navy/15">
-        <table className="w-full border-separate border-spacing-0 text-left text-sm">
-          <thead>
-            <tr className="bg-navy text-cyan">
-              <th className="sticky left-0 top-0 z-20 w-12 border-r border-cyan/20 bg-navy px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={allPageSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = !allPageSelected && somePageSelected;
-                  }}
-                  onChange={toggleSelectPage}
+        <Table className="border-separate border-spacing-0">
+          <TableHeader>
+            <TableRow className="border-0 bg-navy text-cyan hover:bg-navy">
+              <TableHead className="sticky left-0 top-0 z-20 w-12 border-r border-cyan/20 bg-navy px-4 py-3">
+                <Checkbox
+                  checked={allPageSelected ? true : somePageSelected ? 'indeterminate' : false}
+                  onCheckedChange={toggleSelectPage}
                   aria-label="Chọn tất cả user trên trang này"
-                  className="h-4 w-4 accent-gold"
+                  className="border-cyan/50 bg-navy data-[state=checked]:border-gold data-[state=checked]:bg-gold data-[state=checked]:text-navy"
                 />
-              </th>
+              </TableHead>
               <SortableHeader colKey="fullName" label="Họ tên" sticky />
               {visibleColumns.map((col) => (
                 <SortableHeader key={col.key} colKey={col.key} label={col.label} />
               ))}
-              <th className="sticky top-0 z-10 whitespace-nowrap bg-navy px-4 py-3 font-semibold uppercase tracking-wide">
+              <TableHead className="sticky top-0 z-10 whitespace-nowrap bg-navy px-4 py-3 text-right font-semibold uppercase tracking-wide text-cyan">
                 Hành động
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {paged.map((u, i) => {
               const rowBg = i % 2 === 1 ? 'bg-surface-2' : 'bg-white';
               return (
-                <tr key={u.id} className={rowBg}>
-                  <td className={`sticky left-0 z-10 w-12 border-b border-r border-navy/10 px-4 py-3 ${rowBg}`}>
-                    <input
-                      type="checkbox"
+                <TableRow
+                  key={u.id}
+                  data-state={selectedIds.has(u.id) ? 'selected' : undefined}
+                  className={`${rowBg} hover:bg-info-soft`}
+                >
+                  <TableCell className={`sticky left-0 z-10 w-12 border-b border-r border-navy/10 px-4 py-3 ${rowBg}`}>
+                    <Checkbox
                       checked={selectedIds.has(u.id)}
-                      onChange={() => toggleSelectOne(u.id)}
+                      onCheckedChange={() => toggleSelectOne(u.id)}
                       aria-label={`Chọn ${u.fullName}`}
-                      className="h-4 w-4 accent-gold"
                     />
-                  </td>
-                  <td
+                  </TableCell>
+                  <TableCell
                     className={`sticky left-12 z-10 border-b border-r border-navy/10 px-4 py-3 shadow-[6px_0_8px_-6px_rgba(15,23,42,0.2)] ${rowBg}`}
                   >
                     <div className="flex items-center gap-3">
-                      <Image
-                        // TODO: ảnh tạm — thay bằng avatar thật khi import ảnh nhân sự.
-                        src={u.avatarUrl || avatarPlaceholder}
-                        alt={u.fullName}
-                        width={32}
-                        height={32}
-                        className="h-8 w-8 shrink-0 rounded-full bg-surface-2 object-cover"
-                      />
-                      <span className="whitespace-nowrap uppercase text-ink">{u.fullName}</span>
+                      <Avatar className="size-8">
+                        <AvatarImage src={u.avatarUrl || avatarPlaceholder.src} alt={u.fullName} />
+                        <AvatarFallback>{initials(u.fullName)}</AvatarFallback>
+                      </Avatar>
+                      <span className="whitespace-nowrap font-semibold text-ink">{u.fullName}</span>
                     </div>
-                  </td>
+                  </TableCell>
                   {visibleColumns.map((col) => (
-                    <td key={col.key} className="whitespace-nowrap border-b border-r border-navy/10 px-4 py-3 text-ink">
+                    <TableCell key={col.key} className="whitespace-nowrap border-b border-r border-navy/10 px-4 py-3 text-ink">
                       {col.render(u)}
-                    </td>
+                    </TableCell>
                   ))}
-                  <td className="whitespace-nowrap border-b border-navy/10 px-4 py-3">
-                    <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide">
-                      <Link href={`/dashboard/admin/users/${u.id}`} className="text-blue hover:underline">
-                        Sửa
-                      </Link>
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => handleToggleActive(u)}
-                        className="text-red-600 hover:underline disabled:opacity-50"
-                      >
-                        {u.isActive ? 'Vô hiệu hoá' : 'Kích hoạt lại'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => handleUnlock(u.username)}
-                        className="text-muted hover:underline disabled:opacity-50"
-                      >
-                        Mở khoá
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openAuditLog(u)}
-                        className="text-navy hover:underline"
-                      >
-                        Nhật ký
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                  <TableCell className="whitespace-nowrap border-b border-navy/10 px-4 py-3 text-right">
+                    <DropdownMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="ghost" size="icon" aria-label={`Hành động cho ${u.fullName}`}>
+                              <MoreHorizontal aria-hidden="true" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Chỉnh sửa và xem nhật ký</TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuLabel className="normal-case tracking-normal text-ink">{u.fullName}</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/admin/users/${u.id}`}>
+                            <Pencil aria-hidden="true" />
+                            Sửa hồ sơ
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={isPending}
+                          variant={u.isActive ? 'destructive' : 'default'}
+                          onSelect={() => handleToggleActive(u)}
+                        >
+                          {u.isActive ? <UserRoundX aria-hidden="true" /> : <UserRoundCheck aria-hidden="true" />}
+                          {u.isActive ? 'Vô hiệu hoá' : 'Kích hoạt lại'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled={isPending} onSelect={() => handleUnlock(u.username)}>
+                          <KeyRound aria-hidden="true" />
+                          Mở khoá đăng nhập
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => openAuditLog(u)}>
+                          <History aria-hidden="true" />
+                          Xem nhật ký
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
               );
             })}
             {filtered.length === 0 && (
-              <tr>
-                <td colSpan={visibleColumns.length + 3} className="px-4 py-8 text-center text-muted">
-                  Không tìm thấy user nào khớp.
-                </td>
-              </tr>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={visibleColumns.length + 3} className="p-0">
+                  <Empty>
+                    <EmptyMedia><SearchX aria-hidden="true" /></EmptyMedia>
+                    <EmptyHeader>
+                      <EmptyTitle>Không có tài khoản phù hợp</EmptyTitle>
+                      <EmptyDescription>Thử đổi từ khoá hoặc bỏ bớt bộ lọc đang chọn.</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span>
             {filtered.length === 0
               ? '0 kết quả'
               : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filtered.length)} / ${filtered.length} kết quả`}
           </span>
-          <select
+          <NativeSelect
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
-            className="border border-[var(--theme-border)] bg-white px-3 py-1.5 text-sm outline-none focus:border-blue"
+            aria-label="Số tài khoản mỗi trang"
+            className="h-9"
           >
             {PAGE_SIZES.map((size) => (
               <option key={size} value={size}>
                 {size} / trang
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={safePage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="border border-navy/20 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy hover:bg-surface-2 disabled:opacity-40"
           >
+            <ChevronLeft aria-hidden="true" />
             Trước
-          </button>
-          <span className="text-navy">
+          </Button>
+          <span className="min-w-20 text-center font-semibold text-navy tabular-nums">
             Trang {safePage}/{pageCount}
           </span>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={safePage >= pageCount}
             onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-            className="border border-navy/20 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy hover:bg-surface-2 disabled:opacity-40"
           >
             Sau
-          </button>
+            <ChevronRight aria-hidden="true" />
+          </Button>
         </div>
       </div>
 
-      {auditUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4">
-          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col gap-4 border-2 border-navy bg-white p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-heading text-lg font-medium text-navy">Nhật ký thao tác</p>
-                <p className="text-sm text-muted">
-                  {auditUser.fullName} · @{auditUser.username}
-                </p>
-              </div>
-              <button type="button" onClick={closeAuditLog} className="text-sm font-semibold text-muted hover:text-ink">
-                Đóng
-              </button>
+      <Dialog open={auditUser !== null} onOpenChange={(open) => !open && closeAuditLog()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nhật ký thao tác</DialogTitle>
+            <DialogDescription>
+              {auditUser ? `${auditUser.fullName}, @${auditUser.username}` : 'Lịch sử thay đổi tài khoản'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {auditLoading && (
+            <div className="grid gap-3" aria-label="Đang tải nhật ký">
+              {[0, 1, 2].map((item) => <Skeleton key={item} className="h-20" />)}
             </div>
+          )}
+          {auditError && (
+            <Alert variant="destructive">
+              <AlertCircle aria-hidden="true" />
+              <AlertDescription>{auditError}</AlertDescription>
+            </Alert>
+          )}
+          {!auditLoading && !auditError && auditEntries.length === 0 && (
+            <Empty className="min-h-36">
+              <EmptyMedia><History aria-hidden="true" /></EmptyMedia>
+              <EmptyHeader>
+                <EmptyTitle>Chưa có thao tác</EmptyTitle>
+                <EmptyDescription>Tài khoản này chưa có thay đổi nào được ghi nhận.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
 
-            {auditLoading && <p className="text-sm text-muted">Đang tải…</p>}
-            {auditError && <p className="text-sm text-red-600">{auditError}</p>}
-            {!auditLoading && !auditError && auditEntries.length === 0 && (
-              <p className="text-sm text-muted">Chưa có thao tác nào được ghi nhận.</p>
-            )}
-
-            <ul className="flex flex-col gap-3 overflow-y-auto">
-              {auditEntries.map((entry) => (
-                <li key={entry.id} className="border border-navy/10 bg-surface-2/60 px-4 py-3 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold text-ink">{AUDIT_ACTION_LABELS[entry.action] ?? entry.action}</span>
-                    <span className="text-xs text-muted">{formatDateTime(entry.createdAt)}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted">
-                    Thực hiện bởi: {entry.actorFullName ? `${entry.actorFullName} (@${entry.actorUsername})` : 'Hệ thống'}
-                  </p>
-                  <p className="mt-1 text-ink">{formatAuditDetail(entry)}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-    </div>
+          <ul className="flex max-h-[50dvh] flex-col gap-3 overflow-y-auto pr-1">
+            {auditEntries.map((entry) => (
+              <li key={entry.id} className="rounded-[var(--ui-radius-control)] bg-surface-2 px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-ink">{AUDIT_ACTION_LABELS[entry.action] ?? entry.action}</span>
+                  <span className="text-xs text-muted tabular-nums">{formatDateTime(entry.createdAt)}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  Thực hiện bởi: {entry.actorFullName ? `${entry.actorFullName} (@${entry.actorUsername})` : 'Hệ thống'}
+                </p>
+                <p className="mt-1 leading-relaxed text-ink text-pretty">{formatAuditDetail(entry)}</p>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
+      </div>
+    </TooltipProvider>
   );
 }

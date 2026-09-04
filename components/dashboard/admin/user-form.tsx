@@ -3,12 +3,20 @@
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { AlertCircle, Camera, CheckCircle2, KeyRound } from 'lucide-react';
 import type { UserRow } from '@/lib/users';
-import { DEPARTMENTS, type Department, type Tier } from '@/lib/roles';
+import { DEPARTMENTS, tierLabel, type Department, type Tier } from '@/lib/roles';
 import { createUserAction, updateUserAction, resetPasswordAction, uploadAvatarAction } from '@/app/dashboard/admin/actions';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 
-const inputClass = 'border border-[var(--theme-border)] bg-white px-4 py-3 text-sm outline-none focus:border-blue';
-const labelClass = 'text-sm font-semibold text-ink';
+const fieldGridClass = 'grid grid-cols-1 gap-4 sm:grid-cols-2';
 
 export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user?: UserRow }) {
   const router = useRouter();
@@ -138,254 +146,245 @@ export default function UserForm({ mode, user }: { mode: 'create' | 'edit'; user
 
   if (generatedPassword) {
     return (
-      <div className="relative flex max-w-lg flex-col gap-5 overflow-hidden border-2 border-navy bg-white p-8 shadow-[0_0_60px_-20px_rgba(0,210,255,0.35)]">
-        <div className="glow-orb -right-8 -top-8 h-32 w-32 bg-gold/25" aria-hidden="true" />
-        <p className="font-heading relative text-lg font-medium text-navy">Mật khẩu đã được tạo</p>
-        <p className="text-sm text-muted">
-          Đây là lần DUY NHẤT mật khẩu hiện ra — copy ngay và gửi cho nhân viên qua kênh an toàn. Mật khẩu không được
-          lưu lại ở đâu khác.
-        </p>
-        <div className="flex flex-col gap-1.5">
-          <span className={labelClass}>Username</span>
-          <code className="border border-[var(--theme-border)] bg-white px-4 py-3 text-sm">{username || user?.username}</code>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <span className={labelClass}>Mật khẩu</span>
-          <code className="select-all border border-[var(--theme-border)] bg-white px-4 py-3 text-sm">{generatedPassword}</code>
-        </div>
-        <button
-          type="button"
-          onClick={() => router.push('/dashboard/admin')}
-          className="mt-2 bg-navy py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-gold hover:text-navy"
-        >
-          Đã lưu — về danh sách
-        </button>
-      </div>
+      <Card className="max-w-lg border-2 border-navy">
+        <CardHeader>
+          <div className="mb-1 flex items-center gap-2 text-success">
+            <CheckCircle2 className="size-5" aria-hidden="true" />
+            <span className="text-sm font-semibold">Tạo thành công</span>
+          </div>
+          <CardTitle>Mật khẩu đã được tạo</CardTitle>
+          <CardDescription>
+            Mật khẩu chỉ xuất hiện một lần. Hãy sao chép và gửi cho nhân viên qua kênh an toàn.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <Field>
+            <span className="text-sm font-semibold text-ink">Username</span>
+            <code className="border border-[var(--theme-border)] bg-surface-2 px-4 py-3 text-sm text-ink">
+              {username || user?.username}
+            </code>
+          </Field>
+          <Field>
+            <span className="text-sm font-semibold text-ink">Mật khẩu</span>
+            <code className="select-all border border-[var(--theme-border)] bg-surface-2 px-4 py-3 text-sm text-ink">
+              {generatedPassword}
+            </code>
+          </Field>
+          <Button type="button" onClick={() => router.push('/dashboard/admin')}>
+            Về danh sách
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex max-w-2xl flex-col gap-5">
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Mã nhân viên</label>
-          <input value={employeeCode ?? ''} onChange={(e) => setEmployeeCode(e.target.value)} className={inputClass} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Username</label>
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            disabled={mode === 'edit'}
-            className={`${inputClass} disabled:bg-surface-2 disabled:text-muted`}
-          />
-        </div>
-      </div>
+    <form onSubmit={handleSubmit} className="flex max-w-4xl flex-col gap-8">
+      <FieldSet>
+        <FieldLegend>Tài khoản</FieldLegend>
+        <FieldDescription>Thông tin định danh dùng để đăng nhập và hiển thị trong hệ thống.</FieldDescription>
+        <FieldGroup className={fieldGridClass}>
+          <Field>
+            <FieldLabel htmlFor="employee-code">Mã nhân viên</FieldLabel>
+            <Input id="employee-code" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="username">Username</FieldLabel>
+            <Input
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              disabled={mode === 'edit'}
+              autoComplete="username"
+            />
+          </Field>
+          <Field className="sm:col-span-2">
+            <FieldLabel htmlFor="full-name">Họ tên</FieldLabel>
+            <Input id="full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+          </Field>
+          {mode === 'edit' && (
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 sm:col-span-2">
+              <Checkbox checked={isActive} onCheckedChange={(checked) => setIsActive(checked === true)} />
+              <span className="text-sm font-semibold text-ink">Tài khoản đang hoạt động</span>
+            </label>
+          )}
+        </FieldGroup>
+      </FieldSet>
 
-      <div className="flex flex-col gap-1.5">
-        <label className={labelClass}>Họ tên</label>
-        <input value={fullName} onChange={(e) => setFullName(e.target.value)} required className={inputClass} />
-      </div>
+      <FieldSet className="border-t border-[var(--theme-border)] pt-6">
+        <FieldLegend>Phân quyền</FieldLegend>
+        <FieldDescription>Khối và cấp quyết định phạm vi nội dung mà nhân sự có thể truy cập.</FieldDescription>
+        <FieldGroup className={fieldGridClass}>
+          <Field>
+            <FieldLabel htmlFor="department">Khối</FieldLabel>
+            <NativeSelect
+              id="department"
+              value={department}
+              onChange={(e) => handleDepartmentChange(e.target.value as Department)}
+              containerClassName="w-full"
+            >
+              {DEPARTMENTS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+            </NativeSelect>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="tier">Cấp</FieldLabel>
+            <NativeSelect
+              id="tier"
+              value={tier}
+              onChange={(e) => setTier(e.target.value as Tier)}
+              containerClassName="w-full"
+            >
+              {allowedTiers.map((item) => <option key={item} value={item}>{tierLabel(item)}</option>)}
+            </NativeSelect>
+          </Field>
+          <Field className="sm:col-span-2">
+            <FieldLabel htmlFor="team-label">Team hiển thị</FieldLabel>
+            <Input id="team-label" value={teamLabel} onChange={(e) => setTeamLabel(e.target.value)} placeholder="Ví dụ: KD1" />
+            <FieldDescription>Trường này chỉ dùng để hiển thị, không dùng để phân quyền.</FieldDescription>
+          </Field>
+        </FieldGroup>
+      </FieldSet>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Khối</label>
-          <select
-            value={department}
-            onChange={(e) => handleDepartmentChange(e.target.value as Department)}
-            className={inputClass}
-          >
-            {DEPARTMENTS.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Cấp</label>
-          <select value={tier} onChange={(e) => setTier(e.target.value as Tier)} className={inputClass}>
-            {allowedTiers.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label className={labelClass}>Team (hiển thị, vd &quot;KD1&quot;) — không dùng để phân quyền</label>
-        <input value={teamLabel ?? ''} onChange={(e) => setTeamLabel(e.target.value)} className={inputClass} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Email cá nhân</label>
-          <input
-            type="email"
-            value={personalEmail ?? ''}
-            onChange={(e) => setPersonalEmail(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Điện thoại</label>
-          <input value={phone ?? ''} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
-        </div>
-      </div>
+      <FieldSet className="border-t border-[var(--theme-border)] pt-6">
+        <FieldLegend>Liên hệ</FieldLegend>
+        <FieldGroup className={fieldGridClass}>
+          <Field>
+            <FieldLabel htmlFor="personal-email">Email cá nhân</FieldLabel>
+            <Input id="personal-email" type="email" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} autoComplete="email" />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="phone">Điện thoại</FieldLabel>
+            <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
+          </Field>
+        </FieldGroup>
+      </FieldSet>
 
       {mode === 'edit' && (
-        <div className="mt-2 border-t border-navy/15 pt-5">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted">Ảnh đại diện</p>
-          <div className="flex items-center gap-5">
-            {avatarUrl ? (
-              <Image
-                src={avatarUrl}
-                alt={fullName}
-                width={72}
-                height={72}
-                className="h-[72px] w-[72px] rounded-full border border-navy/15 object-cover"
-              />
-            ) : (
-              <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-navy/15 bg-surface-2 text-xs text-muted">
-                Chưa có
-              </div>
-            )}
-            <div className="flex flex-col gap-1.5">
+        <FieldSet className="border-t border-[var(--theme-border)] pt-6">
+          <FieldLegend>Ảnh đại diện</FieldLegend>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <Avatar className="size-[72px] border border-[var(--theme-border)]">
+              {avatarUrl ? (
+                <Image src={avatarUrl} alt={fullName} width={72} height={72} className="size-full object-cover" />
+              ) : (
+                <AvatarFallback>Chưa có</AvatarFallback>
+              )}
+            </Avatar>
+            <div className="grid gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 disabled={isUploadingAvatar}
                 onChange={handleAvatarChange}
-                className="text-sm text-ink file:mr-3 file:border-0 file:bg-navy file:px-4 file:py-2 file:text-xs file:font-semibold file:uppercase file:tracking-wide file:text-white hover:file:bg-gold hover:file:text-navy"
+                className="hidden"
               />
-              <span className="text-xs text-muted">JPEG, PNG hoặc WebP, tối đa 5MB.</span>
-              {isUploadingAvatar && <span className="text-xs text-blue">Đang tải lên…</span>}
-              {avatarError && <span className="text-xs text-red-600">{avatarError}</span>}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isUploadingAvatar}
+                onClick={() => fileInputRef.current?.click()}
+                className="w-fit"
+              >
+                <Camera aria-hidden="true" />
+                {isUploadingAvatar ? 'Đang tải ảnh' : 'Chọn ảnh mới'}
+              </Button>
+              <FieldDescription>JPEG, PNG hoặc WebP, tối đa 5MB.</FieldDescription>
             </div>
           </div>
-        </div>
+          {avatarError && (
+            <Alert variant="destructive">
+              <AlertCircle aria-hidden="true" />
+              <AlertDescription>{avatarError}</AlertDescription>
+            </Alert>
+          )}
+        </FieldSet>
       )}
 
-      <div className="mt-2 border-t border-navy/15 pt-5">
-        <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted">Thông tin nhân sự</p>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Chức danh</label>
-            <input value={jobTitle ?? ''} onChange={(e) => setJobTitle(e.target.value)} className={inputClass} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Vị trí công việc</label>
-            <input
-              value={positionTitle ?? ''}
-              onChange={(e) => setPositionTitle(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Giới tính</label>
-            <select value={gender ?? ''} onChange={(e) => setGender(e.target.value)} className={inputClass}>
-              <option value="">—</option>
+      <FieldSet className="border-t border-[var(--theme-border)] pt-6">
+        <FieldLegend>Công việc</FieldLegend>
+        <FieldGroup className={fieldGridClass}>
+          <Field>
+            <FieldLabel htmlFor="job-title">Chức danh</FieldLabel>
+            <Input id="job-title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="position-title">Vị trí công việc</FieldLabel>
+            <Input id="position-title" value={positionTitle} onChange={(e) => setPositionTitle(e.target.value)} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="office">Văn phòng</FieldLabel>
+            <Input id="office" value={office} onChange={(e) => setOffice(e.target.value)} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="work-schedule">Lịch làm việc</FieldLabel>
+            <Input id="work-schedule" value={workSchedule} onChange={(e) => setWorkSchedule(e.target.value)} />
+          </Field>
+        </FieldGroup>
+      </FieldSet>
+
+      <FieldSet className="border-t border-[var(--theme-border)] pt-6">
+        <FieldLegend>Hồ sơ nhân sự</FieldLegend>
+        <FieldGroup className={fieldGridClass}>
+          <Field>
+            <FieldLabel htmlFor="gender">Giới tính</FieldLabel>
+            <NativeSelect id="gender" value={gender} onChange={(e) => setGender(e.target.value)} containerClassName="w-full">
+              <option value="">Chưa cập nhật</option>
               <option value="Nam">Nam</option>
               <option value="Nữ">Nữ</option>
               <option value="Khác">Khác</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Ngày sinh</label>
-            <input
-              type="date"
-              value={birthDate ?? ''}
-              onChange={(e) => setBirthDate(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Văn phòng</label>
-            <input value={office ?? ''} onChange={(e) => setOffice(e.target.value)} className={inputClass} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Ngày vào làm</label>
-            <input
-              type="date"
-              value={startDate ?? ''}
-              onChange={(e) => setStartDate(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Lịch làm việc</label>
-            <input
-              value={workSchedule ?? ''}
-              onChange={(e) => setWorkSchedule(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Trạng thái</label>
-            <input
-              value={employmentStatus ?? ''}
-              onChange={(e) => setEmploymentStatus(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Phân loại nhân sự</label>
-            <input
-              value={employmentType ?? ''}
-              onChange={(e) => setEmploymentType(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Chính sách lương</label>
-            <input
-              value={salaryPolicy ?? ''}
-              onChange={(e) => setSalaryPolicy(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Ngày chính thức</label>
-            <input
-              type="date"
-              value={confirmationDate ?? ''}
-              onChange={(e) => setConfirmationDate(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-        </div>
-      </div>
+            </NativeSelect>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="birth-date">Ngày sinh</FieldLabel>
+            <Input id="birth-date" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="start-date">Ngày vào làm</FieldLabel>
+            <Input id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="confirmation-date">Ngày chính thức</FieldLabel>
+            <Input id="confirmation-date" type="date" value={confirmationDate} onChange={(e) => setConfirmationDate(e.target.value)} />
+          </Field>
+        </FieldGroup>
+      </FieldSet>
 
-      {mode === 'edit' && (
-        <label className="flex items-center gap-2 text-sm font-semibold text-ink">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-          Tài khoản đang hoạt động
-        </label>
+      <FieldSet className="border-t border-[var(--theme-border)] pt-6">
+        <FieldLegend>Chính sách nhân sự</FieldLegend>
+        <FieldGroup className={fieldGridClass}>
+          <Field>
+            <FieldLabel htmlFor="employment-status">Trạng thái nhân sự</FieldLabel>
+            <Input id="employment-status" value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value)} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="employment-type">Phân loại nhân sự</FieldLabel>
+            <Input id="employment-type" value={employmentType} onChange={(e) => setEmploymentType(e.target.value)} />
+          </Field>
+          <Field className="sm:col-span-2">
+            <FieldLabel htmlFor="salary-policy">Chính sách lương</FieldLabel>
+            <Input id="salary-policy" value={salaryPolicy} onChange={(e) => setSalaryPolicy(e.target.value)} />
+          </Field>
+        </FieldGroup>
+      </FieldSet>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle aria-hidden="true" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <div className="mt-2 flex flex-wrap gap-4">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="bg-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition-all duration-300 hover:bg-gold hover:text-navy hover:shadow-[0_0_24px_-4px_rgba(245,166,35,0.6)] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isPending ? 'Đang lưu…' : mode === 'create' ? 'Tạo user' : 'Lưu thay đổi'}
-        </button>
+      <div className="flex flex-col-reverse gap-3 border-t border-[var(--theme-border)] pt-6 sm:flex-row">
+        <Button type="submit" disabled={isPending}>
+          {isPending ? 'Đang lưu' : mode === 'create' ? 'Tạo tài khoản' : 'Lưu thay đổi'}
+        </Button>
         {mode === 'edit' && (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={handleResetPassword}
-            className="border border-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-navy transition hover:bg-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button type="button" variant="outline" disabled={isPending} onClick={handleResetPassword}>
+            <KeyRound aria-hidden="true" />
             Đặt lại mật khẩu
-          </button>
+          </Button>
         )}
       </div>
     </form>

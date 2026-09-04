@@ -154,7 +154,10 @@ export default function CurvedScrollList({
   return (
     <div
       ref={containerRef}
-      className={cn('relative flex flex-col overflow-hidden rounded-[28px] border border-black/60 bg-white', className)}
+      className={cn(
+        'panel-lift relative flex flex-col overflow-hidden rounded-[var(--ui-radius-panel)] border border-black/60 bg-white',
+        className
+      )}
       style={style}
     >
       <div

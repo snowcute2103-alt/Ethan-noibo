@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -40,6 +41,7 @@ import {
   getAllTeamsOverviewAction,
   createTaskAction,
   updateTaskAction,
+  reorderTasksAction,
   deleteTaskAction,
   duplicateTasksToDatesAction,
   bulkDuplicateTasksAction,
@@ -56,6 +58,15 @@ import {
 // Site không có hạ tầng WebSocket/pub-sub — khớp khoảng polling đã có tiền lệ
 // ở sticky-board.tsx (2.5 phút) thay vì bịa một con số mới không nhất quán.
 const POLL_INTERVAL_MS = 150_000;
+
+// Cùng công thức spring với PersonalKanbanCard (personal-task-board.tsx) —
+// dùng lại 1 "cảm giác" chuyển động nhất quán cho mọi thao tác kéo-thả trong
+// dashboard thay vì mỗi nơi 1 kiểu.
+const DRAG_SPRING_TRANSITION = { type: 'spring', stiffness: 500, damping: 34, mass: 0.7 } as const;
+
+// Ảnh 1x1 trong suốt — gán làm dragImage để ẩn ảnh bóng mờ mặc định của trình
+// duyệt khi kéo, nhường chỗ cho thẻ nổi tự vẽ (bám theo con trỏ) mượt hơn.
+const TRANSPARENT_DRAG_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7';
 
 interface DateRange {
   fromDate: string;
@@ -670,6 +681,35 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     });
   }
 
+  /** Kéo-thả đổi thứ tự task trong bảng (xem TaskTable) — chỉ đổi `sortOrder`,
+   *  không đụng tới đếm/biểu đồ nên không cần đi qua reconcileBoardTasks như
+   *  các thao tác đổi trạng thái/tạo/sửa task. `orderedTaskIds` đã là ID theo
+   *  đúng thứ tự hiển thị mới của 1 nhóm (cùng người phụ trách). */
+  function reorderTasksOptimistically(orderedTaskIds: number[]) {
+    if (!board) return;
+    const teamId = board.team.id;
+    const orderMap = new Map(orderedTaskIds.map((id, index) => [id, index]));
+    const previousOrders = new Map(board.tasks.filter((task) => orderMap.has(task.id)).map((task) => [task.id, task.sortOrder]));
+
+    setError(null);
+    setBoard((current) =>
+      current
+        ? { ...current, tasks: current.tasks.map((task) => (orderMap.has(task.id) ? { ...task, sortOrder: orderMap.get(task.id)! } : task)) }
+        : current
+    );
+
+    startTransition(() => {
+      reorderTasksAction(teamId, orderedTaskIds).catch((err) => {
+        setBoard((current) =>
+          current
+            ? { ...current, tasks: current.tasks.map((task) => (previousOrders.has(task.id) ? { ...task, sortOrder: previousOrders.get(task.id)! } : task)) }
+            : current
+        );
+        setError(err instanceof Error ? err.message : 'Không thể lưu thứ tự task.');
+      });
+    });
+  }
+
   function createTaskOptimistically(input: TaskInput) {
     if (!board) return;
     const teamId = board.team.id;
@@ -701,6 +741,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       originalTaskDate: null,
       rolledOverAt: null,
       status: input.status ?? 'not_started',
+      sortOrder: 0,
       duplicatedFromTaskId: null,
       createdBy: null,
       createdByFullName: null,
@@ -946,6 +987,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                   allMembers={board.team.members}
                   products={board.products}
                   onUpdate={updateTaskOptimistically}
+                  onReorder={reorderTasksOptimistically}
                   onBulkDelete={(taskIds) => {
                     const removedTasks = board.tasks.filter((task) => taskIds.includes(task.id));
                     runAction(
@@ -1436,6 +1478,20 @@ function HorizontalScrollBar({ targetRef }: { targetRef: React.RefObject<HTMLDiv
   );
 }
 
+/** Nắm kéo 6 chấm kiểu Notion — tự vẽ SVG thay vì thêm icon thư viện mới. */
+function DragHandleIcon() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+      <circle cx="2.5" cy="2" r="1.4" />
+      <circle cx="7.5" cy="2" r="1.4" />
+      <circle cx="2.5" cy="8" r="1.4" />
+      <circle cx="7.5" cy="8" r="1.4" />
+      <circle cx="2.5" cy="14" r="1.4" />
+      <circle cx="7.5" cy="14" r="1.4" />
+    </svg>
+  );
+}
+
 function TaskTable({
   tasks,
   visibleColumns,
@@ -1443,6 +1499,7 @@ function TaskTable({
   allMembers,
   products,
   onUpdate,
+  onReorder,
   onBulkDelete,
   allowBulkPattern,
   onBulkDuplicateDates,
@@ -1462,6 +1519,7 @@ function TaskTable({
   allMembers: TeamMember[];
   products: string[];
   onUpdate: (taskId: number, input: TaskInput) => void;
+  onReorder: (orderedTaskIds: number[]) => void;
   onBulkDelete: (taskIds: number[]) => void;
   allowBulkPattern: boolean;
   onBulkDuplicateDates: (taskIds: number[], dates: string[], assigneeUserIds: number[]) => Promise<void>;
@@ -1493,21 +1551,108 @@ function TaskTable({
   // 1 màu nhất quán ở mọi nơi trên trang.
   const colorMap = useMemo(() => assigneeColorMap(allMembers), [allMembers]);
   const nameOrder = useMemo(() => Array.from(colorMap.keys()), [colorMap]);
+  // Dùng chung cho cả sắp thứ tự hiển thị lẫn giới hạn phạm vi kéo-thả (chỉ
+  // cho kéo trong đúng 1 nhóm người phụ trách — xem handleRowDrop bên dưới).
+  const orderOf = (name: string | null) => {
+    if (!name) return nameOrder.length;
+    const idx = nameOrder.indexOf(name);
+    return idx === -1 ? nameOrder.length : idx;
+  };
   const sortedTasks = useMemo(() => {
-    const orderOf = (name: string | null) => {
-      if (!name) return nameOrder.length;
-      const idx = nameOrder.indexOf(name);
-      return idx === -1 ? nameOrder.length : idx;
-    };
-    // So le theo `id` khi cùng người phụ trách — chặn đứng việc dòng vừa lưu
-    // nhảy vị trí: `tasks` đến từ 1 Map trong reconcileBoardTasks, thứ tự lặp
-    // của Map đổi theo lần chèn/xoá key gần nhất, nên nếu chỉ so `orderOf` (2
-    // dòng cùng người ra 0 - 0, coi như bằng nhau) thì Array.sort dù stable
-    // vẫn giữ nguyên thứ tự "tình cờ" đó của mảng đầu vào, dòng vừa sửa xong
-    // dễ bị đẩy lên đầu/xuống cuối nhóm. Thêm id làm tiêu chí phụ để thứ tự
-    // hiển thị luôn cố định, không phụ thuộc mảng gốc đến theo trật tự nào.
-    return [...tasks].sort((a, b) => orderOf(a.assigneeFullName) - orderOf(b.assigneeFullName) || a.id - b.id);
+    // So le theo `sortOrder` rồi `id` khi cùng người phụ trách — chặn đứng
+    // việc dòng vừa lưu nhảy vị trí: `tasks` đến từ 1 Map trong
+    // reconcileBoardTasks, thứ tự lặp của Map đổi theo lần chèn/xoá key gần
+    // nhất, nên nếu chỉ so `orderOf` (2 dòng cùng người ra 0 - 0, coi như bằng
+    // nhau) thì Array.sort dù stable vẫn giữ nguyên thứ tự "tình cờ" đó của
+    // mảng đầu vào, dòng vừa sửa xong dễ bị đẩy lên đầu/xuống cuối nhóm.
+    // `sortOrder` (đổi khi kéo-thả) đứng trước, `id` chỉ là tie-break cuối
+    // cùng cho các task chưa từng bị kéo (sortOrder mặc định bằng nhau = 0).
+    return [...tasks].sort(
+      (a, b) => orderOf(a.assigneeFullName) - orderOf(b.assigneeFullName) || a.sortOrder - b.sortOrder || a.id - b.id
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, nameOrder]);
+
+  // Kéo-thả đổi thứ tự (Giống Notion): nắm ⠿ chỉ hiện khi hover hàng, kéo
+  // được giới hạn trong đúng 1 nhóm người phụ trách (khối màu liền nhau) để
+  // không phá vỡ cách nhóm đang có. Chỉ vẽ 1 gạch chỉ-thị inset (không đổi
+  // chiều cao dòng) tại hàng đang hover tới — không hàng nào thật sự đổi vị
+  // trí cho tới khi thả tay, nên không có cảnh dòng "nhảy" qua lại lúc kéo.
+  // `dragPoint` + thẻ nổi bám con trỏ (render ở cuối component) và
+  // `justMovedTaskId` (chớp nhẹ hàng vừa thả) giúp thao tác rõ ràng, mượt hơn
+  // ảnh bóng mờ mặc định của trình duyệt.
+  const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ taskId: number; edge: 'top' | 'bottom' } | null>(null);
+  const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
+  const [justMovedTaskId, setJustMovedTaskId] = useState<number | null>(null);
+  const justMovedTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (justMovedTimeoutRef.current != null) window.clearTimeout(justMovedTimeoutRef.current);
+    };
+  }, []);
+
+  function handleHandleDragStart(e: React.DragEvent<HTMLButtonElement>, task: Task) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(task.id));
+    // Ẩn ảnh bóng mờ mặc định của trình duyệt — thẻ nổi tự vẽ bên dưới (bám
+    // theo con trỏ) đảm nhiệm phần phản hồi khi kéo, mượt hơn nhiều.
+    const dragImg = new window.Image();
+    dragImg.src = TRANSPARENT_DRAG_IMAGE;
+    e.dataTransfer.setDragImage(dragImg, 0, 0);
+    setDraggingTaskId(task.id);
+    setDragPoint({ x: e.clientX, y: e.clientY });
+  }
+
+  function handleHandleDrag(e: React.DragEvent<HTMLButtonElement>) {
+    // Sự kiện `drag` cuối cùng (lúc thả) trình duyệt trả toạ độ (0,0) — bỏ
+    // qua để thẻ nổi không giật về góc màn hình ngay trước khi biến mất.
+    if (e.clientX === 0 && e.clientY === 0) return;
+    setDragPoint({ x: e.clientX, y: e.clientY });
+  }
+
+  function handleDragEnd() {
+    setDraggingTaskId(null);
+    setDropTarget(null);
+    setDragPoint(null);
+  }
+
+  function handleRowDragOver(e: React.DragEvent<HTMLTableRowElement>, task: Task) {
+    if (draggingTaskId == null || draggingTaskId === task.id) return;
+    const draggingTask = sortedTasks.find((t) => t.id === draggingTaskId);
+    if (!draggingTask || orderOf(draggingTask.assigneeFullName) !== orderOf(task.assigneeFullName)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const edge: 'top' | 'bottom' = e.clientY - rect.top < rect.height / 2 ? 'top' : 'bottom';
+    setDropTarget((current) => (current?.taskId === task.id && current.edge === edge ? current : { taskId: task.id, edge }));
+  }
+
+  function handleRowDrop(e: React.DragEvent<HTMLTableRowElement>, task: Task) {
+    e.preventDefault();
+    const dragged = sortedTasks.find((t) => t.id === draggingTaskId);
+    const target = dropTarget;
+    setDraggingTaskId(null);
+    setDropTarget(null);
+    setDragPoint(null);
+    if (!dragged || !target || target.taskId !== task.id) return;
+    const groupKey = orderOf(dragged.assigneeFullName);
+    if (orderOf(task.assigneeFullName) !== groupKey) return;
+    const groupIds = sortedTasks.filter((t) => orderOf(t.assigneeFullName) === groupKey).map((t) => t.id);
+    const withoutDragged = groupIds.filter((id) => id !== dragged.id);
+    const targetIndex = withoutDragged.indexOf(task.id);
+    const insertIndex = target.edge === 'top' ? targetIndex : targetIndex + 1;
+    const nextOrder = [...withoutDragged];
+    nextOrder.splice(insertIndex, 0, dragged.id);
+    if (nextOrder.every((id, i) => id === groupIds[i])) return;
+    onReorder(nextOrder);
+    // Chớp nhẹ hàng vừa thả ~900ms để người dùng thấy rõ đúng task nào vừa
+    // đổi chỗ, đặc biệt hữu ích khi thả xong hàng nhảy khá xa vị trí cũ.
+    if (justMovedTimeoutRef.current != null) window.clearTimeout(justMovedTimeoutRef.current);
+    setJustMovedTaskId(dragged.id);
+    justMovedTimeoutRef.current = window.setTimeout(() => setJustMovedTaskId(null), 900);
+  }
 
   // Mỗi sản phẩm 1 màu ổn định, dùng chung giữa ô hiển thị và ô chọn khi sửa.
   const productColorMap = useMemo(() => distinctColorMap(products), [products]);
@@ -1583,8 +1728,8 @@ function TaskTable({
       <div ref={scrollRef} className="scrollbar-hide overflow-x-auto">
         <table className="w-full min-w-[1000px] table-fixed border-collapse text-left text-sm">
           <colgroup>
-            <col style={{ width: 44 }} />
-            <col style={{ width: 160 }} />
+            <col style={{ width: 64 }} />
+            <col style={{ width: 80 }} />
             <col style={{ width: 130 }} />
             {leadingColumns.map((key) => (
               <col key={key} style={{ width: COLUMN_WIDTH_PX[key] }} />
@@ -1603,7 +1748,7 @@ function TaskTable({
           </colgroup>
           <thead className="border-b-2 border-cyan/30 bg-gradient-to-r from-gold/10 via-white to-cyan/10 text-xs font-bold uppercase tracking-wider text-ink">
             <tr className="divide-x divide-[#e8edf5]">
-              <th className="px-3 py-3">
+              <th className="py-3 pl-6 pr-3">
                 <input
                   ref={selectAllRef}
                   type="checkbox"
@@ -1666,12 +1811,37 @@ function TaskTable({
                   onSubmit={(input) => onUpdate(task.id, input)}
                 />
               ) : (
-                <tr
+                <motion.tr
                   key={task.id}
-                  className="task-row-tint divide-x divide-[#edf1f7] transition-[filter] hover:brightness-95"
+                  layout
+                  transition={DRAG_SPRING_TRANSITION}
+                  onDragOver={(e) => handleRowDragOver(e, task)}
+                  onDrop={(e) => handleRowDrop(e, task)}
+                  className={`group/row task-row-tint divide-x divide-[#edf1f7] transition-[filter,box-shadow] duration-300 hover:brightness-95 ${
+                    draggingTaskId === task.id ? 'opacity-40' : ''
+                  } ${dropTarget?.taskId === task.id && dropTarget.edge === 'top' ? 'shadow-[inset_0_2px_0_0_var(--blue)]' : ''} ${
+                    dropTarget?.taskId === task.id && dropTarget.edge === 'bottom' ? 'shadow-[inset_0_-2px_0_0_var(--blue)]' : ''
+                  } ${justMovedTaskId === task.id ? 'shadow-[inset_0_0_0_2px_var(--blue)]' : ''}`}
                   style={{ '--tint-color': rowColor } as React.CSSProperties}
                 >
-                  <td className="px-3 py-2.5" style={{ borderLeft: `3px solid ${rowColor}` }}>
+                  <td className="relative py-2.5 pl-6 pr-3" style={{ borderLeft: `3px solid ${rowColor}` }}>
+                    {/* Nắm kéo nổi trong chính ô này (không chiếm riêng 1 cột) — icon canh
+                        SÁT TRÁI trong nút (justify-start), đứng NGAY SAU vạch màu (left-0,
+                        không lệch âm) chứ không đè lên vạch: đè lên vạch làm 3 chấm cột trái
+                        chìm vào màu vạch, khó thấy. Cột checkbox nới rộng (64px, colgroup) +
+                        pl-6 đẩy checkbox vào trong, chừa khoảng trống rõ ràng cho icon. */}
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(e) => handleHandleDragStart(e, task)}
+                      onDrag={handleHandleDrag}
+                      onDragEnd={handleDragEnd}
+                      aria-label="Kéo để đổi vị trí task"
+                      title="Kéo để đổi vị trí"
+                      className="task-drag-handle pointer-events-none absolute left-0 top-1/2 z-10 flex h-6 w-4 -translate-y-1/2 cursor-grab items-center justify-start rounded text-muted opacity-0 transition-opacity duration-150 group-hover/row:pointer-events-auto group-hover/row:opacity-100 hover:bg-surface-2 hover:text-navy active:cursor-grabbing"
+                    >
+                      <DragHandleIcon />
+                    </button>
                     <input
                       type="checkbox"
                       checked={selectedTaskIds.has(task.id)}
@@ -1758,7 +1928,7 @@ function TaskTable({
                     </button>
                   </td>
                   <td className="px-3 py-2.5" />
-                </tr>
+                </motion.tr>
               );
             })}
           </tbody>
@@ -1787,6 +1957,24 @@ function TaskTable({
         />
       )}
       {confettiNode}
+      {/* Thẻ nổi bám theo con trỏ trong lúc kéo — che ảnh bóng mờ mặc định của
+          trình duyệt (đã vô hiệu bằng TRANSPARENT_DRAG_IMAGE ở handleHandleDragStart),
+          cùng kiểu với thẻ nổi khi kéo task Kanban ở personal-task-board.tsx. */}
+      <AnimatePresence>
+        {draggingTaskId != null && dragPoint && (
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none fixed z-[999] max-w-xs truncate rounded-[10px] border border-[#e8edf5] bg-white px-3 py-2 text-sm font-semibold text-navy shadow-[0_24px_48px_-12px_rgba(16,26,48,0.35)]"
+            style={{ left: dragPoint.x, top: dragPoint.y }}
+            initial={{ opacity: 0, scale: 1, x: '-50%', y: '-50%' }}
+            animate={{ opacity: 0.96, scale: 1.05, x: '-50%', y: '-50%' }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={DRAG_SPRING_TRANSITION}
+          >
+            {sortedTasks.find((t) => t.id === draggingTaskId)?.title ?? ''}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

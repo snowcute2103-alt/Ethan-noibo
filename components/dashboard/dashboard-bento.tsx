@@ -101,7 +101,7 @@ function BentoCard({
     <Link
       href={href}
       style={{ '--glow-color': 'rgba(245, 166, 35, 0.3)', animationDelay: `${index * 80}ms` } as React.CSSProperties}
-      className={`card-glow animate-fade-up group relative flex flex-col justify-between overflow-hidden border border-white/10 bg-white/[0.02] p-8 transition-colors duration-300 hover:border-white/25 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gold-2/40 ${className}`}
+      className={`card-glow animate-fade-up group relative flex flex-col justify-between overflow-hidden rounded-[var(--ui-radius-panel)] border border-white/10 bg-white/[0.02] p-8 transition-colors duration-300 ease-[var(--theme-ease)] hover:border-white/25 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gold-2/40 ${className}`}
     >
       {children}
     </Link>
@@ -152,7 +152,7 @@ export default function DashboardBento({
     <BorderBeamPanel
       beams={2}
       thickness={2}
-      radius={0}
+      radius={28}
       glow
       onMouseEnter={() => {
         if (birthdayHoveredRef.current) return;
@@ -212,7 +212,7 @@ export default function DashboardBento({
       <button
         type="button"
         onClick={() => setBirthdayOpen(true)}
-        className="group/more relative z-30 mt-4 flex min-h-11 w-fit cursor-pointer items-center gap-2 border border-gold/50 bg-navy-deep px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_-18px_rgba(16,26,48,0.85)] transition-[background-color,border-color] duration-200 hover:border-gold-2 hover:bg-navy active:bg-navy-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
+        className="group/more relative z-30 mt-4 flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-full border border-gold/50 bg-navy-deep px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_-18px_rgba(16,26,48,0.85)] transition-[background-color,border-color,transform] duration-200 ease-[var(--theme-ease)] hover:border-gold-2 hover:bg-navy hover:-translate-y-0.5 active:bg-navy-2 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
       >
         Xem ai sinh nhật tháng này
         <ArrowUpRight size={16} strokeWidth={2.5} className="birthday-cta-arrow text-gold-2" aria-hidden="true" />
@@ -233,7 +233,7 @@ export default function DashboardBento({
     <BorderBeamPanel
       beams={2}
       thickness={2}
-      radius={0}
+      radius={28}
       glow
       colors={['#00D2FF', '#F5A623']}
       className="animate-fade-up flex min-h-[340px] flex-col justify-between p-8"
@@ -284,7 +284,7 @@ export default function DashboardBento({
             {headcount && orgArticle && (
               <BentoCard href={`/dashboard/van-hoa#${orgArticle.id}`} index={0} className="min-h-[280px]">
                 <svg
-                  className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 opacity-20 blur-2xl transition-opacity duration-300 group-hover:opacity-30"
+                  className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 opacity-[0.15] blur-3xl transition-opacity duration-300 ease-[var(--theme-ease)] group-hover:opacity-25"
                   viewBox="0 0 200 200"
                   aria-hidden="true"
                 >
@@ -387,13 +387,13 @@ export default function DashboardBento({
                   className="min-h-[340px] sm:flex-row sm:items-center sm:gap-8"
                 >
                   <svg
-                    className="pointer-events-none absolute -right-14 -top-14 h-60 w-60 opacity-20 blur-2xl transition-opacity duration-300 group-hover:opacity-30"
+                    className="pointer-events-none absolute -right-14 -top-14 h-60 w-60 opacity-[0.15] blur-3xl transition-opacity duration-300 ease-[var(--theme-ease)] group-hover:opacity-25"
                     viewBox="0 0 200 200"
                     aria-hidden="true"
                   >
                     <circle cx="100" cy="100" r="100" fill="#7C6CF0" />
                   </svg>
-                  <div className="relative h-44 w-full shrink-0 overflow-hidden border border-white/10 sm:h-full sm:w-56">
+                  <div className="relative h-44 w-full shrink-0 overflow-hidden rounded-2xl border border-white/10 sm:h-full sm:w-56">
                     <Image
                       src={CULTURE_ARTICLE_IMAGE[cultureArticle.id]}
                       alt=""

@@ -39,6 +39,7 @@ export interface Task {
   originalTaskDate: string | null;
   rolledOverAt: string | null;
   status: TaskStatus;
+  sortOrder: number;
   duplicatedFromTaskId: number | null;
   createdBy: number | null;
   createdByFullName: string | null;
@@ -110,7 +111,7 @@ export interface PersonalTaskDetail {
 const TASK_SELECT_CORE = `
   t.id, t.team_id, t.owner_user_id, t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.assignee_user_id,
   u.full_name AS assignee_full_name, u.avatar_url AS assignee_avatar_url, t.account_name, t.title, t.channel_name, t.channel, t.video_count,
-  t.product, t.option_tag, t.reference_link, t.note, t.status, t.duplicated_from_task_id,
+  t.product, t.option_tag, t.reference_link, t.note, t.status, t.sort_order, t.duplicated_from_task_id,
   t.description, t.image_url, t.priority, t.original_task_date::text AS original_task_date, t.rolled_over_at,
   t.created_by, cb.full_name AS created_by_full_name, cb.avatar_url AS created_by_avatar_url
 `;
@@ -158,6 +159,7 @@ function mapTaskRow(row: any): Task {
     originalTaskDate: row.original_task_date,
     rolledOverAt: row.rolled_over_at,
     status: row.status,
+    sortOrder: row.sort_order,
     duplicatedFromTaskId: row.duplicated_from_task_id,
     createdBy: row.created_by,
     createdByFullName: row.created_by_full_name,
@@ -288,6 +290,24 @@ export async function updateTask(taskId: number, teamId: number, patch: TaskPatc
   );
   if (!rows[0]) throw new Error('Không tìm thấy task.');
   return mapTaskRow(rows[0]);
+}
+
+/** Ghi lại thứ tự kéo-thả trong bảng Giao Task — `orderedTaskIds` là ID theo
+ *  đúng thứ tự hiển thị mới của 1 nhóm (thường là toàn bộ task của 1 người
+ *  phụ trách đang hiện trên bảng), set-based bằng 1 câu UPDATE duy nhất thay
+ *  vì lặp update từng dòng. team_id trong điều kiện WHERE chặn 1 quản lý đội
+ *  này gửi ID task của đội khác. */
+export async function reorderTasks(teamId: number, orderedTaskIds: number[]): Promise<void> {
+  if (orderedTaskIds.length === 0) return;
+  await sql.query(
+    `/* write */ WITH payload AS (
+       SELECT id, ord FROM unnest($2::int[]) WITH ORDINALITY AS r(id, ord)
+     )
+     UPDATE tasks t SET sort_order = payload.ord::int, updated_at = now()
+     FROM payload
+     WHERE t.id = payload.id AND t.team_id = $1`,
+    [teamId, orderedTaskIds]
+  );
 }
 
 export async function deleteTask(taskId: number, teamId: number): Promise<void> {

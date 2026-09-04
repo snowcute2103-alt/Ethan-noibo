@@ -1,6 +1,6 @@
 # Design System — Nội Bộ (Ethan Ecom)
 
-> **As-built reference**, captured from the current implementation in `app/`, `components/`, `lib/` on 2026-08-17.
+> **As-built reference**, captured from the current implementation in `app/`, `components/`, `lib/`; updated on 2026-09-04.
 > This documents decisions already made in code. Do not silently invert them — if a rule here is wrong or
 > intentionally changed, update this file in the same change.
 >
@@ -56,10 +56,11 @@ The hex values above describe the light-mode brand reference. Runtime colors use
 
 ## Typography
 
-- **`font-heading`** → Montserrat (500–800): headings, nav, buttons, hub card titles.
+- **`font-heading`** → Fahkwang (300–700): headings, nav, buttons, hub card titles.
 - **`font-body`** → Mulish (400–700): default body copy (set on `<body>`).
-- **`font-display`** → Playfair Display italic (500–700): editorial pull-quotes and culture headlines ("Câu chuyện Ethan" tone).
-- **Optional per-section type slots**, fallback to `--font-heading` when unset: `--font-rule-display`, `--font-rule-mono`, `--font-thongbao-display`, `--font-khenthuong-display`. Define one only if a section genuinely needs its own type personality (e.g. a monospace SOP table header); leave unset otherwise so it inherits Montserrat. None are currently defined — every section renders in Montserrat today, which is correct.
+- **`font-serif`** → Noto Serif (400–900, normal/italic): phần đọc dài và điểm nhấn biên tập của SOP.
+- **`font-baskerville`** → Libre Baskerville (400–700): lockup "Ethan Ecom" trong ParallaxHero.
+- **`font-script`** → Alex Brush (400): chữ trang trí trên vé sinh nhật.
 
 ## Corner Radius — two-tier system
 
@@ -119,6 +120,18 @@ Recognition chip    → shadow-[0_8px_24px_-16px_rgba(26,39,69,0.35)]
 }
 ```
 
+## Shared shadcn/Radix component layer
+
+`components.json` cấu hình shadcn theo style `new-york`, RSC/TypeScript và alias `@/components`, `@/lib`. Đây là lớp open-code được điều chỉnh theo nhận diện Ethan, không phải một theme shadcn độc lập phủ lên sản phẩm.
+
+- Dùng primitives trong `components/ui/` cho các control dùng chung: `Button`, `Input`, `Textarea`, `NativeSelect`, `Checkbox`, `Badge`, `Alert`, `Card`, `Field`, `Table`, `Skeleton`, `Empty`, `Avatar`, `Popover`, `DropdownMenu`, `Dialog`, `AlertDialog`, `Tooltip` và `Separator`.
+- Các overlay tương tác dùng Radix để giữ keyboard navigation, focus management, Escape-to-close và portal behavior nhất quán.
+- Màu component lấy từ semantic tokens `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `accent`, `destructive`, `success`, `input`, `ring`; không hard-code màu chỉ đúng ở light mode.
+- Control vận hành giữ bán kính `--ui-radius-control: 0`; card/dialog/popover dùng `--ui-radius-card`; panel nội dung lớn tiếp tục dùng `--ui-radius-panel`.
+- Touch target mặc định của button/control chính tối thiểu 44px. Size nhỏ chỉ dùng cho tác vụ phụ trong bảng dày dữ liệu và vẫn phải có tên truy cập được hoặc tooltip.
+- Form mới nhóm bằng `FieldSet`/`FieldLegend`, không đặt quá bốn field trong một nhóm nếu có thể tách thành cụm nghiệp vụ rõ ràng.
+- Bảng rộng được cuộn trong chính vùng table; không làm trang tổng thể bị tràn ngang trên mobile.
+
 ## Component Patterns by Content Type
 
 The portal deliberately renders 4 content types + urgent notices with **different card languages** — do not collapse them into one generic "card":
@@ -162,3 +175,4 @@ The portal deliberately renders 4 content types + urgent notices with **differen
 - [ ] No emojis as icons; `lucide-react` only.
 - [ ] Responsive at 375px / 768px / 1024px / 1440px, no horizontal scroll.
 - [ ] Focus states visible; `prefers-reduced-motion` respected for any new animation.
+- [ ] Control dùng chung ưu tiên primitive trong `components/ui/`; dialog/menu phá huỷ phải dùng `AlertDialog` thay cho `window.confirm`.

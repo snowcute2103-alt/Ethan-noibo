@@ -85,7 +85,7 @@ function ThongBaoCard({
       aria-hidden={!visible}
       tabIndex={visible ? 0 : -1}
       className={cn(
-        'theme-light-surface absolute left-1/2 top-1/2 flex flex-col items-start p-6 text-left text-navy transition-all duration-500 ease-in-out sm:p-7',
+        'theme-light-surface absolute left-1/2 top-1/2 flex flex-col items-start p-6 text-left text-navy transition-all duration-500 ease-[var(--theme-ease)] sm:p-7',
         !visible && 'pointer-events-none opacity-0',
         isCenter ? 'z-10 shadow-[0_20px_40px_-14px_rgba(16,26,48,0.45)]' : 'z-0'
       )}
@@ -93,7 +93,7 @@ function ThongBaoCard({
         width: cardSize,
         height: cardSize,
         background: cardColor,
-        clipPath: 'polygon(56px 0%, calc(100% - 56px) 0%, 100% 56px, 100% 100%, calc(100% - 56px) 100%, 56px 100%, 0 100%, 0 0)',
+        clipPath: 'polygon(28px 0%, calc(100% - 28px) 0%, 100% 28px, 100% 100%, calc(100% - 28px) 100%, 28px 100%, 0 100%, 0 0)',
         // Gộp cả scale vào chung 1 chuỗi transform — style inline sẽ đè mất class scale-*
         // của Tailwind nếu tách riêng, khiến hiệu ứng phóng to/nhỏ không chạy.
         transform: `
@@ -293,7 +293,7 @@ export default function ThongBaoSlideshow({
           <button
             type="button"
             onClick={() => move(-1)}
-            className="flex h-11 w-11 items-center justify-center border-2 border-navy/15 text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-navy/15 text-navy transition-[background-color,border-color,color,transform] duration-200 ease-[var(--theme-ease)] hover:-translate-y-0.5 hover:border-navy hover:bg-navy hover:text-white"
             aria-label="Thông báo trước"
           >
             <ChevronLeft size={20} />
@@ -301,7 +301,7 @@ export default function ThongBaoSlideshow({
           <button
             type="button"
             onClick={() => move(1)}
-            className="flex h-11 w-11 items-center justify-center border-2 border-navy/15 text-navy transition-colors hover:border-navy hover:bg-navy hover:text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-navy/15 text-navy transition-[background-color,border-color,color,transform] duration-200 ease-[var(--theme-ease)] hover:-translate-y-0.5 hover:border-navy hover:bg-navy hover:text-white"
             aria-label="Thông báo tiếp theo"
           >
             <ChevronRight size={20} />
@@ -327,7 +327,7 @@ export default function ThongBaoSlideshow({
                 type="button"
                 onClick={() => setOpenKey(null)}
                 aria-label="Đóng"
-                className="flex h-9 w-9 items-center justify-center border border-navy/15 bg-white text-navy/70 shadow-sm transition hover:border-navy hover:text-navy"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-navy/15 bg-white text-navy/70 shadow-sm transition duration-200 ease-[var(--theme-ease)] hover:border-navy hover:text-navy"
               >
                 <X size={16} strokeWidth={2.25} aria-hidden="true" />
               </button>

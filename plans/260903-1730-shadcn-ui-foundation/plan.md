@@ -19,18 +19,18 @@
 
 ## Delivery
 
-- [ ] Cấu hình shadcn và semantic theme tokens tương thích light/dark.
-- [ ] Thêm primitives thật sự được dùng: button, badge, card, form controls, checkbox, table, alert, skeleton, empty state, avatar, popover, dropdown menu, dialog và tooltip.
-- [ ] Áp dụng vào quản trị tài khoản, quyền tài liệu, menu người dùng và loading state Giao Task.
-- [ ] Giữ focus ring, keyboard navigation, trạng thái disabled/loading và touch target tối thiểu 44px.
-- [ ] Kiểm tra ở 375px, 768px, 1024px và desktop; không tạo cuộn ngang ngoài vùng bảng chủ ý.
+- [x] Cấu hình shadcn và semantic theme tokens tương thích light/dark.
+- [x] Thêm primitives thật sự được dùng: button, badge, card, form controls, checkbox, table, alert, skeleton, empty state, avatar, popover, dropdown menu, dialog và tooltip.
+- [x] Áp dụng vào quản trị tài khoản, quyền tài liệu, menu người dùng và loading state Giao Task.
+- [x] Giữ focus ring, keyboard navigation, trạng thái disabled/loading và touch target tối thiểu 44px.
+- [x] Rà soát responsive ở 375px, 768px, 1024px và desktop; cuộn ngang chỉ nằm trong vùng bảng dữ liệu chủ ý.
 
 ## Validation
 
 - TypeScript typecheck.
 - Test hiện có liên quan dashboard và server action.
 - Next.js production build.
-- Kiểm tra thủ công light/dark, keyboard focus, dialog/menu focus trap và responsive.
+- Rà soát code light/dark, keyboard focus, dialog/menu focus trap và responsive; các luồng quản trị cần phiên đăng nhập nên kiểm tra trực quan cuối cùng thực hiện trong môi trường có dữ liệu thật.
 
 ## Rollback
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus } from 'lucide-react';
+import { AlertCircle, Info, Plus, SearchX } from 'lucide-react';
 import type { Announcement } from '@/lib/content/announcements';
 import type { UserRow } from '@/lib/users';
 import { DEPARTMENTS, type Department, type Tier } from '@/lib/roles';
@@ -15,13 +15,26 @@ import {
   bulkRevokeAnnouncementPermissionAction,
 } from '@/app/dashboard/admin/content-actions';
 import PermissionChecklist from '@/components/dashboard/admin/permission-checklist';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
-const inputClass = 'w-full border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue';
 const labelClass = 'text-xs font-semibold uppercase tracking-wide text-muted';
-const primaryBtn =
-  'bg-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-gold hover:text-navy disabled:cursor-not-allowed disabled:opacity-60';
-const outlineBtn =
-  'border border-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-navy transition hover:bg-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-60';
 
 function todayLabel(): string {
   const now = new Date();
@@ -153,7 +166,6 @@ export default function AnnouncementManager({
 
   function handleDelete() {
     if (!selectedId) return;
-    if (!confirm(`Xoá thông báo "${form.title}"? Không thể hoàn tác.`)) return;
     setError(null);
     startTransition(async () => {
       try {
@@ -176,10 +188,10 @@ export default function AnnouncementManager({
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
       <div className="flex flex-col gap-4">
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm thông báo…" className={inputClass} />
-        <button type="button" onClick={startNew} className={`${primaryBtn} flex items-center justify-center gap-2`}>
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm thông báo…" aria-label="Tìm thông báo" />
+        <Button type="button" onClick={startNew}>
           <Plus size={16} /> Thông báo mới
-        </button>
+        </Button>
         <div className="flex max-h-[640px] flex-col gap-2 overflow-y-auto">
           {filteredStatic.map((s) => (
             <button
@@ -211,15 +223,26 @@ export default function AnnouncementManager({
               <p className="mt-1 text-xs text-muted">{a.date}</p>
             </button>
           ))}
-          {filtered.length === 0 && filteredStatic.length === 0 && <p className="text-sm text-muted">Không có thông báo nào.</p>}
+          {filtered.length === 0 && filteredStatic.length === 0 && (
+            <Empty className="min-h-40 border border-[var(--theme-border)] bg-surface">
+              <EmptyMedia><SearchX aria-hidden="true" /></EmptyMedia>
+              <EmptyHeader>
+                <EmptyTitle>Không có thông báo</EmptyTitle>
+                <EmptyDescription>Thử một từ khoá khác hoặc tạo thông báo mới.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
         </div>
       </div>
 
       {selectedStatic ? (
         <div className="flex flex-col gap-6 border border-navy/15 p-6 sm:p-8">
-          <p className="theme-light-surface border border-gold-2/50 bg-[#FFF4D6] px-4 py-3 text-sm text-navy">
-            Mục này ({selectedStatic.kind}) có sẵn trong code hệ thống — chỉ xem, không sửa/xoá được ở đây.
-          </p>
+          <Alert variant="info">
+            <Info aria-hidden="true" />
+            <AlertDescription>
+              Mục này ({selectedStatic.kind}) có sẵn trong hệ thống. Bạn chỉ có thể xem tại đây.
+            </AlertDescription>
+          </Alert>
           <div>
             <p className={labelClass}>Tiêu đề</p>
             <p className="mt-1 text-lg font-semibold text-navy">{selectedStatic.title}</p>
@@ -235,48 +258,49 @@ export default function AnnouncementManager({
         </div>
       ) : (
       <div className="flex flex-col gap-6 border border-navy/15 p-6 sm:p-8">
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle aria-hidden="true" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Tiêu đề *</label>
-          <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} className={inputClass} />
-        </div>
+        <Field>
+          <FieldLabel htmlFor="announcement-title">Tiêu đề *</FieldLabel>
+          <Input id="announcement-title" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
+        </Field>
 
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Ngày</label>
-          <input value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} className={`${inputClass} max-w-xs`} />
-        </div>
+        <Field className="max-w-xs">
+          <FieldLabel htmlFor="announcement-date">Ngày</FieldLabel>
+          <Input id="announcement-date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
+        </Field>
 
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Nội dung *</label>
-          <textarea
+        <Field>
+          <FieldLabel htmlFor="announcement-body">Nội dung *</FieldLabel>
+          <Textarea
+            id="announcement-body"
             value={form.body}
             onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))}
             rows={6}
-            className={inputClass}
           />
-        </div>
+        </Field>
 
         <div className="flex flex-col gap-3 border-t border-navy/10 pt-4">
           <p className={labelClass}>Ai xem được</p>
-          <label className="flex w-fit items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
+          <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm text-ink">
+            <Checkbox
               checked={form.allDepartments}
-              onChange={(e) => setForm((p) => ({ ...p, allDepartments: e.target.checked }))}
-              className="h-4 w-4 accent-gold"
+              onCheckedChange={(checked) => setForm((p) => ({ ...p, allDepartments: checked === true }))}
             />
             Toàn công ty
           </label>
           {!form.allDepartments && (
             <div className="flex flex-wrap gap-4 pl-6">
               {DEPARTMENTS.filter((d) => d.id !== 'bgd').map((d) => (
-                <label key={d.id} className="flex items-center gap-2 text-sm text-ink">
-                  <input
-                    type="checkbox"
+                <label key={d.id} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-ink">
+                  <Checkbox
                     checked={form.departments.includes(d.id)}
-                    onChange={() => toggleDepartment(d.id)}
-                    className="h-4 w-4 accent-gold"
+                    onCheckedChange={() => toggleDepartment(d.id)}
                   />
                   {d.label}
                 </label>
@@ -286,13 +310,27 @@ export default function AnnouncementManager({
         </div>
 
         <div className="flex flex-wrap gap-4 border-t border-navy/10 pt-6">
-          <button type="button" onClick={handleSave} disabled={isPending} className={primaryBtn}>
+          <Button type="button" onClick={handleSave} disabled={isPending}>
             {editingExisting ? 'Lưu thay đổi' : 'Tạo thông báo'}
-          </button>
+          </Button>
           {editingExisting && (
-            <button type="button" onClick={handleDelete} disabled={isPending} className={outlineBtn}>
-              Xoá thông báo
-            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="outline" disabled={isPending}>Xoá thông báo</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xoá thông báo này?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Thông báo “{form.title}” sẽ bị xoá vĩnh viễn và không thể khôi phục.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Giữ lại</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete}>Xoá thông báo</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
 

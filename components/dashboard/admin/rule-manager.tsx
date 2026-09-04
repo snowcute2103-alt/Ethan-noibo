@@ -17,13 +17,21 @@ import {
   bulkRevokePermissionAction,
 } from '@/app/dashboard/admin/actions';
 import PermissionChecklist from '@/components/dashboard/admin/permission-checklist';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 const inputClass = 'w-full border border-[var(--theme-border)] bg-white px-4 py-2.5 text-sm outline-none focus:border-blue';
 const labelClass = 'text-xs font-semibold uppercase tracking-wide text-muted';
-const primaryBtn =
-  'bg-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-gold hover:text-navy disabled:cursor-not-allowed disabled:opacity-60';
-const outlineBtn =
-  'border border-navy px-6 py-3 text-sm font-semibold uppercase tracking-wide text-navy transition hover:bg-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-60';
 const smallBtn = 'text-xs font-semibold uppercase tracking-wide text-blue hover:underline';
 const removeBtn = 'text-muted hover:text-red-600';
 
@@ -369,7 +377,6 @@ export default function RuleManager({
 
   function handleDelete() {
     if (!selectedId) return;
-    if (!confirm(`Xoá rule "${form.title}"? Không thể hoàn tác.`)) return;
     setError(null);
     startTransition(async () => {
       try {
@@ -398,9 +405,9 @@ export default function RuleManager({
           placeholder="Tìm rule…"
           className={inputClass}
         />
-        <button type="button" onClick={startNew} className={`${primaryBtn} flex items-center justify-center gap-2`}>
+        <Button type="button" onClick={startNew}>
           <Plus size={16} /> Rule mới
-        </button>
+        </Button>
         <div className="flex max-h-[640px] flex-col gap-2 overflow-y-auto">
           {filtered.map((r) => (
             <button
@@ -578,13 +585,27 @@ export default function RuleManager({
 
         {!isStaticSelected && (
           <div className="flex flex-wrap gap-4 border-t border-navy/10 pt-6">
-            <button type="button" onClick={handleSave} disabled={isPending} className={primaryBtn}>
+            <Button type="button" onClick={handleSave} disabled={isPending}>
               {editingExisting ? 'Lưu thay đổi' : 'Tạo Rule'}
-            </button>
+            </Button>
             {editingExisting && (
-              <button type="button" onClick={handleDelete} disabled={isPending} className={outlineBtn}>
-                Xoá Rule
-              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="outline" disabled={isPending}>Xoá Rule</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Xoá rule này?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Rule “{form.title}” sẽ bị xoá vĩnh viễn và không thể khôi phục.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Giữ lại</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete}>Xoá Rule</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         )}
