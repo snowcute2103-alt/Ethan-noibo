@@ -258,6 +258,63 @@ function givenNameOf(fullName: string): string {
   return last.charAt(0).toLocaleUpperCase('vi') + last.slice(1).toLocaleLowerCase('vi');
 }
 
+/** Bỏ dấu tiếng Việt trước khi so khớp lọc theo cột — gõ "kenh" vẫn khớp dữ
+ *  liệu hiển thị có dấu "Kênh 2" và ngược lại, không bắt gõ đúng dấu. */
+function normalizeForSearch(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase();
+}
+
+const STATUS_FILTER_LABEL: Record<TaskStatus, string> = {
+  not_started: 'Chưa làm',
+  in_progress: 'Đang làm',
+  done: 'Hoàn thành',
+};
+
+// Các cột "cứng" của bảng (Ngày/Thành viên/Chủ đề/Trạng thái) không nằm
+// trong TaskColumnKey (vốn chỉ gồm các cột tuỳ chọn theo đội) nên cần nhãn
+// riêng ở đây; các cột còn lại tra qua columnLabel() sẵn có.
+const FIXED_FILTER_COLUMN_LABELS: Record<string, string> = {
+  taskDate: 'Ngày',
+  assigneeFullName: 'Thành viên',
+  title: 'Chủ đề',
+  status: 'Trạng thái',
+};
+
+function filterColumnLabel(columnId: string, teamCode: string): string {
+  return FIXED_FILTER_COLUMN_LABELS[columnId] ?? columnLabel(columnId as TaskColumnKey, teamCode);
+}
+
+/** Giá trị hiển thị của 1 task tại đúng cột đang lọc — khớp với đúng chữ
+ *  đang hiện trên bảng (vd Ngày lọc theo "04/09" chứ không phải
+ *  "2026-09-04") để người dùng gõ đúng cái mắt thấy. */
+function cellFilterText(task: Task, columnId: string): string {
+  switch (columnId) {
+    case 'taskDate':
+      return formatVi(task.taskDate);
+    case 'assigneeFullName':
+      return task.assigneeFullName ?? '';
+    case 'title':
+      return task.title;
+    case 'status':
+      return STATUS_FILTER_LABEL[task.status];
+    case 'videoCount':
+      return task.videoCount != null ? String(task.videoCount) : '';
+    default:
+      return String((task as unknown as Record<string, unknown>)[columnId] ?? '');
+  }
+}
+
+/** Lọc theo cột kiểu Notion: mỗi cột 1 điều kiện "chứa" (contains), các điều
+ *  kiện đang bật cộng dồn với nhau (AND) — chỉ lọc trên dữ liệu đang xem
+ *  trong phiên hiện tại, không lưu lại lên server. */
+function taskMatchesColumnFilters(task: Task, activeFilters: [string, string][]): boolean {
+  return activeFilters.every(([columnId, query]) => normalizeForSearch(cellFilterText(task, columnId)).includes(normalizeForSearch(query)));
+}
+
 function buildChartFromTasks(tasks: Task[]): DailyAssigneeCount[] {
   const counts = new Map<string, DailyAssigneeCount>();
   for (const task of tasks) {
@@ -299,6 +356,10 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   // đã lọc sẵn phía server; 'all' là tab "Tất cả" xem gộp mọi nhóm.
   const [categoryId, setCategoryId] = useState<number | 'all' | undefined>(initialBoard?.categories[0]?.id);
   const [assigneeFilter, setAssigneeFilter] = useState<number | 'all'>('all');
+  // Lọc theo cột kiểu Notion (bấm tiêu đề cột bảng) — chỉ áp cho phiên xem
+  // hiện tại của người đang bấm, KHÔNG lưu server nên đổi tab/đội/tải lại
+  // trang là mất, không ảnh hưởng người khác.
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [board, setBoard] = useState<BoardData | null>(initialBoard);
   const [overview, setOverview] = useState<OverviewData | null>(initialOverview);
   const [error, setError] = useState<string | null>(null);
@@ -333,10 +394,36 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     return board.tasks.filter((t) => t.assigneeUserId != null && memberCategoryById.get(t.assigneeUserId) === categoryId);
   }, [board, categoryId]);
 
-  const visibleTasks = useMemo(
+  const assigneeFilteredTasks = useMemo(
     () => (assigneeFilter === 'all' ? categoryTasks : categoryTasks.filter((task) => task.assigneeUserId === assigneeFilter)),
     [categoryTasks, assigneeFilter]
   );
+
+  const activeColumnFilters = useMemo<[string, string][]>(
+    () => Object.entries(columnFilters).filter(([, value]) => value.trim().length > 0),
+    [columnFilters]
+  );
+
+  const visibleTasks = useMemo(
+    () =>
+      activeColumnFilters.length === 0
+        ? assigneeFilteredTasks
+        : assigneeFilteredTasks.filter((task) => taskMatchesColumnFilters(task, activeColumnFilters)),
+    [assigneeFilteredTasks, activeColumnFilters]
+  );
+
+  function setColumnFilter(columnId: string, value: string) {
+    setColumnFilters((prev) => {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        if (!(columnId in prev)) return prev;
+        const next = { ...prev };
+        delete next[columnId];
+        return next;
+      }
+      return { ...prev, [columnId]: trimmed };
+    });
+  }
 
   // Thêm task ngay trên tab nào thì chỉ gán được cho người đang ở đúng nhóm
   // đó — tránh tình huống vừa lưu xong task đã biến mất khỏi tab đang xem.
@@ -821,7 +908,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
   }
 
   return (
-    <div className="px-4 py-10 sm:px-6 lg:px-10">
+    <div className="task-board-page px-4 py-6 sm:px-6 sm:py-8 min-[1025px]:px-10 min-[1025px]:py-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           {isBgd && board ? (
@@ -838,15 +925,16 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           <h1
             className={
               board
-                ? 'mt-3 mb-2 font-heading text-3xl font-light uppercase tracking-wide text-navy sm:text-4xl'
-                : 'mt-4 font-heading text-5xl font-light uppercase tracking-wide text-navy'
+                ? 'mt-3 mb-2 font-heading text-2xl font-light uppercase tracking-wide text-navy sm:text-3xl min-[1025px]:text-4xl'
+                : 'mt-3 font-heading text-3xl font-light uppercase tracking-wide text-navy sm:text-4xl min-[1025px]:mt-4 min-[1025px]:text-5xl'
             }
           >
             {board ? board.team.name : 'Tổng quan 6 đội'}
           </h1>
         </div>
         {!board && overview && (
-          <div className="flex items-center gap-1 rounded-[10px] border border-[var(--theme-border)] p-1">
+          <div className="max-w-full overflow-x-auto rounded-[10px] border border-[var(--theme-border)] p-1">
+            <div className="flex min-w-max items-center gap-1">
             <button
               type="button"
               onClick={() => setAnchorDate(shiftMonth(anchorDate, -1))}
@@ -875,6 +963,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                 Về tháng này
               </button>
             )}
+            </div>
           </div>
         )}
       </div>
@@ -902,12 +991,13 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           </div>
 
           <div className="mb-5 flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-[10px] border border-[var(--theme-border)] p-1">
+            <div className="task-category-scroll max-w-full overflow-x-auto rounded-[10px] border border-[var(--theme-border)] p-1">
+              <div className="flex min-w-max items-center gap-1">
               {boardView === 'table' && (
                 <button
                   type="button"
                   onClick={() => setIsAddingTask(true)}
-                  className="rounded-[8px] bg-blue px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-cta"
+                  className="shrink-0 rounded-[8px] bg-blue px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-cta min-[1025px]:px-4 min-[1025px]:text-sm"
                 >
                   + Thêm task
                 </button>
@@ -915,7 +1005,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
               <button
                 type="button"
                 onClick={() => setCategoryId('all')}
-                className={`rounded-[8px] px-3 py-1.5 text-sm font-normal uppercase transition-colors ${categoryId === 'all' ? 'bg-[#EAB308] text-[#111827]' : 'text-ink hover:bg-surface'}`}
+                className={`shrink-0 rounded-[8px] px-3 py-1.5 text-xs font-normal uppercase transition-colors min-[1025px]:text-sm ${categoryId === 'all' ? 'bg-[#EAB308] text-[#111827]' : 'text-ink hover:bg-surface'}`}
               >
                 Tất cả
               </button>
@@ -926,12 +1016,13 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                     key={cat.id}
                     type="button"
                     onClick={() => setCategoryId(cat.id)}
-                    className={`rounded-[8px] px-3 py-1.5 text-sm font-normal uppercase transition-colors ${isSelected ? 'bg-[#EAB308] text-[#111827]' : 'text-ink hover:bg-surface'}`}
+                    className={`shrink-0 rounded-[8px] px-3 py-1.5 text-xs font-normal uppercase transition-colors min-[1025px]:text-sm ${isSelected ? 'bg-[#EAB308] text-[#111827]' : 'text-ink hover:bg-surface'}`}
                   >
                     {cat.name}
                   </button>
                 );
               })}
+              </div>
             </div>
             <label className="flex h-[42px] min-w-[180px] max-w-full items-center gap-2 rounded-[10px] border border-[var(--theme-border)] bg-white px-3 text-ink">
               <UserRound className="h-4 w-4 shrink-0 text-blue" aria-hidden="true" />
@@ -949,7 +1040,34 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
                 ))}
               </select>
             </label>
-            <div className="ml-auto flex gap-1 rounded-[10px] bg-surface-2 p-1">
+            {activeColumnFilters.length > 0 && (
+              <div className="flex max-w-full flex-wrap items-center gap-1.5">
+                {activeColumnFilters.map(([columnId, value]) => (
+                  <span
+                    key={columnId}
+                    className="flex items-center gap-1.5 rounded-full border border-blue/30 bg-blue/10 py-1 pl-2.5 pr-1.5 text-xs font-semibold text-blue"
+                  >
+                    <span className="max-w-[160px] truncate">
+                      {filterColumnLabel(columnId, board.team.code)}: {value}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setColumnFilter(columnId, '')}
+                      aria-label={`Bỏ lọc ${filterColumnLabel(columnId, board.team.code)}`}
+                      className="rounded-full p-0.5 hover:bg-blue/20"
+                    >
+                      <X className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </span>
+                ))}
+                {activeColumnFilters.length > 1 && (
+                  <button type="button" onClick={() => setColumnFilters({})} className="text-xs font-semibold text-muted hover:text-navy">
+                    Xoá hết lọc
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="flex gap-1 rounded-[10px] bg-surface-2 p-1 sm:ml-auto">
               <button
                 type="button"
                 onClick={() => setBoardView('table')}
@@ -973,11 +1091,13 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             </div>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_440px]">
+          <div className="task-board-layout grid gap-5 min-[1025px]:grid-cols-[minmax(0,1fr)_440px]">
             <div className="min-w-0">
               {boardView === 'table' ? (
                 <TaskTable
                   tasks={visibleTasks}
+                  columnFilters={columnFilters}
+                  onColumnFilterChange={setColumnFilter}
                   visibleColumns={
                     // Tab "Tất cả" gộp đúng các cột mà nhóm task (Media/Support/...) của
                     // riêng đội này đang dùng, thay vì liệt kê hết mọi cột từng có trong
@@ -1067,8 +1187,8 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col gap-5 border-t-2 border-[#dbe4f2] pt-10">
-            <h2 className="font-heading text-3xl font-light uppercase tracking-wide text-navy sm:text-4xl">Biểu đồ tổng</h2>
+          <div className="mt-6 flex flex-col gap-4 border-t-2 border-[#dbe4f2] pt-6 min-[1025px]:mt-10 min-[1025px]:gap-5 min-[1025px]:pt-10">
+            <h2 className="font-heading text-2xl font-light uppercase tracking-wide text-navy sm:text-3xl min-[1025px]:text-4xl">Biểu đồ tổng</h2>
             <MonthlyDailyChart chart={anchorMonthChart} members={board.team.members} monthAnchor={calendarMonthAnchor} />
             <MonthlyDailyChart chart={previousMonthChart} members={board.team.members} monthAnchor={previousMonthAnchor} />
           </div>
@@ -1105,17 +1225,17 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
 function StatusCountBadge({ count, tone }: { count: number; tone: 'neutral' | 'blue' | 'emerald' | 'red' }) {
   if (tone === 'red' && count > 0) {
     return (
-      <span className="inline-flex min-w-[36px] items-center justify-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
+      <span className="inline-flex min-w-[36px] items-center justify-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold tabular-nums text-red-600">
         <TriangleAlert className="h-3 w-3" aria-hidden="true" />
         {count}
       </span>
     );
   }
   if (count === 0) {
-    return <span className="text-xs font-semibold text-muted">0</span>;
+    return <span className="text-xs font-semibold tabular-nums text-muted">0</span>;
   }
   const toneClass = tone === 'blue' ? 'bg-blue/10 text-blue' : tone === 'emerald' ? 'bg-emerald-50 text-emerald-600' : 'bg-surface-2 text-navy';
-  return <span className={`inline-flex min-w-[36px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold ${toneClass}`}>{count}</span>;
+  return <span className={`inline-flex min-w-[36px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${toneClass}`}>{count}</span>;
 }
 
 const OVERVIEW_STATUS_COLUMNS: {
@@ -1158,15 +1278,15 @@ function OverviewStatusDonut({ monthLabel, totals }: { monthLabel: string; total
   ];
 
   return (
-    <div className="rounded-[16px] border border-[#e8edf5] bg-white p-5">
+    <div className="stat-card rounded-[16px] bg-white p-4 min-[1025px]:p-5">
       <p className="font-heading text-sm font-bold text-navy">Trạng thái công việc</p>
       <p className="text-xs text-muted">
         Tháng {monthLabel.split('-')[1]}/{monthLabel.split('-')[0]} · cả 6 đội
       </p>
-      <div className="mt-4 flex items-center gap-5">
-        <div className="grid h-28 w-28 shrink-0 place-items-center rounded-full" style={{ background: gradient }}>
-          <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-white text-center">
-            <span className="font-heading text-xl font-bold text-navy">{total}</span>
+      <div className="mt-3 flex items-center gap-3 min-[1025px]:mt-4 min-[1025px]:gap-5">
+        <div className="grid h-24 w-24 shrink-0 place-items-center rounded-full min-[1025px]:h-28 min-[1025px]:w-28" style={{ background: gradient }}>
+          <div className="flex h-16 w-16 flex-col items-center justify-center rounded-full bg-white text-center min-[1025px]:h-[72px] min-[1025px]:w-[72px]">
+            <span className="font-heading text-lg font-bold tabular-nums text-navy min-[1025px]:text-xl">{total}</span>
             <span className="text-[10px] text-muted">công việc</span>
           </div>
         </div>
@@ -1177,7 +1297,7 @@ function OverviewStatusDonut({ monthLabel, totals }: { monthLabel: string; total
                 <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.dot}`} aria-hidden="true" />
                 {item.label}
               </span>
-              <span className="whitespace-nowrap font-semibold text-navy">
+              <span className="whitespace-nowrap font-semibold tabular-nums text-navy">
                 {item.value} <span className="text-xs font-normal text-muted">({Math.round(pct(item.value))}%)</span>
               </span>
             </li>
@@ -1198,7 +1318,8 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
     value: number;
     caption: string;
     icon: typeof ListChecks;
-    toneBg: string;
+    cardBg: string;
+    chipBg: string;
     toneText: string;
   }[] = [
     {
@@ -1206,7 +1327,8 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
       value: totals.total,
       caption: `Tháng ${monthLabel.split('-')[1]}`,
       icon: ListChecks,
-      toneBg: 'bg-surface-2',
+      cardBg: 'bg-white',
+      chipBg: 'bg-surface-2',
       toneText: 'text-navy',
     },
     {
@@ -1214,7 +1336,8 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
       value: totals.inProgress,
       caption: `${pct(totals.inProgress)}% công việc`,
       icon: CircleDot,
-      toneBg: 'bg-blue/10',
+      cardBg: 'bg-blue/[0.06]',
+      chipBg: 'bg-blue/15',
       toneText: 'text-blue',
     },
     {
@@ -1222,7 +1345,8 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
       value: totals.done,
       caption: `${pct(totals.done)}% công việc`,
       icon: CheckCircle2,
-      toneBg: 'bg-emerald-50',
+      cardBg: 'bg-emerald-50',
+      chipBg: 'bg-emerald-100',
       toneText: 'text-emerald-600',
     },
     {
@@ -1230,7 +1354,8 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
       value: totals.overdue,
       caption: `${pct(totals.overdue)}% công việc`,
       icon: TriangleAlert,
-      toneBg: 'bg-red-50',
+      cardBg: 'bg-red-50',
+      chipBg: 'bg-red-100',
       toneText: 'text-red-600',
     },
   ];
@@ -1240,11 +1365,11 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <div key={card.label} className="rounded-[16px] border border-[#e8edf5] bg-white p-4">
-            <span className={`inline-flex rounded-full p-2 ${card.toneBg} ${card.toneText}`}>
+          <div key={card.label} className={`stat-card rounded-[16px] ${card.cardBg} p-4`}>
+            <span className={`inline-flex rounded-full p-2 ${card.chipBg} ${card.toneText}`}>
               <Icon className="h-4 w-4" aria-hidden="true" />
             </span>
-            <p className="mt-3 font-heading text-2xl font-bold text-navy">{card.value}</p>
+            <p className="mt-3 font-heading text-2xl font-bold tabular-nums text-navy">{card.value}</p>
             <p className="text-xs font-semibold text-muted">{card.label}</p>
             <p className={`mt-1 text-[11px] font-semibold ${card.toneText}`}>{card.caption}</p>
           </div>
@@ -1258,7 +1383,15 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
  *  phải bảng tổng quan. Mỗi thanh chia 3 đoạn theo đúng 3 trạng thái đã hiện ở
  *  bảng (Chưa làm/Hoàn thành/Quá hạn), scale theo đội có tổng task lớn nhất
  *  để nhìn được cả tương quan số lượng lẫn tỉ lệ trạng thái giữa các đội. */
-function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[]; progressByTeam: Map<number, TeamMonthProgress> }) {
+function OverviewTeamBarChart({
+  teams,
+  progressByTeam,
+  teamColorOf,
+}: {
+  teams: TeamSummary[];
+  progressByTeam: Map<number, TeamMonthProgress>;
+  teamColorOf: (teamName: string) => string;
+}) {
   const maxTotal = Math.max(1, ...teams.map((team) => progressByTeam.get(team.id)?.total ?? 0));
   const segments: {
     key: 'notStarted' | 'done' | 'overdue';
@@ -1282,7 +1415,7 @@ function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[];
   ];
 
   return (
-    <div className="flex h-full min-w-[280px] flex-col rounded-[16px] border border-[#e8edf5] bg-white px-4 pb-4">
+    <div className="stat-panel flex h-full min-w-[280px] flex-col rounded-[16px] bg-white px-4 pb-4">
       <div className="flex h-[33px] items-center">
         <p className="font-heading text-sm font-bold text-navy">Khối lượng công việc theo đội</p>
       </div>
@@ -1292,8 +1425,11 @@ function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[];
           const total = progress?.total ?? 0;
           return (
             <div key={team.id} className="flex h-[57px] items-center gap-3">
-              <span className="w-9 shrink-0 text-xs font-semibold uppercase text-muted">{team.code}</span>
-              <div className="flex h-3 flex-1 items-center gap-0.5">
+              <span className="flex w-12 shrink-0 items-center gap-1.5 text-xs font-semibold uppercase text-muted">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: teamColorOf(team.name) }} aria-hidden="true" />
+                {team.code}
+              </span>
+              <div className="flex h-3 flex-1 items-center gap-0.5 rounded-full bg-surface-2">
                 {segments.map((seg) => {
                   const count = progress ? progress[seg.key] : 0;
                   if (count <= 0) return null;
@@ -1301,7 +1437,7 @@ function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[];
                   return <span key={seg.key} title={`${seg.label}: ${count}`} className={`h-full rounded-full ${seg.bar}`} style={{ width: `${widthPct}%` }} />;
                 })}
               </div>
-              <span className="w-7 shrink-0 text-right text-xs font-bold text-navy">{total}</span>
+              <span className="w-7 shrink-0 text-right text-xs font-bold tabular-nums text-navy">{total}</span>
             </div>
           );
         })}
@@ -1320,6 +1456,11 @@ function OverviewTeamBarChart({ teams, progressByTeam }: { teams: TeamSummary[];
 
 function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; monthLabel: string }) {
   const progressByTeam = new Map(overview.monthProgress.map((p) => [p.teamId, p]));
+  // Mỗi đội 1 màu riêng ổn định (cùng hàm sinh màu dùng cho người phụ trách/sản
+  // phẩm) — giúp mắt nối nhanh 1 hàng trong bảng với đúng thanh của nó ở biểu đồ
+  // cột bên cạnh mà không cần dò theo vị trí.
+  const teamColorMap = distinctColorMap(overview.teams.map((t) => t.name));
+  const teamColorOf = (teamName: string) => teamColorMap.get(teamName) ?? UNASSIGNED_COLOR;
   const totals = overview.monthProgress.reduce<OverviewTotals>(
     (acc, p) => ({
       total: acc.total + p.total,
@@ -1333,12 +1474,12 @@ function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; month
 
   return (
     <div>
-      <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(280px,340px)_1fr]">
+      <div className="task-overview-summary grid gap-4 min-[1025px]:mb-5 min-[1025px]:grid-cols-[minmax(280px,340px)_1fr]">
         <OverviewStatusDonut monthLabel={monthLabel} totals={totals} />
         <OverviewSummaryCards monthLabel={monthLabel} totals={totals} />
       </div>
-      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,auto)_minmax(420px,1fr)]">
-        <div className="w-fit max-w-full overflow-hidden rounded-[16px] border border-[#e8edf5] bg-white">
+      <div className="task-overview-grid grid items-stretch gap-4 min-[1025px]:grid-cols-[minmax(0,auto)_minmax(420px,1fr)]">
+        <div className="stat-panel w-fit max-w-full overflow-hidden rounded-[16px] bg-white">
           <div className="overflow-x-auto">
             <table className="border-collapse text-left text-sm">
               <thead className="bg-surface-2 text-xs font-bold uppercase tracking-wider text-muted">
@@ -1367,13 +1508,16 @@ function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; month
                   const displayManagerNames =
                     team.code === 'kd1' ? team.managerNames.filter((name) => name !== 'LÊ THỊ MỸ HUYỀN') : team.managerNames;
                   return (
-                    <tr key={team.id} className="divide-x divide-[#edf1f7] hover:bg-surface-2">
+                    <tr key={team.id} className="group divide-x divide-[#edf1f7] hover:bg-surface-2">
                       <td className="px-3 py-2">
                         <p className="font-semibold text-navy">{team.name}</p>
-                        <p className="text-[11px] uppercase tracking-wide text-muted">{team.code}</p>
+                        <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: teamColorOf(team.name) }} aria-hidden="true" />
+                          {team.code}
+                        </p>
                       </td>
                       <td className="px-3 py-2 text-muted">{displayManagerNames.join(', ') || '(chưa có)'}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-navy">{team.memberCount}</td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums text-navy">{team.memberCount}</td>
                       {OVERVIEW_STATUS_COLUMNS.map((col) => (
                         <td key={col.key} className="px-2 py-2 text-center">
                           <StatusCountBadge count={progress ? progress[col.key] : 0} tone={col.tone} />
@@ -1382,15 +1526,19 @@ function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; month
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-surface-2">
-                            <div className="h-full rounded-full bg-blue" style={{ width: `${pct}%` }} />
+                            <div className="h-full rounded-full bg-gradient-to-r from-blue to-blue-cta" style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-xs font-bold text-navy">{pct}%</span>
+                          <span className="text-xs font-bold tabular-nums text-navy">{pct}%</span>
                         </div>
-                        <p className="mt-0.5 text-[11px] text-muted">{progress ? `${progress.done}/${progress.total} task` : '—'}</p>
+                        <p className="mt-0.5 text-[11px] tabular-nums text-muted">{progress ? `${progress.done}/${progress.total} task` : '—'}</p>
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <Link href={`/dashboard/giao-task/${team.code}`} className="whitespace-nowrap text-sm font-semibold text-blue">
+                        <Link
+                          href={`/dashboard/giao-task/${team.code}`}
+                          className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-blue"
+                        >
                           Xem chi tiết
+                          <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
                         </Link>
                       </td>
                     </tr>
@@ -1400,7 +1548,7 @@ function OverviewPanel({ overview, monthLabel }: { overview: OverviewData; month
             </table>
           </div>
         </div>
-        <OverviewTeamBarChart teams={overview.teams} progressByTeam={progressByTeam} />
+        <OverviewTeamBarChart teams={overview.teams} progressByTeam={progressByTeam} teamColorOf={teamColorOf} />
       </div>
     </div>
   );
@@ -1499,6 +1647,8 @@ function DragHandleIcon() {
 
 function TaskTable({
   tasks,
+  columnFilters,
+  onColumnFilterChange,
   visibleColumns,
   teamCode,
   allMembers,
@@ -1519,6 +1669,8 @@ function TaskTable({
   onCreate,
 }: {
   tasks: Task[];
+  columnFilters: Record<string, string>;
+  onColumnFilterChange: (columnId: string, value: string) => void;
   visibleColumns: string[];
   teamCode: string;
   allMembers: TeamMember[];
@@ -1544,6 +1696,25 @@ function TaskTable({
   // các cột còn lại (Up kênh/SL VID/Sản phẩm...) đứng sau Chủ đề.
   const leadingColumns = columns.filter((key) => key === 'accountName' || key === 'channelName');
   const trailingColumns = columns.filter((key) => key !== 'accountName' && key !== 'channelName');
+  // Gợi ý các giá trị đang có sẵn ở mỗi cột (rút từ chính các task đang hiển
+  // thị) để popup lọc tiêu đề cột liệt kê ngay dưới ô nhập, khỏi phải gõ mò.
+  const columnFilterOptions = useMemo(() => {
+    const columnIds = ['taskDate', 'assigneeFullName', 'title', 'status', ...columns];
+    const map: Record<string, string[]> = {};
+    for (const columnId of columnIds) {
+      const values = new Set<string>();
+      for (const task of tasks) {
+        const text = cellFilterText(task, columnId).trim();
+        if (text) values.add(text);
+      }
+      map[columnId] = Array.from(values).sort((a, b) => a.localeCompare(b, 'vi'));
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, columns.join(',')]);
+  // Cột "SL VID" là số nên popup lọc của riêng cột này hiện thêm tổng cộng
+  // dồn trên các task đang hiển thị — hữu ích hơn danh sách giá trị rời rạc.
+  const videoCountSum = useMemo(() => tasks.reduce((total, task) => total + (task.videoCount ?? 0), 0), [tasks]);
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
   const [bulkDuplicating, setBulkDuplicating] = useState(false);
@@ -1706,9 +1877,9 @@ function TaskTable({
     <div className="overflow-hidden rounded-[16px] border-2 border-navy/15 bg-white shadow-[0_16px_40px_-24px_rgba(16,26,48,0.35)]">
       <div className="h-1 w-full rounded-t-[14px] bg-navy" aria-hidden="true" />
       {selectedTaskIds.size > 0 && (
-        <div className="flex items-center justify-between gap-2 border-b border-l-4 border-[#e8edf5] border-l-blue bg-[#F2F6FF] px-4 py-2 text-xs">
+        <div className="flex min-w-0 flex-col gap-2 border-b border-l-4 border-[#e8edf5] border-l-blue bg-[#F2F6FF] px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between min-[1025px]:px-4">
           <span className="font-semibold text-navy">Đã chọn {selectedTaskIds.size} task</span>
-          <div className="flex gap-3">
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-0.5 sm:gap-3 sm:pb-0">
             <button type="button" onClick={() => setSelectedTaskIds(new Set())} className="font-semibold text-muted hover:text-navy">
               Bỏ chọn
             </button>
@@ -1741,7 +1912,7 @@ function TaskTable({
         />
       )}
       <div ref={scrollRef} className="scrollbar-hide overflow-x-auto">
-        <table className="w-full min-w-[1000px] table-fixed border-collapse text-left text-sm">
+        <table className="w-full min-w-[760px] table-fixed border-collapse text-left text-xs min-[1025px]:min-w-[1000px] min-[1025px]:text-sm">
           <colgroup>
             <col style={{ width: 64 }} />
             <col style={{ width: 80 }} />
@@ -1773,20 +1944,59 @@ function TaskTable({
                   className="h-4 w-4 cursor-pointer accent-blue"
                 />
               </th>
-              <th className="truncate px-3 py-3">Ngày</th>
-              <th className="truncate px-3 py-3">Thành viên</th>
+              <th className="truncate px-3 py-3">
+                <ColumnFilterHeader
+                  label="Ngày"
+                  value={columnFilters.taskDate ?? ''}
+                  options={columnFilterOptions.taskDate ?? []}
+                  onChange={(value) => onColumnFilterChange('taskDate', value)}
+                />
+              </th>
+              <th className="truncate px-3 py-3">
+                <ColumnFilterHeader
+                  label="Thành viên"
+                  value={columnFilters.assigneeFullName ?? ''}
+                  options={columnFilterOptions.assigneeFullName ?? []}
+                  onChange={(value) => onColumnFilterChange('assigneeFullName', value)}
+                />
+              </th>
               {leadingColumns.map((key) => (
                 <th key={key} className="truncate px-3 py-3">
-                  {columnLabel(key, teamCode)}
+                  <ColumnFilterHeader
+                    label={columnLabel(key, teamCode)}
+                    value={columnFilters[key] ?? ''}
+                    options={columnFilterOptions[key] ?? []}
+                    onChange={(value) => onColumnFilterChange(key, value)}
+                  />
                 </th>
               ))}
-              <th className="truncate px-3 py-3">Chủ đề</th>
+              <th className="truncate px-3 py-3">
+                <ColumnFilterHeader
+                  label="Chủ đề"
+                  value={columnFilters.title ?? ''}
+                  options={columnFilterOptions.title ?? []}
+                  onChange={(value) => onColumnFilterChange('title', value)}
+                />
+              </th>
               {trailingColumns.map((key) => (
                 <th key={key} className="truncate px-3 py-3">
-                  {columnLabel(key, teamCode)}
+                  <ColumnFilterHeader
+                    label={columnLabel(key, teamCode)}
+                    value={columnFilters[key] ?? ''}
+                    options={columnFilterOptions[key] ?? []}
+                    sum={key === 'videoCount' ? videoCountSum : undefined}
+                    onChange={(value) => onColumnFilterChange(key, value)}
+                  />
                 </th>
               ))}
-              <th className="truncate px-3 py-3">Trạng thái</th>
+              <th className="truncate px-3 py-3">
+                <ColumnFilterHeader
+                  label="Trạng thái"
+                  value={columnFilters.status ?? ''}
+                  options={columnFilterOptions.status ?? []}
+                  onChange={(value) => onColumnFilterChange('status', value)}
+                />
+              </th>
               <th className="px-3 py-3" />
             </tr>
           </thead>
@@ -1938,7 +2148,7 @@ function TaskTable({
                         if (nextStatus !== 'done') return;
                         fireConfetti();
                       }}
-                      className={`group grid h-11 w-11 place-items-center rounded-[8px] transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${statusPendingTaskIds.has(task.id) ? 'cursor-wait opacity-80' : 'cursor-pointer active:scale-[0.96]'}`}
+                      className={`group grid h-[44px] w-[44px] place-items-center rounded-[8px] transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${statusPendingTaskIds.has(task.id) ? 'cursor-wait opacity-80' : 'cursor-pointer active:scale-[0.96]'}`}
                     >
                       <span
                         className={`grid h-6 w-6 place-items-center rounded-[5px] border transition-[background-color,border-color,transform] duration-150 ${task.status === 'done' ? 'border-[#20C978] bg-[#20C978] text-white shadow-[0_5px_12px_-7px_rgba(32,201,120,0.9)]' : 'border-navy/30 bg-white text-transparent group-hover:scale-105 group-hover:border-[#20C978]'}`}
@@ -2054,7 +2264,7 @@ function TaskCardGrid({
         return (
           <div
             key={name}
-            className="flex w-80 shrink-0 flex-col gap-3 rounded-[16px] border-2 border-navy/15 bg-white p-3 shadow-[0_16px_40px_-24px_rgba(16,26,48,0.35)]"
+            className="flex w-64 shrink-0 flex-col gap-3 rounded-[16px] border-2 border-navy/15 bg-white p-3 shadow-[0_16px_40px_-24px_rgba(16,26,48,0.35)] min-[1025px]:w-80"
           >
             <div className="flex items-center gap-2 px-1">
               {member?.avatarUrl ? (
@@ -2155,7 +2365,7 @@ function TaskCard({
             aria-busy={pending}
             onClick={cycleStatus}
             title="Bấm để đổi trạng thái"
-            className={`flex min-h-11 items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-[transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
+            className={`flex min-h-[44px] items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-[transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-2 ${
               pending ? 'cursor-wait opacity-70' : 'hover:-translate-y-0.5 active:translate-y-0'
             } ${statusTextTone}`}
           >
@@ -2169,14 +2379,14 @@ function TaskCard({
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               aria-label="Tuỳ chọn task"
-              className="grid h-7 w-7 place-items-center rounded text-muted hover:bg-surface-2 hover:text-ink"
+              className="grid h-[44px] w-[44px] place-items-center rounded text-muted hover:bg-surface-2 hover:text-ink min-[1025px]:h-7 min-[1025px]:w-7"
             >
               <MoreVertical size={16} aria-hidden="true" />
             </button>
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 top-8 z-20 w-32 border border-[#e8edf5] bg-white py-1 text-xs shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
+                className="absolute right-0 top-12 z-20 w-32 border border-[#e8edf5] bg-white py-1 text-xs shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)] min-[1025px]:top-8"
               >
                 <button
                   type="button"
@@ -2185,7 +2395,7 @@ function TaskCard({
                     setConfirmDelete(true);
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-surface-2"
+                  className="block min-h-[44px] w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-surface-2 min-[1025px]:min-h-0"
                 >
                   Xoá
                 </button>
@@ -2316,6 +2526,114 @@ function useTableCellPopover(
   }, [open, preferredWidth, setOpen]);
 
   return { triggerRef, popoverRef, position };
+}
+
+/** Bấm tiêu đề cột trong bảng Giao task để lọc kiểu Notion ("contains" trên
+ *  đúng cột vừa bấm) — chỉ áp cho phiên xem hiện tại (state ở TaskBoard cha,
+ *  không lưu server), mỗi người xem tự lọc riêng, không ảnh hưởng người khác. */
+function ColumnFilterHeader({
+  label,
+  value,
+  options,
+  sum,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  sum?: number;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const { triggerRef, popoverRef, position } = useTableCellPopover(open, setOpen, 220);
+  const active = value.trim().length > 0;
+  const trimmedDraft = draft.trim();
+  const matchingOptions = trimmedDraft
+    ? options.filter((option) => normalizeForSearch(option).includes(normalizeForSearch(trimmedDraft)))
+    : options;
+
+  useEffect(() => {
+    if (open) setDraft(value);
+  }, [open, value]);
+
+  function apply(next: string) {
+    onChange(next.trim());
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className="block w-full truncate text-left text-xs font-bold uppercase tracking-wider text-ink"
+      >
+        {label}
+      </button>
+      {open &&
+        position &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="dialog"
+            aria-label={`Lọc theo ${label}`}
+            style={anchoredPopoverStyle(position)}
+            className="fixed z-50 flex flex-col gap-2 overflow-hidden border border-[#e8edf5] bg-white p-3 text-xs font-normal normal-case tracking-normal text-ink shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
+          >
+            <p className="text-[11px] font-semibold normal-case text-muted">
+              {label} <span className="font-normal text-muted">chứa</span>
+            </p>
+            {sum != null && (
+              <p className="rounded-[6px] bg-surface-2 px-2 py-1.5 text-xs font-semibold normal-case text-navy">
+                Tổng cộng: <span className="text-blue">{sum}</span>
+              </p>
+            )}
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') apply(draft);
+              }}
+              placeholder="Nhập giá trị…"
+              className="w-full rounded-[6px] border border-[#dbe4f2] px-2 py-1.5 text-sm font-normal normal-case text-ink outline-none focus:border-blue"
+            />
+            {options.length > 0 && (
+              <div className="max-h-40 overflow-y-auto rounded-[6px] border border-[#edf1f7]">
+                {matchingOptions.length === 0 ? (
+                  <p className="px-2 py-1.5 text-[11px] normal-case text-muted">Không có giá trị nào khớp.</p>
+                ) : (
+                  matchingOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => apply(option)}
+                      className={`block w-full truncate px-2 py-1.5 text-left text-sm normal-case hover:bg-surface-2 ${
+                        value === option ? 'font-semibold text-blue' : 'text-ink'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+            {active && (
+              <div className="flex items-center justify-end pt-0.5">
+                <button type="button" onClick={() => apply('')} className="text-[11px] font-semibold text-muted hover:text-navy">
+                  Xoá lọc
+                </button>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  );
 }
 
 function memberAvatar(m: TeamMember, size: number) {
@@ -3213,6 +3531,8 @@ function MonthlyDailyChart({ chart, members, monthAnchor }: { chart: DailyAssign
         {dates.map((date) => {
           const dayItems = chart.filter((c) => c.date === date);
           const dayTotal = dayItems.reduce((sum, c) => sum + c.count, 0);
+          const dayOfMonth = Number(date.slice(8, 10));
+          const showCompactDate = dayOfMonth === 1 || dayOfMonth % 5 === 0 || date === dates[dates.length - 1];
           return (
             <div
               key={date}
@@ -3234,8 +3554,12 @@ function MonthlyDailyChart({ chart, members, monthAnchor }: { chart: DailyAssign
                   />
                 ))}
               </div>
-              <span className="text-[10px] font-semibold text-muted">{dayTotal}</span>
-              <span className="text-[9px] text-muted">{formatVi(date).slice(0, 5)}</span>
+              <span className={`day-chart-total text-[10px] font-semibold text-muted ${dayTotal === 0 ? 'day-chart-total--zero' : ''}`}>
+                {dayTotal}
+              </span>
+              <span className={`day-chart-date text-[9px] text-muted ${showCompactDate ? '' : 'day-chart-date--dense'}`}>
+                {formatVi(date).slice(0, 5)}
+              </span>
             </div>
           );
         })}
