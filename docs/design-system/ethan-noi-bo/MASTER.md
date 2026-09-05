@@ -143,6 +143,7 @@ The portal deliberately renders 4 content types + urgent notices with **differen
 5. **Văn hoá** (`culture-articles.tsx`) — magazine layout, alternating image/text per article, Playfair italic pull-quotes, 5-value image grid.
 6. **VisibilityBadge** (`components/visibility-badge.tsx`) — reused on every scoped content card; shows department scope + minTier so a user understands why they do/don't see something. Any new content type must include it.
 7. **HubCard** (`hub-card.tsx`) — dashboard-home entry point per type; its `accent` prop must match that type's section-accent color (table above) for wayfinding consistency.
+8. **Logo kết trang** (`rule-laptop-scene.tsx`, `rule-logo-string-effect.tsx`) — cảnh laptop desktop phóng logo ETHAN và phủ canvas “silly string” trong suốt, dùng alpha của chính logo làm vùng va chạm và mặt nạ nên dây chỉ hiện quanh silhouette, không cắt ngang phần bên trong. Canvas tự chạy để giới thiệu khi logo đã đủ lớn; ngay khi người dùng đưa chuột vào vùng logo, hiệu ứng chuyển hẳn sang chế độ thủ công: chỉ phun lúc giữ chuột và dừng khi thả. Khi con trỏ đi vào phần đặc của logo, bình xịt trượt ra mép ngoài theo vùng an toàn thay vì đè lên hình. Canvas không chặn con trỏ, click hay cuộn của trang; hiệu ứng dừng khi rời viewport/tab và tắt hoàn toàn ở `max-width: 1024px` hoặc `prefers-reduced-motion: reduce`; mobile/tablet giữ logo tĩnh. Khi khối này đi vào viewport, `dashboard-header-visibility-trigger.tsx` ẩn header chung và tự hiện lại khi cuộn lên hoặc rời trang chủ.
 
 ## Icons
 

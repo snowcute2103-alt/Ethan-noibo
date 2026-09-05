@@ -1382,6 +1382,7 @@ body {
 .rule-laptop {
   --rl-black: #111214;
   --rl-white: #f6f6f4;
+  --rl-header-clearance: 9rem;
   --rl-jump: cover 15% cover 45%;
   --rl-spin: cover 15% cover 45%;
   --rl-flip: cover 15% cover 45%;
@@ -1404,6 +1405,30 @@ body {
   overflow: hidden;
   height: 100vh;
   perspective: 120vmin;
+}
+
+.rule-logo-string-effect {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.rule-logo-string-trigger {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 100vh;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rule-logo-string-effect {
+    display: none;
+  }
 }
 
 .rule-scroll-cue {
@@ -1451,9 +1476,10 @@ body {
 }
 
 .rule-laptop-shift {
-  /* Section cha đã place-items: center; không dịch scene để logo ở
-     trạng thái cuối nằm chính giữa viewport trên mọi kích thước màn hình. */
-  transform: none;
+  /* Chừa khoảng thở dưới header fixed khi logo được phóng lớn ở cuối trang. */
+  position: relative;
+  z-index: 2;
+  transform: translateY(var(--rl-header-clearance));
 }
 
 .rule-laptop-zoom {

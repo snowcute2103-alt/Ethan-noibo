@@ -1,12 +1,17 @@
+import RuleLogoStringEffect from '@/components/dashboard/rule-logo-string-effect';
+import DashboardHeaderVisibilityTrigger from '@/components/dashboard/dashboard-header-visibility-trigger';
+
 /** Khối "laptop 3D xoay" mở nắp/lật/thu nhỏ theo scroll — phỏng theo demo "CSS Cookbook" (jh3yy),
  * gắn view-timeline riêng --rule-laptop nên không đụng animation nào khác trong trang. */
 export default function RuleLaptopScene() {
   return (
     <div className="bg-navy-deep">
+      <DashboardHeaderVisibilityTrigger />
       <div className="rule-laptop-mobile-brand" aria-label="Ethan Ecom">
         <img src="/images/brand/logo-hires.png" alt="Ethan Ecom" />
       </div>
       <div className="rule-laptop">
+        <div className="rule-logo-string-trigger" aria-hidden="true" />
         <svg className="rule-scroll-cue" viewBox="0 0 24 24" aria-hidden="true">
           <path
             fill="currentColor"
@@ -14,6 +19,7 @@ export default function RuleLaptopScene() {
           />
         </svg>
         <section className="rule-laptop-section">
+          <RuleLogoStringEffect />
           <div className="rule-laptop-shift">
           <div className="rule-laptop-zoom">
             <div className="rule-laptop-scene">

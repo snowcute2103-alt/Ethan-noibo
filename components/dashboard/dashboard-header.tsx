@@ -6,11 +6,16 @@ import Link from 'next/link';
 import type { NavItem } from '@/lib/nav';
 import NavLink from '@/components/dashboard/nav-link';
 import UserMenu, { type UserMenuInfo } from '@/components/dashboard/user-menu';
+import {
+  DASHBOARD_HEADER_VISIBILITY_EVENT,
+  type DashboardHeaderVisibilityDetail,
+} from '@/components/dashboard/dashboard-header-visibility-trigger';
 import logo from '@/public/images/brand/logo.png';
 
 export default function DashboardHeader({ navItems, user }: { navItems: NavItem[]; user: UserMenuInfo }) {
   const headerRef = useRef<HTMLElement>(null);
   const [height, setHeight] = useState(0);
+  const [hiddenBySection, setHiddenBySection] = useState(false);
 
   useEffect(() => {
     const el = headerRef.current;
@@ -20,11 +25,23 @@ export default function DashboardHeader({ navItems, user }: { navItems: NavItem[
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    function handleVisibility(event: Event) {
+      setHiddenBySection((event as CustomEvent<DashboardHeaderVisibilityDetail>).detail.hidden);
+    }
+    window.addEventListener(DASHBOARD_HEADER_VISIBILITY_EVENT, handleVisibility);
+    return () => window.removeEventListener(DASHBOARD_HEADER_VISIBILITY_EVENT, handleVisibility);
+  }, []);
+
   return (
     <>
       <header
         ref={headerRef}
-        className="fixed inset-x-0 top-0 z-50 overflow-hidden bg-navy-deep text-white"
+        aria-hidden={hiddenBySection || undefined}
+        inert={hiddenBySection || undefined}
+        className={`fixed inset-x-0 top-0 z-50 overflow-hidden bg-navy-deep text-white transition-[transform,opacity] duration-300 ease-[var(--theme-ease)] motion-reduce:transition-none ${
+          hiddenBySection ? 'pointer-events-none -translate-y-full opacity-0' : 'translate-y-0 opacity-100'
+        }`}
       >
         <div className="glow-orb -left-24 -top-32 h-72 w-72 bg-cyan/20" aria-hidden="true" />
         <div className="glow-orb -right-16 -top-24 h-64 w-64 bg-gold/15" aria-hidden="true" />

@@ -65,9 +65,9 @@ export default function BirthdayTicket() {
       <p
         style={{
           textShadow:
-            '0 0 6px rgba(255,255,255,0.85), 0 0 14px rgba(255,225,170,0.65), 0 0 26px rgba(255,205,130,0.4)',
+            '0 1px 2px rgba(0,0,0,0.9), 0 0 10px rgba(255,225,170,0.7), 0 0 22px rgba(255,205,130,0.5)',
         }}
-        className="relative z-10 text-center text-sm font-bold uppercase tracking-[0.35em] text-white sm:text-base"
+        className="relative z-10 rounded-full border border-white/15 bg-black/35 px-5 py-1.5 text-center text-sm font-bold uppercase tracking-[0.35em] text-white backdrop-blur-sm sm:text-base"
       >
         Thử vận may của bạn…
       </p>

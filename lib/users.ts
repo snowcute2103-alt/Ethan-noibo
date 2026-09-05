@@ -136,16 +136,18 @@ export interface BirthdayPerson {
   day: number;
 }
 
-/** Nhân sự đang hoạt động (is_active = true) có sinh nhật trong tháng hiện tại, xếp theo ngày
- *  tăng dần — dùng cho popup "Xem ai sinh nhật tháng này" ở thẻ Chương trình sinh nhật trang chủ.
- *  Chỉ trả ngày/tháng (không year) — đủ cho mục đích chúc mừng, tránh lộ năm sinh không cần thiết. */
-export async function listActiveBirthdaysThisMonth(): Promise<BirthdayPerson[]> {
+/** Nhân sự đang hoạt động (is_active = true) có sinh nhật trong tháng hiện tại ± offset tháng,
+ *  xếp theo ngày tăng dần — dùng cho popup "Xem ai sinh nhật tháng này/trước/sau" ở thẻ Chương
+ *  trình sinh nhật trang chủ. Chỉ trả ngày/tháng (không year) — đủ cho mục đích chúc mừng, tránh
+ *  lộ năm sinh không cần thiết. */
+export async function listActiveBirthdaysByMonthOffset(offset: number): Promise<BirthdayPerson[]> {
   const rows = await sql.query(
     `SELECT full_name, department, avatar_url, EXTRACT(DAY FROM birth_date)::int AS day
      FROM users
      WHERE is_active = true AND birth_date IS NOT NULL
-       AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-     ORDER BY day ASC`
+       AND EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM (CURRENT_DATE + ($1 || ' month')::interval))
+     ORDER BY day ASC`,
+    [offset]
   );
   return rows.map((row) => ({
     fullName: row.full_name as string,
@@ -153,6 +155,11 @@ export async function listActiveBirthdaysThisMonth(): Promise<BirthdayPerson[]> 
     avatarUrl: (row.avatar_url as string | null) ?? null,
     day: row.day as number,
   }));
+}
+
+/** Alias tháng hiện tại (offset 0) — dùng cho SSR ban đầu của trang chủ. */
+export async function listActiveBirthdaysThisMonth(): Promise<BirthdayPerson[]> {
+  return listActiveBirthdaysByMonthOffset(0);
 }
 
 /** Email cá nhân của các tài khoản BGĐ (tier=full) đang hoạt động — nơi nhận thông
