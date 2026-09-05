@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent, type FormEvent } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Check, Flag, ImagePlus, MessageCircle, MoreVertical, Plus, StickyNote, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Flag, ImagePlus, MessageCircle, Plus, StickyNote, Trash2, X } from 'lucide-react';
 import type { Task, TaskStatus, TaskPriority, MonthDayCategoryCount } from '@/lib/tasks';
+import type { TeammateWithTaskCount } from '@/app/dashboard/giao-task/actions';
+import { nameSlug } from '@/lib/name-slug';
 import TaskCalendar from '@/components/dashboard/task-calendar';
 // Chỉ mở theo intent (bấm 1 task) — tách khỏi chunk ban đầu của board thay
 // vì import thẳng, giảm initial JS mà không đổi hành vi (đã 'use client').
@@ -19,10 +22,10 @@ import {
 import {
   getMyPersonalBoardAction,
   getPersonalBoardAsBgdAction,
+  getPersonalBoardAsPeerAction,
+  listMyTeammatesAction,
   createPersonalTasksAction,
   updatePersonalTaskAction,
-  deletePersonalTaskAction,
-  duplicatePersonalTaskAction,
   uploadPersonalTaskImageAction,
 } from '@/app/dashboard/giao-task/actions';
 import type { PersonalBoardCore } from '@/app/dashboard/giao-task/team-board-data';
@@ -41,6 +44,10 @@ interface PersonalTaskBoardProps {
   today: string;
   ownerUserId: number;
   viewerIsBgd: boolean;
+  /** true khi người xem là đồng đội (cùng team_label), không phải chính chủ/BGĐ
+   *  — chỉ xem, ẩn mọi thao tác tạo/sửa/xoá/kéo-thả (server cũng chặn riêng, xem
+   *  getPersonalBoardAsPeerAction). */
+  readOnly?: boolean;
   ownerName?: string;
   ownerAvatarUrl?: string | null;
   onBack?: () => void;
@@ -136,6 +143,7 @@ export default function PersonalTaskBoard({
   today,
   ownerUserId,
   viewerIsBgd,
+  readOnly = false,
   ownerName,
   ownerAvatarUrl,
   onBack,
@@ -155,6 +163,7 @@ export default function PersonalTaskBoard({
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [createRequest, setCreateRequest] = useState<TaskStatus | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [teammates, setTeammates] = useState<TeammateWithTaskCount[]>([]);
   const didMount = useRef(false);
   const refreshRequestRef = useRef(0);
 
@@ -167,9 +176,11 @@ export default function PersonalTaskBoard({
   async function refresh(opts?: { silent?: boolean }) {
     const requestId = ++refreshRequestRef.current;
     try {
-      const result = viewerIsBgd
-        ? await getPersonalBoardAsBgdAction(ownerUserId, range, calendarYearMonth)
-        : await getMyPersonalBoardAction(range, calendarYearMonth);
+      const result = readOnly
+        ? await getPersonalBoardAsPeerAction(ownerUserId, range, calendarYearMonth)
+        : viewerIsBgd
+          ? await getPersonalBoardAsBgdAction(ownerUserId, range, calendarYearMonth)
+          : await getMyPersonalBoardAction(range, calendarYearMonth);
       if (requestId !== refreshRequestRef.current) return;
       clearServerActionRecoveryMarker();
       setTasks(result.tasks);
@@ -198,6 +209,15 @@ export default function PersonalTaskBoard({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerUserId, range.fromDate, range.toDate, calendarYearMonth]);
+
+  // Mục "Đồng đội" chỉ có ý nghĩa trên board của chính mình — BGĐ xem hộ
+  // hoặc đồng đội xem hộ (readOnly) không cần thấy danh sách này.
+  useEffect(() => {
+    if (viewerIsBgd || readOnly) return;
+    listMyTeammatesAction()
+      .then(setTeammates)
+      .catch(() => {});
+  }, [viewerIsBgd, readOnly]);
 
   useEffect(() => {
     let refreshInFlight = false;
@@ -234,6 +254,16 @@ export default function PersonalTaskBoard({
     setTasks((current) => {
       const nextById = new Map(current.map((task) => [task.id, task]));
       for (const change of changes) {
+        // Cùng id (sửa/đổi trạng thái 1 task có sẵn) — chỉ Map.set tại chỗ,
+        // KHÔNG delete trước: delete rồi set lại cùng key sẽ đẩy task đó
+        // xuống cuối thứ tự duyệt Map, làm thẻ "nhảy" vị trí trong cột mỗi
+        // lần bấm checkbox/sửa tiêu đề dù server luôn trả về đúng 1 thứ tự
+        // ổn định (xem listTasksForOwner).
+        if (change.previous && change.next && change.previous.id === change.next.id) {
+          if (inRange(change.next)) nextById.set(change.next.id, change.next);
+          else nextById.delete(change.next.id);
+          continue;
+        }
         if (change.previous) nextById.delete(change.previous.id);
         if (change.next && inRange(change.next)) nextById.set(change.next.id, change.next);
       }
@@ -308,14 +338,14 @@ export default function PersonalTaskBoard({
   return (
     <div className="personal-task-board-page px-4 py-6 sm:px-6 sm:py-8 min-[1025px]:px-10 min-[1025px]:py-10">
       <div className="mb-6">
-        {viewerIsBgd && onBack && (
+        {onBack && (
           <button
             type="button"
             onClick={onBack}
             className="flex items-center gap-1 font-heading text-xs font-bold uppercase tracking-[0.2em] text-blue hover:text-blue-cta"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            Bộ phận khác
+            {readOnly ? 'Quay lại' : 'Bộ phận khác'}
           </button>
         )}
         <div className="mt-1 flex items-center gap-3">
@@ -338,7 +368,7 @@ export default function PersonalTaskBoard({
               </span>
             ))}
           <h1 className="font-heading text-2xl font-semibold text-navy sm:text-3xl">
-            {viewerIsBgd ? (ownerName ?? 'Task cá nhân') : 'Task của tôi'}
+            {viewerIsBgd || readOnly ? (ownerName ?? 'Task cá nhân') : 'Task của tôi'}
           </h1>
         </div>
       </div>
@@ -353,13 +383,16 @@ export default function PersonalTaskBoard({
             tasks={tasks}
             today={today}
             ownerUserId={ownerUserId}
+            readOnly={readOnly}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             rangeLabel={rangeLabel}
             onShiftDate={(direction) => setAnchorDate(shiftAnchor(viewMode, anchorDate, direction))}
             showTodayButton={anchorDate !== today}
             onGoToday={() => setAnchorDate(today)}
-            onRequestCreate={(status) => setCreateRequest(status)}
+            onRequestCreate={(status) => {
+              if (!readOnly) setCreateRequest(status);
+            }}
             onStatusChange={changeStatus}
             onTitleChange={(task, title) =>
               runAction(
@@ -367,18 +400,9 @@ export default function PersonalTaskBoard({
                 (updated) => reconcileTasks([{ previous: task, next: updated }])
               )
             }
-            onDelete={(task) =>
-              runAction(() => deletePersonalTaskAction(ownerUserId, task.id), () =>
-                reconcileTasks([{ previous: task, next: null }])
-              )
-            }
-            onDuplicate={(task, toDate) =>
-              runAction(
-                () => duplicatePersonalTaskAction(ownerUserId, task.id, toDate),
-                (created) => reconcileTasks([{ previous: null, next: created }])
-              )
-            }
-            onOpenDetail={(task) => setSelectedTaskId(task.id)}
+            onOpenDetail={(task) => {
+              if (!readOnly) setSelectedTaskId(task.id);
+            }}
           />
         </div>
 
@@ -404,6 +428,38 @@ export default function PersonalTaskBoard({
               {monthProgress.done}/{monthProgress.total} <span className="text-xs font-normal text-muted">hoàn thành</span>
             </p>
           </div>
+          {teammates.length > 0 && (
+            <div className="rounded-[14px] border border-[#FF2E7A]/25 bg-[#FFE1EC] px-4 py-3">
+              <p className="text-xs font-semibold text-[#FF2E7A]">Đồng đội</p>
+              <div className="mt-2 flex flex-col gap-1.5">
+                {teammates.map((mate) => (
+                  <Link
+                    key={mate.userId}
+                    href={`/dashboard/giao-task/${nameSlug(mate.fullName)}`}
+                    className="flex items-center gap-2.5 rounded-[10px] px-2 py-1.5 -mx-2 transition-colors hover:bg-white/60"
+                  >
+                    {mate.avatarUrl ? (
+                      <Image
+                        src={mate.avatarUrl}
+                        alt=""
+                        width={28}
+                        height={28}
+                        className="h-7 w-7 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-xs font-bold text-white" aria-hidden="true">
+                        {initialsOf(mate.fullName)}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium uppercase text-navy">{mate.fullName}</span>
+                    <span className="shrink-0 rounded-full bg-[#FF2E7A] px-2 py-0.5 text-xs font-semibold text-white">
+                      {mate.taskCount} task
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -421,6 +477,11 @@ export default function PersonalTaskBoard({
           onTaskUpdated={(updated) => {
             const previous = tasks.find((item) => item.id === updated.id) ?? null;
             reconcileTasks([{ previous, next: updated }]);
+          }}
+          onDeleted={() => {
+            const deleted = tasks.find((item) => item.id === selectedTaskId) ?? null;
+            if (deleted) reconcileTasks([{ previous: deleted, next: null }]);
+            setSelectedTaskId(null);
           }}
         />
       )}
@@ -445,6 +506,7 @@ function PersonalKanban({
   tasks,
   today,
   ownerUserId,
+  readOnly = false,
   viewMode,
   onViewModeChange,
   rangeLabel,
@@ -454,13 +516,12 @@ function PersonalKanban({
   onRequestCreate,
   onStatusChange,
   onTitleChange,
-  onDelete,
-  onDuplicate,
   onOpenDetail,
 }: {
   tasks: Task[];
   today: string;
   ownerUserId: number;
+  readOnly?: boolean;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   rangeLabel: string;
@@ -470,8 +531,6 @@ function PersonalKanban({
   onRequestCreate: (status: TaskStatus) => void;
   onStatusChange: (task: Task, status: TaskStatus) => void;
   onTitleChange: (task: Task, title: string) => void;
-  onDelete: (task: Task) => void;
-  onDuplicate: (task: Task, toDate: string) => void;
   onOpenDetail: (task: Task) => void;
 }) {
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
@@ -484,6 +543,7 @@ function PersonalKanban({
 
   function handleDrop(status: TaskStatus, e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
+    if (readOnly) return;
     // Dọn thẻ nổi ngay tại đây (không đợi sự kiện `dragend` của thẻ nguồn) —
     // sau khi đổi trạng thái, thẻ nguồn có thể bị unmount khỏi cột cũ trước
     // khi trình duyệt kịp bắn `dragend`, khiến thẻ nổi bị kẹt lại trên màn hình.
@@ -511,14 +571,16 @@ function PersonalKanban({
     <div className="flex min-w-0 flex-col gap-3 rounded-[16px] bg-navy-deep p-3 min-[1025px]:gap-4 min-[1025px]:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onRequestCreate('not_started')}
-            className="flex h-11 items-center gap-1.5 rounded-[10px] bg-blue px-3 text-xs font-semibold text-white shadow-sm hover:bg-blue-cta"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Thêm task
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => onRequestCreate('not_started')}
+              className="flex h-11 items-center gap-1.5 rounded-[10px] bg-blue px-3 text-xs font-semibold text-white shadow-sm hover:bg-blue-cta"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Thêm task
+            </button>
+          )}
           <div className="flex h-11 gap-1 rounded-[10px] border border-[#dbe4f2] bg-white p-1">
             {(['day', 'week', 'month'] as ViewMode[]).map((mode) => (
               <button
@@ -574,6 +636,7 @@ function PersonalKanban({
                 task={task}
                 today={today}
                 ownerUserId={ownerUserId}
+                readOnly={readOnly}
                 isDragging={draggingTask?.id === task.id}
                 onDragLift={(x, y) => {
                   setDraggingTask(task);
@@ -583,8 +646,6 @@ function PersonalKanban({
                 onDragRelease={endDrag}
                 onStatusChange={(status) => onStatusChange(task, status)}
                 onTitleChange={(title) => onTitleChange(task, title)}
-                onDelete={() => onDelete(task)}
-                onDuplicate={(toDate) => onDuplicate(task, toDate)}
                 onOpenDetail={() => onOpenDetail(task)}
               />
             ))}
@@ -628,8 +689,6 @@ function PersonalKanban({
                     onDragRelease={endDrag}
                     onStatusChange={(status) => onStatusChange(task, status)}
                     onTitleChange={(title) => onTitleChange(task, title)}
-                    onDelete={() => onDelete(task)}
-                    onDuplicate={(toDate) => onDuplicate(task, toDate)}
                     onOpenDetail={() => onOpenDetail(task)}
                   />
                 ))}
@@ -678,55 +737,34 @@ function PersonalKanbanCard({
   task,
   today,
   ownerUserId,
+  readOnly = false,
   isDragging,
   onDragLift,
   onDragMove,
   onDragRelease,
   onStatusChange,
   onTitleChange,
-  onDelete,
-  onDuplicate,
   onOpenDetail,
 }: {
   task: Task;
   today: string;
   ownerUserId: number;
+  readOnly?: boolean;
   isDragging: boolean;
   onDragLift: (x: number, y: number) => void;
   onDragMove: (x: number, y: number) => void;
   onDragRelease: () => void;
   onStatusChange: (status: TaskStatus) => void;
   onTitleChange: (title: string) => void;
-  onDelete: () => void;
-  onDuplicate: (toDate: string) => void;
   onOpenDetail: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
-  const [duplicating, setDuplicating] = useState(false);
-  const [dupDate, setDupDate] = useState(task.taskDate);
   const cardRef = useRef<HTMLDivElement>(null);
   const suppressDetailRef = useRef(false);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
   const isFromBoss = task.createdBy !== null && task.createdBy !== ownerUserId;
   const isOverdue = task.rolledOverAt !== null && task.status !== 'done';
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handlePointerDown(e: MouseEvent) {
-      if (!cardRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuOpen(false);
-    }
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [menuOpen]);
 
   function commitTitle() {
     setEditing(false);
@@ -755,8 +793,9 @@ function PersonalKanbanCard({
     >
     <div
       ref={cardRef}
-      draggable={!editing}
+      draggable={!editing && !readOnly}
       onDragStart={(e) => {
+        if (readOnly) return;
         suppressDetailRef.current = true;
         e.dataTransfer.setData('text/plain', String(task.id));
         e.dataTransfer.effectAllowed = 'move';
@@ -780,19 +819,21 @@ function PersonalKanbanCard({
         }, 0);
       }}
       onClick={() => {
-        if (!editing && !suppressDetailRef.current) onOpenDetail();
+        if (!editing && !suppressDetailRef.current && !readOnly) onOpenDetail();
       }}
-      title="Bấm để xem chi tiết task"
-      className={`group relative flex cursor-grab gap-2.5 rounded-[10px] border border-[#e8edf5] bg-white p-3 shadow-[0_2px_6px_-2px_rgba(16,26,48,0.12)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_20px_-10px_rgba(16,26,48,0.25)] active:cursor-grabbing ${
-        isDragging ? 'opacity-30 ring-2 ring-inset ring-blue/40' : ''
-      }`}
+      title={readOnly ? undefined : 'Bấm để xem chi tiết task'}
+      className={`group relative flex gap-2.5 rounded-[10px] border border-[#e8edf5] bg-white p-3 shadow-[0_2px_6px_-2px_rgba(16,26,48,0.12)] transition-all duration-150 ${
+        readOnly ? 'cursor-default' : 'cursor-grab hover:-translate-y-0.5 hover:shadow-[0_10px_20px_-10px_rgba(16,26,48,0.25)] active:cursor-grabbing'
+      } ${isDragging ? 'opacity-30 ring-2 ring-inset ring-blue/40' : ''}`}
     >
       <button
         type="button"
         role="checkbox"
         aria-checked={task.status === 'done'}
+        disabled={readOnly}
         onClick={(e) => {
           e.stopPropagation();
+          if (readOnly) return;
           const next: TaskStatus = task.status === 'done' ? 'not_started' : 'done';
           if (next === 'done') fireConfetti();
           onStatusChange(next);
@@ -801,7 +842,7 @@ function PersonalKanbanCard({
         className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors ${
           task.status === 'done'
             ? 'border-emerald-500 bg-emerald-500 text-white'
-            : 'border-[#c7d2e4] text-transparent hover:border-blue'
+            : `border-[#c7d2e4] text-transparent ${readOnly ? '' : 'hover:border-blue'}`
         }`}
       >
         <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
@@ -827,58 +868,18 @@ function PersonalKanbanCard({
             />
           ) : (
             <p
-              className={`cursor-text text-sm font-semibold ${task.status === 'done' ? 'text-muted line-through' : 'text-navy'}`}
+              className={`text-sm font-semibold ${readOnly ? '' : 'cursor-text'} ${task.status === 'done' ? 'text-muted line-through' : 'text-navy'}`}
               onClick={(e) => {
                 e.stopPropagation();
+                if (readOnly) return;
                 setTitle(task.title);
                 setEditing(true);
               }}
-              title="Bấm để sửa tiêu đề"
+              title={readOnly ? undefined : 'Bấm để sửa tiêu đề'}
             >
               {task.title}
             </p>
           )}
-          <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label="Tuỳ chọn task"
-              className="grid h-6 w-6 place-items-center rounded text-muted opacity-0 hover:bg-surface-2 hover:text-navy group-hover:opacity-100"
-            >
-              <MoreVertical size={14} aria-hidden="true" />
-            </button>
-            {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-7 z-20 w-40 border border-[#e8edf5] bg-white py-1 text-xs shadow-[0_12px_24px_-12px_rgba(16,26,48,0.25)]"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setDuplicating(true);
-                    setMenuOpen(false);
-                  }}
-                  className="block w-full px-3 py-1.5 text-left font-semibold text-navy hover:bg-surface-2"
-                >
-                  Nhân bản…
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onDelete();
-                    setMenuOpen(false);
-                  }}
-                  className="block w-full px-3 py-1.5 text-left font-semibold text-red-500 hover:bg-surface-2"
-                >
-                  Xoá
-                </button>
-              </div>
-            )}
-          </div>
         </div>
         {(task.description ?? task.note) && (
           <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted">
@@ -911,41 +912,6 @@ function PersonalKanbanCard({
             </span>
           )}
         </div>
-        {duplicating && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="mt-2 flex flex-col gap-1.5 rounded-[8px] border border-[#dbe4f2] bg-white p-1.5"
-        >
-          <input
-            type="date"
-            value={dupDate}
-            onChange={(e) => setDupDate(e.target.value)}
-            className="w-full rounded border border-[#dbe4f2] px-1.5 py-1 text-xs outline-none focus:border-blue"
-          />
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                if (dupDate) {
-                  onDuplicate(dupDate);
-                  setDuplicating(false);
-                }
-              }}
-              className="flex-1 rounded bg-blue px-2 py-1 text-[11px] font-semibold text-white hover:bg-blue-cta"
-            >
-              Nhân bản
-            </button>
-            <button
-              type="button"
-              onClick={() => setDuplicating(false)}
-              aria-label="Huỷ"
-              className="grid h-6 w-6 shrink-0 place-items-center rounded text-muted hover:bg-surface-2"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-        )}
       </div>
       {isFromBoss && task.createdByFullName && (
         <div

@@ -45,17 +45,16 @@ export default function GreetingHero({ greeting, department }: { greeting: strin
 
       <Spotlight className="-top-40 left-0 md:-top-20 md:left-60" fill="white" />
 
-      <div className="flex h-full flex-col-reverse sm:flex-row">
-        <div className="greeting-hero-copy relative z-10 flex min-w-0 flex-1 flex-col justify-center p-5 sm:basis-1/2 sm:p-6 min-[1025px]:p-12">
-          <p className="font-heading text-sm font-medium uppercase tracking-[0.2em] text-cyan sm:text-base min-[1025px]:text-2xl min-[1025px]:tracking-[0.3em]">
+      <div className="flex h-full flex-col-reverse sm:grid sm:grid-cols-2 min-[1280px]:grid-cols-[2fr_3fr]">
+        <div className="greeting-hero-copy relative z-10 flex min-w-0 flex-1 flex-col justify-center p-5 sm:basis-1/2 sm:p-6 min-[1025px]:p-10">
+          <p className="font-heading text-sm font-medium uppercase tracking-[0.2em] text-cyan sm:text-base min-[1025px]:text-lg min-[1025px]:tracking-[0.25em]">
             Cổng thông tin nội bộ
           </p>
-          <h2 className="title-glow font-heading mt-3 text-3xl font-light uppercase leading-[1.2] tracking-normal text-white sm:mt-4 sm:text-4xl min-[1025px]:mt-6 min-[1025px]:text-6xl min-[1025px]:leading-[1.3]">
-            {greeting},
-            <br />
-            {department}
+          <h2 className="title-glow font-heading mt-3 flex flex-col gap-2 text-3xl font-light uppercase leading-[1.2] tracking-normal text-white sm:mt-4 sm:text-4xl min-[1025px]:gap-3 min-[1025px]:text-[clamp(2.5rem,2.75vw,3rem)]">
+            <span>{greeting},</span>
+            <span>{department}</span>
           </h2>
-          <div className="gradient-divider animate-gradient-divider mt-4 w-16 min-[1025px]:mt-6 min-[1025px]:w-24" aria-hidden="true" />
+          <div className="gradient-divider animate-gradient-divider mt-4 w-16 min-[1025px]:w-24" aria-hidden="true" />
         </div>
 
         <div className="relative flex h-1/2 flex-1 items-center justify-center overflow-hidden [container-type:size] sm:h-full sm:basis-1/2">

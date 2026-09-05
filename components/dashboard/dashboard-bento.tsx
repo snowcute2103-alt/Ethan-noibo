@@ -327,7 +327,7 @@ export default function DashboardBento({
 
   return (
     <>
-      <div className="dashboard-bento-band relative left-1/2 w-screen -translate-x-1/2 bg-navy-deep py-12 min-[1025px]:py-20 min-[1280px]:py-32">
+      <div className="dashboard-bento-band relative left-1/2 w-screen -translate-x-1/2 bg-navy-deep py-8 min-[1025px]:py-12 min-[1280px]:py-16">
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 min-[1025px]:px-8">
         <TextBlockAnimation blockColor="#101A30" duration={0.7} stagger={0.05}>
           <p className="font-heading text-xs font-medium uppercase tracking-[0.2em] text-gold-2 min-[1025px]:text-sm min-[1025px]:tracking-[0.3em]">Về Ethan</p>
@@ -347,7 +347,7 @@ export default function DashboardBento({
                 >
                   <circle cx="100" cy="100" r="100" fill="#00D2FF" />
                 </svg>
-                <div ref={headcountCardRef} className="relative">
+                <div ref={headcountCardRef} className="relative z-10">
                   <div className="flex items-start justify-between gap-4 min-[1025px]:gap-6">
                     <div>
                       <p className="font-heading origin-left text-3xl font-medium text-white transition-transform duration-300 group-hover:scale-105 sm:text-4xl min-[1025px]:text-6xl">
@@ -376,11 +376,6 @@ export default function DashboardBento({
                               {headcount.male} nam
                             </span>
                           </div>
-                          <Image
-                            src={headcountIllustration}
-                            alt="Minh hoạ đội ngũ nhân sự Ethan"
-                            className="pointer-events-none h-16 w-auto shrink-0 object-contain transition-transform duration-300 group-hover:scale-105 sm:h-20 min-[1025px]:h-24"
-                          />
                         </div>
                       )}
                     </div>
@@ -400,6 +395,13 @@ export default function DashboardBento({
                     )}
                   </div>
                 </div>
+                {genderTotal > 0 && (
+                  <Image
+                    src={headcountIllustration}
+                    alt="Minh hoạ đội ngũ nhân sự Ethan"
+                    className="pointer-events-none absolute -bottom-5 left-1/2 z-0 h-32 w-auto translate-x-[calc(-50%-10px)] object-contain object-bottom transition-transform duration-300 ease-[var(--theme-ease)] group-hover:translate-x-[calc(-50%-10px)] group-hover:scale-105 sm:-bottom-6 sm:h-40 min-[1025px]:-bottom-8 min-[1025px]:h-48"
+                  />
+                )}
               </BentoCard>
             )}
 

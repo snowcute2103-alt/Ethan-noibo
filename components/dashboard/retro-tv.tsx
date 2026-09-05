@@ -1,7 +1,7 @@
 /// <reference path="./retro-tv.d.ts" />
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import ethanLogo from '@/public/images/brand/logo.png';
 import { useReducedEffects } from '@/lib/use-reduced-effects';
@@ -10,14 +10,75 @@ import './retro-tv.css';
 const GRILL_HOLES = 34;
 const TEST_BARS = 21;
 const LOGO_VIDEO_SRC = '/images/retro-tv/video.mp4';
+const PELICAN_CHANNEL_SRC = '/images/retro-tv/pelican-channel.html';
+const PELICAN_MESSAGE_SOURCE = 'ethan-retro-tv';
+const PELICAN_BGM_SRC = '/images/retro-tv/pelican-theme.mp4';
+const PELICAN_BGM_RATE = 1.5;
 /** Độ trễ trước khi tự bật — để người xem kịp thấy TV đang tắt trước khi nó bật lên. */
 const AUTO_POWER_ON_DELAY_MS = 600;
 
+type TvChannel = 'vid1' | 'pelican' | 'vid2' | 'vid3' | 'vid4' | 'ethan';
+type PelicanCommand = 'slow' | 'cruise' | 'fast' | 'toggle-pause' | 'toggle-theme' | 'honk';
+
+/** Thứ tự chuyển kênh khi bấm nút "Chuyển kênh". Kênh mặc định khi load trang là phần tử đầu tiên. */
+const CHANNEL_ORDER: readonly TvChannel[] = ['vid1', 'vid2', 'vid4', 'vid3', 'ethan', 'pelican'];
+
+const VIDEO_CHANNEL_SRC: Partial<Record<TvChannel, string>> = {
+  vid1: '/images/retro-tv/vid1.mp4',
+  vid2: '/images/retro-tv/vid2.mp4',
+  vid3: '/images/retro-tv/vid3.mp4',
+  vid4: '/images/retro-tv/vid4.mp4',
+  ethan: LOGO_VIDEO_SRC,
+};
+
+function getChannelLabel(channel: TvChannel) {
+  switch (channel) {
+    case 'vid1':
+      return 'Video 1';
+    case 'vid2':
+      return 'Video 2';
+    case 'vid3':
+      return 'Video 3';
+    case 'vid4':
+      return 'Video 4';
+    case 'pelican':
+      return 'hoạt họa Pélican';
+    case 'ethan':
+      return 'Ethan Ecom';
+  }
+}
+
+const PELICAN_FUNCTION_SEQUENCE: readonly PelicanCommand[] = [
+  'slow',
+  'cruise',
+  'fast',
+  'toggle-pause',
+  'toggle-theme',
+  'honk',
+];
+
+function getPelicanFunctionLabel(command: PelicanCommand, isPaused: boolean, isNight: boolean) {
+  switch (command) {
+    case 'slow':
+      return 'Chậm';
+    case 'cruise':
+      return 'Thường';
+    case 'fast':
+      return 'Nhanh';
+    case 'toggle-pause':
+      return isPaused ? 'Tiếp tục' : 'Tạm dừng';
+    case 'toggle-theme':
+      return isNight ? 'Chế độ sáng' : 'Chế độ tối';
+    case 'honk':
+      return 'Bóp còi';
+  }
+}
+
 /**
- * CSS-only retro CRT TV — ported from a CodePen by Ben Evans (tinydesign.co.uk /
- * linktr.ee/ivorjetski). Power/tuning/volume interactivity runs on native
- * `:checked` + `:has()`, no JS — only the looping brand video in the center of
- * the screen is a real element. See retro-tv.css for the scoping changes made to
+ * Retro CRT TV — ported from a CodePen by Ben Evans (tinydesign.co.uk /
+ * linktr.ee/ivorjetski). The tuning dial changes channels; the bottom badge
+ * cycles through the Pelican channel's functions. See retro-tv.css for the
+ * scoping changes made to
  * safely embed it inside an existing page (original assumed it owned the whole
  * document: <html>, <body>, <input>, <label> were all styled globally). The
  * original's rotating wireframe cube logo (and its tune3 "morph" easter egg,
@@ -25,7 +86,18 @@ const AUTO_POWER_ON_DELAY_MS = 600;
  */
 export default function RetroTv() {
   const powerRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const pelicanFrameRef = useRef<HTMLIFrameElement>(null);
+  const pelicanBgmRef = useRef<HTMLAudioElement>(null);
   const reduceEffects = useReducedEffects();
+  const [channel, setChannel] = useState<TvChannel>(CHANNEL_ORDER[0]);
+  const [channelChangeId, setChannelChangeId] = useState(0);
+  const [functionStep, setFunctionStep] = useState(0);
+  const [isPelicanPaused, setIsPelicanPaused] = useState(false);
+  const [isPelicanNight, setIsPelicanNight] = useState(false);
+  const [isPelicanReady, setIsPelicanReady] = useState(false);
+  const [functionStatus, setFunctionStatus] = useState('');
+  const [isMuted, setIsMuted] = useState(true);
 
   useEffect(() => {
     if (reduceEffects) return;
@@ -35,25 +107,137 @@ export default function RetroTv() {
     return () => clearTimeout(timer);
   }, [reduceEffects]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (channel === 'pelican') {
+      video.pause();
+      return;
+    }
+
+    // A new channel means a new `src` — reload so the browser picks it up before playing.
+    video.load();
+    if (reduceEffects) {
+      video.pause();
+      return;
+    }
+
+    void video.play().catch(() => undefined);
+  }, [channel, reduceEffects]);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = isMuted;
+  }, [isMuted]);
+
+  // The pelican channel's theme song plays here in the parent document, not inside the
+  // sandboxed iframe — starting/unmuting audio from a postMessage handler in a
+  // cross-frame document doesn't reliably count as user-activated, so browsers can
+  // silently block it. A <audio> element living next to the "Chuyển kênh" button plays
+  // in direct response to that click instead, same as the shared <video> above.
+  useEffect(() => {
+    const audio = pelicanBgmRef.current;
+    if (!audio) return;
+    audio.playbackRate = PELICAN_BGM_RATE;
+
+    if (channel !== 'pelican' || reduceEffects) {
+      audio.pause();
+      return;
+    }
+
+    void audio.play().catch(() => undefined);
+  }, [channel, reduceEffects]);
+
+  useEffect(() => {
+    if (pelicanBgmRef.current) pelicanBgmRef.current.muted = isMuted;
+  }, [isMuted]);
+
+  function toggleMute() {
+    setIsMuted((muted) => !muted);
+  }
+
+  function changeChannel() {
+    const nextChannel = CHANNEL_ORDER[(CHANNEL_ORDER.indexOf(channel) + 1) % CHANNEL_ORDER.length];
+    setChannel(nextChannel);
+    setFunctionStatus('');
+    if (!reduceEffects) setChannelChangeId((changeId) => changeId + 1);
+  }
+
+  const isPelicanChannel = channel === 'pelican';
+
+  function runNextPelicanFunction() {
+    if (!isPelicanReady) return;
+
+    const command = PELICAN_FUNCTION_SEQUENCE[functionStep];
+    const functionLabel = getPelicanFunctionLabel(command, isPelicanPaused, isPelicanNight);
+
+    if (!isPelicanChannel) {
+      setChannel('pelican');
+      if (!reduceEffects) setChannelChangeId((changeId) => changeId + 1);
+    }
+
+    pelicanFrameRef.current?.contentWindow?.postMessage(
+      { source: PELICAN_MESSAGE_SOURCE, type: 'pelican-control', command },
+      '*',
+    );
+
+    if (command === 'slow' || command === 'cruise' || command === 'fast') {
+      setIsPelicanPaused(false);
+    } else if (command === 'toggle-pause') {
+      setIsPelicanPaused((isPaused) => !isPaused);
+    } else if (command === 'toggle-theme') {
+      setIsPelicanNight((isNight) => !isNight);
+    }
+
+    setFunctionStatus(functionLabel);
+    setFunctionStep((step) => (step + 1) % PELICAN_FUNCTION_SEQUENCE.length);
+  }
+
+  const nextFunctionLabel = getPelicanFunctionLabel(
+    PELICAN_FUNCTION_SEQUENCE[functionStep],
+    isPelicanPaused,
+    isPelicanNight,
+  );
+
   return (
-    <div className="retro-tv-widget d-flex">
+    <div className="retro-tv-widget d-flex" data-channel={channel} data-muted={isMuted}>
       <tv-content>
         <tv-set>
           <tv-crt>
-            <tv-screen>
+            <tv-screen id="retro-tv-screen">
               <u>
                 <u></u> <u></u> <u></u> <u></u>
               </u>
               <u></u>
               <u></u>
               <video
-                className="tv-logo-video"
+                ref={videoRef}
+                className={`tv-logo-video${isPelicanChannel ? '' : ' is-active'}${channel === 'vid4' ? ' tv-vid4-bottom' : ''}`}
                 autoPlay={!reduceEffects}
-                muted
+                aria-hidden={isPelicanChannel}
+                muted={isMuted}
                 loop
                 playsInline
-                src={LOGO_VIDEO_SRC}
+                src={isPelicanChannel ? undefined : VIDEO_CHANNEL_SRC[channel]}
               />
+              {channel === 'vid2' ? <div className="tv-vid2-tint" aria-hidden="true" /> : null}
+              <iframe
+                ref={pelicanFrameRef}
+                className={`tv-channel-frame${isPelicanChannel ? ' is-active' : ''}`}
+                src={PELICAN_CHANNEL_SRC}
+                title="Kênh hoạt họa Pélican"
+                sandbox="allow-scripts"
+                referrerPolicy="no-referrer"
+                aria-hidden={!isPelicanChannel}
+                onLoad={() => setIsPelicanReady(true)}
+                tabIndex={-1}
+              />
+              <audio ref={pelicanBgmRef} src={PELICAN_BGM_SRC} muted={isMuted} loop />
+              {isPelicanChannel && functionStatus ? (
+                <output className="tv-function-status" aria-live="polite">
+                  {functionStatus}
+                </output>
+              ) : null}
             </tv-screen>
             <Image src={ethanLogo} alt="Ethan Ecom" className="tv-standby-logo" priority />
             <div>
@@ -67,7 +251,10 @@ export default function RetroTv() {
                 </tv-test>
               </div>
             </div>
-            <tv-tune className="squircle"></tv-tune>
+            <tv-tune
+              key={channelChangeId}
+              className={channelChangeId > 0 ? 'squircle tv-channel-transition' : 'squircle'}
+            ></tv-tune>
             <tv-light>
               <u></u>
               <u></u>
@@ -102,8 +289,8 @@ export default function RetroTv() {
             <tv-knobs>
               <div className="power d-flex">
                 <tv-flex>
-                  <span className="my-md d-block text-center text-white">Power</span>
-                  <label htmlFor="on-off" title="Power"></label>
+                  <span className="my-md d-block text-center text-white">Tắt/Mở</span>
+                  <label htmlFor="on-off" title="Tắt/Mở"></label>
                 </tv-flex>
                 <tv-flex className="vol">
                   <span className="my-md d-block text-center text-white">Volume</span>
@@ -111,36 +298,48 @@ export default function RetroTv() {
                     <u>
                       <u></u>
                     </u>
-                    <tv-dialvol>
-                      <label htmlFor="vol1"></label>
-                      <label htmlFor="vol2"></label>
-                      <label htmlFor="vol3"></label>
-                      <label htmlFor="vol4"></label>
-                    </tv-dialvol>
+                    <button
+                      type="button"
+                      className="tv-volume-button"
+                      onClick={toggleMute}
+                      aria-pressed={!isMuted}
+                      aria-controls="retro-tv-screen"
+                      aria-label={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
+                      title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
+                    ></button>
                   </u>
                 </tv-flex>
               </div>
               <div className="tuning">
-                <span className="my-md d-block text-center text-white">Tuning</span>
+                <span className="my-md d-block text-center text-white tv-label-lg">Chuyển kênh</span>
                 <u>
                   <u>
                     <u></u>
                   </u>
-                  <tv-dial>
-                    <label htmlFor="tune1"></label>
-                    <label htmlFor="tune2"></label>
-                    <label htmlFor="tune3"></label>
-                    <label htmlFor="tune4"></label>
-                  </tv-dial>
-                  <label htmlFor="unclick"></label>
+                  <button
+                    type="button"
+                    className="tv-channel-button"
+                    onClick={changeChannel}
+                    aria-controls="retro-tv-screen"
+                    aria-label={`Chuyển kênh. Kênh hiện tại: ${getChannelLabel(channel)}`}
+                    title="Chuyển kênh"
+                  ></button>
                 </u>
               </div>
               <div>
-                <a className="badge" href="https://ethanecom.com" target="_blank" title="Ethan Ecom" rel="noreferrer">
-                  <u className="sig">
+                <button
+                  type="button"
+                  className="badge tv-function-cycle-button"
+                  onClick={runNextPelicanFunction}
+                  disabled={!isPelicanReady}
+                  aria-controls="retro-tv-screen"
+                  aria-label={`Chức năng. Bấm để chọn: ${nextFunctionLabel}`}
+                  title={`Chức năng: ${nextFunctionLabel}`}
+                >
+                  <u className="sig" aria-hidden="true">
                     <u></u>
                   </u>
-                </a>
+                </button>
               </div>
             </tv-knobs>
           </tv-panel>
@@ -148,11 +347,9 @@ export default function RetroTv() {
       </tv-content>
 
       <input ref={powerRef} type="checkbox" name="tv" id="on-off" />
-      <input type="radio" name="tv" id="tune1" />
-      <input type="radio" name="tv" id="tune2" />
-      <input type="radio" name="tv" id="tune3" />
-      <input type="radio" name="tv" id="tune4" />
-      <input type="radio" name="tv" id="unclick" defaultChecked />
+      <span className="sr-only" aria-live="polite">
+        {`Đang phát kênh ${getChannelLabel(channel)}`}
+      </span>
     </div>
   );
 }

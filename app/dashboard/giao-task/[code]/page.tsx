@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { todayIso } from '@/lib/date';
 import { findOutsideTeamUserBySlug, findTeamIdByUserId, getTeamByCode } from '@/lib/teams';
+import { findUserById } from '@/lib/users';
 import TaskBoard from '@/components/dashboard/task-board';
 import PersonalTaskBoard from '@/components/dashboard/personal-task-board';
 import { loadPersonalBoardCore, loadTeamBoardCore } from '../team-board-data';
@@ -73,6 +74,29 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
         ownerName={person.fullName}
         ownerAvatarUrl={person.avatarUrl}
         initialBoard={initialBoard}
+      />
+    );
+  }
+
+  // Đồng đội cùng team_label/department chỉ được XEM (không sửa) — khớp
+  // requirePeerReadContext ở actions.ts, chặn ở cả đây lẫn server action.
+  const [viewer, owner] = await Promise.all([findUserById(session.userId), findUserById(person.userId)]);
+  const isTeammate =
+    viewer !== null &&
+    owner !== null &&
+    viewer.teamLabel !== null &&
+    viewer.teamLabel === owner.teamLabel &&
+    viewer.department === owner.department;
+  if (isTeammate) {
+    const initialBoard = await loadPersonalBoardCore(person.userId, today);
+    return (
+      <PersonalBoardRoute
+        today={today}
+        ownerUserId={person.userId}
+        ownerName={person.fullName}
+        ownerAvatarUrl={person.avatarUrl}
+        initialBoard={initialBoard}
+        readOnly
       />
     );
   }

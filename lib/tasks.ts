@@ -1031,3 +1031,11 @@ export async function hasPersonalTasks(userId: number): Promise<boolean> {
   const rows = await sql.query('SELECT EXISTS(SELECT 1 FROM tasks WHERE owner_user_id = $1) AS exists', [userId]);
   return Boolean(rows[0]?.exists);
 }
+
+/** Tổng số task cá nhân (mọi ngày, mọi trạng thái) của 1 người — dùng cho mục
+ *  "Đồng đội" ở board Task cá nhân, khác getPersonalMonthProgress (chỉ tính
+ *  riêng 1 tháng). */
+export async function countAllPersonalTasks(ownerUserId: number): Promise<number> {
+  const rows = await sql.query('SELECT count(*)::int AS n FROM tasks WHERE owner_user_id = $1', [ownerUserId]);
+  return rows[0]?.n ?? 0;
+}

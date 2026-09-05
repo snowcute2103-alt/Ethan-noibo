@@ -106,8 +106,8 @@ export default async function DashboardHome() {
 
   return (
     <div className="flex flex-col">
-      <div className="dashboard-home-intro mx-auto w-full max-w-[1500px] px-4 pt-8 sm:px-6 sm:pt-10 min-[1025px]:px-8 min-[1025px]:pt-28">
-        <div className="dashboard-brand-lockup mb-8 text-center sm:mb-10 min-[1025px]:mb-12">
+      <div className="dashboard-home-intro mx-auto w-full max-w-[1500px] px-4 pt-8 sm:px-6 sm:pt-10 min-[1025px]:px-8 min-[1025px]:pt-16">
+        <div className="dashboard-brand-lockup mb-8 text-center sm:mb-10 min-[1025px]:mb-8">
           <p className="font-heading text-2xl font-light uppercase tracking-wide sm:text-3xl min-[1025px]:text-5xl">
             Ethan Ecom
           </p>
@@ -122,7 +122,7 @@ export default async function DashboardHome() {
         <GreetingHero greeting={greeting} department={departmentLabel(session.department)} />
       </div>
 
-      <div className="dashboard-home-content mx-auto mb-10 flex w-full max-w-[1500px] flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10 min-[1025px]:mb-[140px] min-[1025px]:gap-36 min-[1025px]:px-8 min-[1025px]:py-24">
+      <div className="dashboard-home-content mx-auto mb-8 flex w-full max-w-[1500px] flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10 min-[1025px]:mb-16 min-[1025px]:gap-16 min-[1025px]:px-8 min-[1025px]:py-24">
         <Reveal>
           <div id="thong-bao">
             <ThongBaoSection session={session} />

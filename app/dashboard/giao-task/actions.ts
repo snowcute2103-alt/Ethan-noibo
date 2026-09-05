@@ -2,7 +2,7 @@
 
 import { put, del } from '@vercel/blob';
 import { getSession } from '@/lib/auth';
-import { findUserById } from '@/lib/users';
+import { findUserById, listTeammatesByLabel, type Teammate } from '@/lib/users';
 import { logAdminAction } from '@/lib/audit';
 import {
   findTeamIdByUserId,
@@ -52,6 +52,7 @@ import {
   addPersonalTaskComment,
   setPersonalTaskImageUrl,
   hasPersonalTasks,
+  countAllPersonalTasks,
   type Task,
   type TaskInput,
   type TaskPatch,
@@ -282,6 +283,57 @@ export async function getMyPersonalBoardAction(range: DateRange, calendarYearMon
     listTasksForOwner(session.userId, range),
     getPersonalMonthProgress(session.userId, calendarYearMonth),
     getPersonalMonthDayCounts(session.userId, calendarYearMonth),
+  ]);
+  return { tasks, monthProgress, monthDayCounts };
+}
+
+export interface TeammateWithTaskCount extends Teammate {
+  /** Tổng số task cá nhân của người này (mọi ngày, mọi trạng thái). */
+  taskCount: number;
+}
+
+/** Đồng đội cùng `team_label` với chính mình (vd 3 người IT "Development
+ *  Team") kèm tổng số task — dùng cho mục "Đồng đội" dưới board Task của tôi. */
+export async function listMyTeammatesAction(): Promise<TeammateWithTaskCount[]> {
+  const session = await requireSession();
+  const mates = await listTeammatesByLabel(session.userId);
+  const counts = await Promise.all(mates.map((mate) => countAllPersonalTasks(mate.userId)));
+  return mates.map((mate, i) => ({ ...mate, taskCount: counts[i] }));
+}
+
+/** Chỉ chính chủ hoặc 1 đồng đội cùng `team_label`/department mới xem hộ
+ *  được (KHÔNG được sửa — khác hẳn requirePersonalTaskContext dành cho
+ *  chính chủ/BGĐ) — dùng khi bấm vào 1 đồng đội ở mục "Đồng đội". */
+async function requirePeerReadContext(ownerUserId: number): Promise<void> {
+  const session = await requireSession();
+  if (session.userId === ownerUserId) return;
+  const [viewer, owner] = await Promise.all([findUserById(session.userId), findUserById(ownerUserId)]);
+  if (!viewer || !owner) throw new Error('Không tìm thấy user.');
+  const sameGroup = viewer.teamLabel !== null && viewer.teamLabel === owner.teamLabel && viewer.department === owner.department;
+  if (!sameGroup) throw new Error('Bạn không có quyền xem task cá nhân của người này.');
+  const ownerTeamId = await findTeamIdByUserId(ownerUserId);
+  if (ownerTeamId !== null || owner.department === 'bgd') {
+    throw new Error('Người này không thuộc diện xem task cá nhân đồng đội.');
+  }
+}
+
+/** Đồng đội xem (không sửa) board cá nhân của nhau — dữ liệu giống hệt
+ *  getPersonalBoardAsBgdAction nhưng KHÔNG cấp quyền tạo/sửa/xoá task (client
+ *  tự ẩn các nút thao tác khi ownerUserId khác session.userId và không phải
+ *  BGĐ; các action tạo/sửa/xoá bên dưới vẫn chặn ở requirePersonalTaskContext
+ *  nếu lỡ gọi tới). */
+export async function getPersonalBoardAsPeerAction(
+  ownerUserId: number,
+  range: DateRange,
+  calendarYearMonth: string
+): Promise<PersonalBoard> {
+  await requirePeerReadContext(ownerUserId);
+  assertValidRange(range);
+  assertValidYearMonth(calendarYearMonth);
+  const [tasks, monthProgress, monthDayCounts] = await Promise.all([
+    listTasksForOwner(ownerUserId, range),
+    getPersonalMonthProgress(ownerUserId, calendarYearMonth),
+    getPersonalMonthDayCounts(ownerUserId, calendarYearMonth),
   ]);
   return { tasks, monthProgress, monthDayCounts };
 }

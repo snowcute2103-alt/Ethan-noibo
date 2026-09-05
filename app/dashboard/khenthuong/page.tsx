@@ -18,13 +18,21 @@ export default async function KhenThuongPage() {
 
   const lists = RECOGNITION_LISTS.filter((r) => canView(session, r.visibility));
   const users = await listUsers();
-  const teamAvatars: ImageData[] = users.map((u) => ({
-    id: String(u.id),
-    src: u.avatarUrl ?? '',
-    alt: u.fullName,
-    title: u.fullName,
-    description: departmentLabel(u.department),
-  }));
+  const usersWithAvatar = users.filter((u) => Boolean(u.avatarUrl));
+  // Lặp lại avatar thật cho đủ mật độ quả cầu (thay vì để trống chỗ của người chưa có avatar).
+  const teamAvatars: ImageData[] =
+    usersWithAvatar.length === 0
+      ? []
+      : Array.from({ length: users.length }, (_, i) => {
+          const u = usersWithAvatar[i % usersWithAvatar.length];
+          return {
+            id: `${u.id}-${i}`,
+            src: u.avatarUrl!,
+            alt: u.fullName,
+            title: u.fullName,
+            description: departmentLabel(u.department),
+          };
+        });
 
   return (
     <div className="theme-light-surface relative overflow-hidden bg-gradient-to-b from-[#FFF5F8] via-white to-white">

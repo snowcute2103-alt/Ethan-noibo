@@ -13,6 +13,7 @@ import type {
 } from '@/lib/tasks';
 import {
   addPersonalTaskCommentAction,
+  deletePersonalTaskAction,
   getPersonalTaskDetailAction,
   removePersonalTaskImageAction,
   updatePersonalTaskAction,
@@ -26,6 +27,7 @@ interface PersonalTaskDetailDrawerProps {
   today: string;
   onClose: () => void;
   onTaskUpdated: (task: Task) => void;
+  onDeleted: () => void;
 }
 
 const PRIORITIES: Array<{ value: TaskPriority; label: string; tone: string }> = [
@@ -95,6 +97,7 @@ export default function PersonalTaskDetailDrawer({
   today,
   onClose,
   onTaskUpdated,
+  onDeleted,
 }: PersonalTaskDetailDrawerProps) {
   const [detail, setDetail] = useState<PersonalTaskDetail | null>(null);
   const [title, setTitle] = useState(task.title);
@@ -199,6 +202,15 @@ export default function PersonalTaskDetailDrawer({
           loadDetail();
         })
         .catch((err) => setError(err instanceof Error ? err.message : 'Không tải được ảnh.'));
+    });
+  }
+
+  function removeTask() {
+    if (!window.confirm('Xoá task này? Không thể hoàn tác.')) return;
+    startTransition(() => {
+      deletePersonalTaskAction(ownerUserId, task.id)
+        .then(() => onDeleted())
+        .catch((err) => setError(err instanceof Error ? err.message : 'Không xoá được task.'));
     });
   }
 
@@ -337,6 +349,14 @@ export default function PersonalTaskDetailDrawer({
 
             <button type="submit" disabled={isPending || !title.trim()} className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[10px] bg-blue px-4 text-sm font-semibold text-white hover:bg-blue-cta disabled:cursor-not-allowed disabled:opacity-50 min-[1025px]:h-10">
               <Save className="h-4 w-4" aria-hidden="true" /> Lưu thay đổi
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={removeTask}
+              className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[10px] border border-red-200 px-4 text-sm font-semibold text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 min-[1025px]:h-10"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" /> Xoá task
             </button>
           </form>
 

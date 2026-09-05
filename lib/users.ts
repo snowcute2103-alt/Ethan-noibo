@@ -129,6 +129,33 @@ export async function countActiveUsersByDepartment(): Promise<HeadcountByDepartm
   }));
 }
 
+export interface Teammate {
+  userId: number;
+  fullName: string;
+  avatarUrl: string | null;
+}
+
+/** Đồng nghiệp cùng `team_label` + `department` với `userId` (vd 3 người cùng
+ *  "Development Team" bên IT), không tính chính mình — dùng cho mục "Đồng
+ *  đội" dưới board Task cá nhân để xem (không sửa) task của nhau. Khác cơ chế
+ *  bảng `teams`/`team_members` (dành cho các đội KD có Kanban chung, quản lý
+ *  giao task xuống) — team_label chỉ là nhãn HR sẵn có trên `users`. */
+export async function listTeammatesByLabel(userId: number): Promise<Teammate[]> {
+  const rows = await sql.query(
+    `SELECT u2.id, u2.full_name, u2.avatar_url
+     FROM users u1
+     JOIN users u2 ON u2.department = u1.department AND u2.team_label = u1.team_label AND u2.id != u1.id
+     WHERE u1.id = $1 AND u1.team_label IS NOT NULL AND u2.is_active = true
+     ORDER BY u2.full_name ASC`,
+    [userId]
+  );
+  return rows.map((row) => ({
+    userId: row.id as number,
+    fullName: row.full_name as string,
+    avatarUrl: (row.avatar_url as string | null) ?? null,
+  }));
+}
+
 export interface BirthdayPerson {
   fullName: string;
   department: Department;

@@ -12,6 +12,7 @@
   --pixel-hsl: 0, 100, 18;
   --pixel: #0e1e2c;
   --metal: #847e75;
+  --tv-ease-switch: cubic-bezier(0.25, 1, 0.5, 1);
   --r: hsla(0, 100%, 50%, 0.2);
   --g: hsla(120, 100%, 50%, 0.2);
   --r: hsla(180, 100%, 50%, 0.2);
@@ -37,7 +38,7 @@
    other — the caller must set `container-type: size` on an ancestor for cqw/cqh to
    resolve (inline-size alone only gives cqw, not cqh). */
 .retro-tv-widget {
-  font-size: clamp(1.6px, min(0.52cqw, 0.8cqh), 7px);
+  font-size: clamp(1.6px, min(0.63cqw, 0.98cqh), 7.6px);
 }
 
 tv-content *,
@@ -138,6 +139,10 @@ tv-flex {
   text-shadow: -0.1em 0.1em 0 var(--body), 0.05em -0.05em 0 #fff;
 }
 
+.retro-tv-widget .tv-label-lg {
+  font-size: 1.35em;
+}
+
 tv-set {
   display: flex;
   padding: 2em;
@@ -167,7 +172,16 @@ tv-set {
     filter: blur(2em);
     border-radius: 4em;
     pointer-events: none;
+    transition: opacity 0.24s var(--tv-ease-switch);
   }
+}
+
+.retro-tv-widget[data-channel="pelican"] tv-set:after {
+  opacity: 0;
+}
+
+.retro-tv-widget[data-channel="pelican"] tv-light {
+  opacity: 0.12;
 }
 
 tv-panel {
@@ -279,7 +293,7 @@ tv-knobs {
     inset -0.75em 0.75em 0.5em var(--dark);
   margin: auto;
   z-index: 3;
-  transition: all 0.2s ease-in-out;
+  transition: filter 0.2s var(--tv-ease-switch), box-shadow 0.2s var(--tv-ease-switch);
 
   &:after {
     box-shadow: 0 0 0 purple, 0 0 0 purple;
@@ -288,7 +302,7 @@ tv-knobs {
     border-radius: 0.5em;
     content: "";
     opacity: 0.5;
-    transition: all 0.3s 0.2s ease-in-out;
+    transition: opacity 0.3s 0.2s var(--tv-ease-switch), box-shadow 0.3s 0.2s var(--tv-ease-switch);
   }
 
   &:hover {
@@ -298,6 +312,33 @@ tv-knobs {
       inset 0 0 0 0.5em #44424e,
       inset -0.75em 0.75em 0.5em var(--dark);
   }
+}
+
+.retro-tv-widget button.badge {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.retro-tv-widget button.badge:focus-visible {
+  outline: max(0.3em, 2px) solid var(--wht);
+  outline-offset: max(0.3em, 2px);
+}
+
+.retro-tv-widget button.badge:active {
+  filter: brightness(1.1) contrast(1.15);
+  box-shadow: -0.05em 0.05em 0.1em var(--dark),
+    inset -0.2em 0.2em 0.2em hsla(var(--wht-hsl), 0.08),
+    inset 0 0 0 0.5em #44424e,
+    inset -0.55em 0.55em 0.4em var(--dark);
+}
+
+.retro-tv-widget button.badge:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .retro-tv-widget [for="on-off"],
@@ -346,7 +387,8 @@ tv-knobs {
       inset -0.6em 0.6em 0 hsla(var(--wht-hsl), 0.5),
       inset 0.6em -0.6em 0 hsla(var(--body-hsl), 0.5),
       inset 0 0 0 0.8em hsla(var(--body-hsl), 0.2);
-    transition: all 0.2s ease-in-out;
+    transition: background-color 0.2s var(--tv-ease-switch), filter 0.2s var(--tv-ease-switch),
+      box-shadow 0.2s var(--tv-ease-switch);
     animation: on-button 2s ease-out forwards;
   }
 
@@ -532,8 +574,78 @@ tv-dialvol {
 
   &,
   &:before {
-    transition: all 0.5s ease-in-out;
+    transition: transform 0.25s var(--tv-ease-switch), filter 0.15s var(--tv-ease-switch);
   }
+}
+
+/* Tuning knob rotates to a distinct position for each channel, sweeping around like a
+   real dial as you cycle through — matches CHANNEL_ORDER in retro-tv.tsx. */
+.retro-tv-widget[data-channel="vid1"] .tuning > u > u {
+  transform: rotate(0deg);
+}
+.retro-tv-widget[data-channel="vid2"] .tuning > u > u {
+  transform: rotate(60deg);
+}
+.retro-tv-widget[data-channel="vid4"] .tuning > u > u {
+  transform: rotate(120deg);
+}
+.retro-tv-widget[data-channel="vid3"] .tuning > u > u {
+  transform: rotate(180deg);
+}
+.retro-tv-widget[data-channel="ethan"] .tuning > u > u {
+  transform: rotate(240deg);
+}
+.retro-tv-widget[data-channel="pelican"] .tuning > u > u {
+  transform: rotate(300deg);
+}
+
+/* Volume knob visually turns once the viewer unmutes, mirroring the tuning knob's
+   channel-driven rotation above. */
+.retro-tv-widget[data-muted="false"] .vol > u > u {
+  transform: rotate(140deg);
+}
+
+.retro-tv-widget .tv-channel-button,
+.retro-tv-widget .tv-volume-button {
+  appearance: none;
+  /* Capped at 24px (not the usual 44px target) — at small TV render sizes the three
+     stacked knob rows don't have 44px of vertical room each, and a bigger hit box
+     here overlaps and steals clicks from the "Chức năng" badge button below it. */
+  width: max(100%, 24px);
+  height: max(100%, 24px);
+  min-width: 24px;
+  min-height: 24px;
+  inset: 50%;
+  translate: -50% -50%;
+  z-index: 8;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 0.15s var(--tv-ease-switch), transform 0.1s var(--tv-ease-switch);
+}
+
+.retro-tv-widget .tuning:has(.tv-channel-button:hover) > u > u:before,
+.retro-tv-widget .vol:has(.tv-volume-button:hover) > u > u:before {
+  filter: brightness(1.2) contrast(1.2);
+}
+
+.retro-tv-widget .tv-channel-button:hover,
+.retro-tv-widget .tv-volume-button:hover {
+  background: hsla(var(--wht-hsl), 0.06);
+}
+
+.retro-tv-widget .tv-channel-button:focus-visible,
+.retro-tv-widget .tv-volume-button:focus-visible {
+  outline: max(0.3em, 2px) solid var(--wht);
+  outline-offset: max(0.3em, 2px);
+}
+
+.retro-tv-widget .tv-channel-button:active,
+.retro-tv-widget .tv-volume-button:active {
+  background: hsla(var(--body-hsl), 0.14);
+  transform: scale(0.96);
 }
 
 .retro-tv-widget:has(tv-dialvol label:nth-of-type(1):hover),
@@ -619,6 +731,38 @@ tv-tune {
   height: calc(100% - 2em);
   display: none;
   opacity: 0;
+}
+
+tv-tune.tv-channel-transition {
+  display: block;
+  z-index: 6;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    hsla(var(--wht-hsl), 0) 0%,
+    hsla(var(--wht-hsl), 0.18) 44%,
+    hsla(var(--wht-hsl), 0.92) 50%,
+    hsla(var(--wht-hsl), 0.18) 56%,
+    hsla(var(--wht-hsl), 0) 100%
+  );
+  animation: tv-channel-switch 0.24s var(--tv-ease-switch) both;
+}
+
+@keyframes tv-channel-switch {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.04);
+  }
+
+  35% {
+    opacity: 0.9;
+    transform: scaleY(0.55);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleY(1);
+  }
 }
 
 .retro-tv-widget:has(#on-off:checked) {
@@ -995,7 +1139,8 @@ tv-crt tv-test {
 /* The video fills the CRT's tv-screen box but paints underneath the original
    glass, reflections and bezel. The TV's own layers therefore provide the
    mask/edge in both power states instead of recreating that frame on video. */
-.retro-tv-widget .tv-logo-video {
+.retro-tv-widget .tv-logo-video,
+.retro-tv-widget .tv-channel-frame {
   width: calc(100% - 20em);
   height: calc(100% - 15em);
   inset: 0;
@@ -1011,7 +1156,62 @@ tv-crt tv-test {
     linear-gradient(to right, transparent, #000 4%, #000 96%, transparent),
     linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent);
   mask-composite: intersect;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s var(--tv-ease-switch), visibility 0s 0.12s;
   z-index: 1;
+}
+
+.retro-tv-widget .tv-logo-video.is-active,
+.retro-tv-widget .tv-channel-frame.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+/* Vid4 crops toward its lower half instead of the centered default — pulled up a bit
+   short of the very bottom edge, closer to the middle-to-bottom of the frame. */
+.retro-tv-widget .tv-logo-video.tv-vid4-bottom {
+  object-position: center 72%;
+}
+
+/* Vid2's red tint — sits directly over the video, same crop/rounding, no interaction. */
+.retro-tv-widget .tv-vid2-tint {
+  width: calc(100% - 20em);
+  height: calc(100% - 15em);
+  inset: 0;
+  margin: auto;
+  border-radius: calc(100% - 22em) / 43em;
+  corner-shape: squircle;
+  background: hsla(0, 70%, 45%, 0.34);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.retro-tv-widget .tv-channel-frame {
+  border: 0;
+  background: var(--body);
+}
+
+.retro-tv-widget .tv-function-status {
+  max-width: calc(100% - 28em);
+  inset: auto auto 10em 50%;
+  translate: -50% 0;
+  z-index: 6;
+  overflow: hidden;
+  padding: 0.55em 1.4em;
+  border: 0.12em solid var(--metal);
+  border-radius: 0.5em;
+  background: hsla(var(--body-hsl), 0.82);
+  color: var(--wht);
+  font: 700 2.2em / 1.2 Arial, sans-serif;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .retro-tv-widget tv-screen {
@@ -1520,6 +1720,8 @@ tv-crt > div {
 
 tv-crt div,
 .tv-logo-video,
+.tv-channel-frame,
+.tv-vid2-tint,
 effects {
   transform: scaleY(0) scaleX(0);
   animation: off 4s ease-in-out reverse;
@@ -1528,9 +1730,32 @@ effects {
 .retro-tv-widget:has(#on-off:checked) {
   tv-crt div,
   .tv-logo-video,
+  .tv-channel-frame,
+  .tv-vid2-tint,
   effects {
     animation: on 2s ease-in-out forwards;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .retro-tv-widget .tv-channel-button,
+  .retro-tv-widget .tv-volume-button,
+  .retro-tv-widget .tuning u u,
+  .retro-tv-widget .tuning u u:before,
+  .retro-tv-widget .vol u u,
+  .retro-tv-widget .vol u u:before,
+  .retro-tv-widget .tv-logo-video,
+  .retro-tv-widget .tv-channel-frame,
+  .retro-tv-widget tv-set:after,
+  .retro-tv-widget tv-light {
+    transition: none;
+  }
+
+  tv-tune.tv-channel-transition {
+    display: none;
+    animation: none;
+  }
+
 }
 
 @keyframes on {
@@ -1763,6 +1988,7 @@ tv-crt effects {
 
 tv-light {
   filter: blur(0.2em);
+  transition: opacity 0.24s var(--tv-ease-switch);
 
   &:before {
     width: calc(100% - 24em);
@@ -2148,6 +2374,10 @@ tv-light {
     transition-duration: 150ms !important;
   }
 
+  .greeting-hero tv-tune.tv-channel-transition {
+    display: none;
+  }
+
   /* The source TV switches to a tall, stacked control panel whenever the whole
      viewport is portrait. Inside the compact dashboard hero that makes the
      panel extend below its half-height slot and get clipped. Keep the physical
@@ -2161,7 +2391,7 @@ tv-light {
   }
 
   .greeting-hero .retro-tv-widget {
-    font-size: clamp(0.75px, min(0.52cqw, 0.8cqh), 7px);
+    font-size: clamp(0.75px, min(0.56cqw, 0.86cqh), 7.6px);
   }
 
   .greeting-hero tv-set {
