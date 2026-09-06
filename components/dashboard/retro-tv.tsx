@@ -31,6 +31,11 @@ const VIDEO_CHANNEL_SRC: Partial<Record<TvChannel, string>> = {
   ethan: LOGO_VIDEO_SRC,
 };
 
+/** Kênh nào chưa hiển thị thì âm thầm tải trước ở nền, để bấm "Chuyển kênh" phát
+ *  ngay từ cache thay vì đợi tải lại từ mạng mỗi lần. Bỏ qua khi reduceEffects
+ *  (mobile/tablet) để không tốn băng thông data của người dùng. */
+const VIDEO_CHANNELS = Object.keys(VIDEO_CHANNEL_SRC) as TvChannel[];
+
 function getChannelLabel(channel: TvChannel) {
   switch (channel) {
     case 'vid1':
@@ -214,6 +219,7 @@ export default function RetroTv() {
                 ref={videoRef}
                 className={`tv-logo-video${isPelicanChannel ? '' : ' is-active'}${channel === 'vid4' ? ' tv-vid4-bottom' : ''}`}
                 autoPlay={!reduceEffects}
+                preload="auto"
                 aria-hidden={isPelicanChannel}
                 muted={isMuted}
                 loop
@@ -221,6 +227,20 @@ export default function RetroTv() {
                 src={isPelicanChannel ? undefined : VIDEO_CHANNEL_SRC[channel]}
               />
               {channel === 'vid2' ? <div className="tv-vid2-tint" aria-hidden="true" /> : null}
+              {!reduceEffects
+                ? VIDEO_CHANNELS.filter((preloadChannel) => preloadChannel !== channel).map((preloadChannel) => (
+                    <video
+                      key={preloadChannel}
+                      className="tv-preload-video"
+                      src={VIDEO_CHANNEL_SRC[preloadChannel]}
+                      preload="auto"
+                      muted
+                      playsInline
+                      aria-hidden="true"
+                      tabIndex={-1}
+                    />
+                  ))
+                : null}
               <iframe
                 ref={pelicanFrameRef}
                 className={`tv-channel-frame${isPelicanChannel ? ' is-active' : ''}`}

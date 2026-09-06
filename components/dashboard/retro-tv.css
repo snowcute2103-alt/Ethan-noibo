@@ -1175,6 +1175,19 @@ tv-crt tv-test {
   object-position: center 72%;
 }
 
+/* Off-screen decoder for channels not currently shown — warms the browser's
+   cache so "Chuyển kênh" plays instantly instead of re-fetching over the
+   network. display:none would let some browsers skip the fetch entirely, so
+   this stays a near-zero-size, non-interactive element instead. */
+.retro-tv-widget .tv-preload-video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 /* Vid2's red tint — sits directly over the video, same crop/rounding, no interaction. */
 .retro-tv-widget .tv-vid2-tint {
   width: calc(100% - 20em);
