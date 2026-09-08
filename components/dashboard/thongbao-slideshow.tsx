@@ -83,7 +83,7 @@ function ThongBaoCard({
       aria-hidden={!visible}
       tabIndex={visible ? 0 : -1}
       className={cn(
-        'notice-carousel-card theme-light-surface absolute left-1/2 top-1/2 flex flex-col items-start p-4 text-left text-navy transition-[transform,opacity,box-shadow] duration-500 ease-[var(--theme-ease)] sm:p-5 min-[1025px]:p-7',
+        'notice-carousel-card theme-light-surface absolute left-1/2 top-1/2 flex flex-col items-start rounded-[28px] p-4 text-left text-navy transition-[transform,opacity,box-shadow] duration-500 ease-[var(--theme-ease)] sm:p-5 min-[1025px]:p-7',
         !visible && 'pointer-events-none opacity-0',
         isCenter ? 'z-10 shadow-[0_20px_40px_-14px_rgba(16,26,48,0.45)]' : 'z-0'
       )}
@@ -91,7 +91,6 @@ function ThongBaoCard({
         width: 'var(--notice-card-size)',
         height: 'var(--notice-card-size)',
         background: cardColor,
-        clipPath: 'polygon(28px 0%, calc(100% - 28px) 0%, 100% 28px, 100% 100%, calc(100% - 28px) 100%, 28px 100%, 0 100%, 0 0)',
         // Gộp cả scale vào chung 1 chuỗi transform — style inline sẽ đè mất class scale-*
         // của Tailwind nếu tách riêng, khiến hiệu ứng phóng to/nhỏ không chạy.
         transform: `
@@ -103,38 +102,8 @@ function ThongBaoCard({
         `,
       }}
     >
-      <div className="flex items-center gap-3">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/70 sm:h-10 sm:w-10 min-[1025px]:h-11 min-[1025px]:w-11"
-          title={slide.author || 'Từ Ban lãnh đạo'}
-        >
-          {authorAvatar ? (
-            <Image
-              src={authorAvatar}
-              alt={slide.author || 'Ban lãnh đạo'}
-              width={44}
-              height={44}
-              className="h-full w-full object-cover"
-            />
-          ) : slide.author ? (
-            <span className="font-heading text-sm font-semibold tracking-wide text-navy" aria-label={slide.author}>
-              {authorInitials}
-            </span>
-          ) : (
-            <Image
-              src={avatarPlaceholder}
-              alt="Ban lãnh đạo"
-              width={44}
-              height={44}
-              className="h-full w-full object-cover"
-            />
-          )}
-        </span>
-        <span className="rounded-full bg-white/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-navy/80">
-          {slide.label}
-        </span>
-      </div>
-      {slide.author && <p className="mt-2 text-xs font-semibold text-navy/70">Người đăng: {slide.author}</p>}
+      <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-navy/60">{slide.date}</span>
+
       {slide.image ? (
         <div className="mt-3 flex min-h-0 w-full flex-1 items-stretch overflow-hidden rounded-xl">
           <div className="relative w-3/5 shrink-0">
@@ -159,10 +128,10 @@ function ThongBaoCard({
           </div>
         </div>
       ) : (
-        <>
+        <div className="mt-3 flex min-h-0 flex-1 flex-col justify-center">
           <h3
             className={cn(
-              'font-heading mt-3 line-clamp-2 text-base uppercase tracking-wide sm:text-lg min-[1025px]:text-2xl',
+              'font-heading line-clamp-2 text-base uppercase tracking-wide sm:text-lg min-[1025px]:text-2xl',
               isCenter ? 'font-medium' : 'font-light text-navy/70'
             )}
           >
@@ -179,17 +148,51 @@ function ThongBaoCard({
               ))}
             </ul>
           )}
-        </>
+        </div>
       )}
-      <span
-        className={cn(
-          'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-light tracking-wide text-white min-[1025px]:px-3.5 min-[1025px]:py-1.5 min-[1025px]:text-sm',
-          slide.image ? 'mt-3' : 'mt-auto'
-        )}
-        style={{ background: 'linear-gradient(135deg, #1A2745 0%, #0052CC 55%, #00D2FF 100%)' }}
-      >
-        {slide.date}
-      </span>
+
+      <div className="mt-auto w-full">
+        <div className="h-px w-full bg-navy/15" aria-hidden="true" />
+        <div className="mt-3 flex w-full items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/70 sm:h-10 sm:w-10 min-[1025px]:h-11 min-[1025px]:w-11"
+              title={slide.author || 'Từ Ban lãnh đạo'}
+            >
+              {authorAvatar ? (
+                <Image
+                  src={authorAvatar}
+                  alt={slide.author || 'Ban lãnh đạo'}
+                  width={44}
+                  height={44}
+                  className="h-full w-full object-cover"
+                />
+              ) : slide.author ? (
+                <span className="font-heading text-sm font-semibold tracking-wide text-navy" aria-label={slide.author}>
+                  {authorInitials}
+                </span>
+              ) : (
+                <Image
+                  src={avatarPlaceholder}
+                  alt="Ban lãnh đạo"
+                  width={44}
+                  height={44}
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </span>
+            <span className="min-w-0 truncate font-heading text-xs font-semibold text-navy sm:text-sm">
+              {slide.author || 'Ban lãnh đạo'}
+            </span>
+          </div>
+          <span
+            className="inline-flex w-fit shrink-0 items-center rounded-full px-3 py-1 text-xs font-light tracking-wide text-white min-[1025px]:px-3.5 min-[1025px]:py-1.5 min-[1025px]:text-sm"
+            style={{ background: 'linear-gradient(135deg, #1A2745 0%, #0052CC 55%, #00D2FF 100%)' }}
+          >
+            {slide.label}
+          </span>
+        </div>
+      </div>
     </button>
   );
 }
