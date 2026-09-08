@@ -1365,7 +1365,12 @@ function OverviewSummaryCards({ monthLabel, totals }: { monthLabel: string; tota
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <div key={card.label} className={`stat-card rounded-[16px] ${card.cardBg} p-4`}>
+          <div
+            key={card.label}
+            className={`stat-card rounded-[16px] ${card.cardBg} p-4 ${
+              card.label === 'Hoàn thành' || card.label === 'Quá hạn' ? 'theme-light-surface' : ''
+            }`}
+          >
             <span className={`inline-flex rounded-full p-2 ${card.chipBg} ${card.toneText}`}>
               <Icon className="h-4 w-4" aria-hidden="true" />
             </span>
