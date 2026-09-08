@@ -1,6 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ClipboardEvent,
+  type DragEvent,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import Image from 'next/image';
 import { Clock3, History, ImagePlus, MessageCircle, Save, Trash2, X } from 'lucide-react';
 import type {
@@ -20,6 +29,7 @@ import {
   uploadPersonalTaskImageAction,
 } from '@/app/dashboard/giao-task/actions';
 import TaskDateRangePicker from '@/components/dashboard/task-date-range-picker';
+import { normalizePersonalTaskDescription } from '@/lib/personal-task-description';
 
 interface PersonalTaskDetailDrawerProps {
   task: Task;
@@ -58,6 +68,7 @@ const FIELD_LABELS: Record<string, string> = {
   priority: 'mức ưu tiên',
   status: 'trạng thái',
   imageUrl: 'ảnh',
+  imageUrls: 'ảnh',
 };
 
 function displayValue(value: unknown): string {
@@ -101,13 +112,14 @@ export default function PersonalTaskDetailDrawer({
 }: PersonalTaskDetailDrawerProps) {
   const [detail, setDetail] = useState<PersonalTaskDetail | null>(null);
   const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description ?? task.note ?? '');
+  const [description, setDescription] = useState(() => normalizePersonalTaskDescription(task.description ?? task.note ?? ''));
   const [taskDate, setTaskDate] = useState(task.taskDate);
   const [dueDate, setDueDate] = useState<string | null>(task.dueDate);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isDraggingImages, setIsDraggingImages] = useState(false);
   const [isPending, startTransition] = useTransition();
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
@@ -121,7 +133,7 @@ export default function PersonalTaskDetailDrawer({
           setDetail(next);
           onTaskUpdated(next.task);
           setTitle(next.task.title);
-          setDescription(next.task.description ?? next.task.note ?? '');
+          setDescription(normalizePersonalTaskDescription(next.task.description ?? next.task.note ?? ''));
           setTaskDate(next.task.taskDate);
           setDueDate(next.task.dueDate);
           setPriority(next.task.priority);
@@ -192,17 +204,49 @@ export default function PersonalTaskDetailDrawer({
     });
   }
 
-  function uploadImage(file: File) {
+  function handleDescriptionEnter(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+    const input = event.currentTarget;
+    const beforeCursor = description.slice(0, input.selectionStart);
+    const currentLine = beforeCursor.slice(beforeCursor.lastIndexOf('\n') + 1);
+    const match = currentLine.match(/^\s*(•|→)\s+(.*)$/);
+    if (!match) return;
+    event.preventDefault();
+    const marker = match[1];
+    const continuation = match[2].trim() ? `\n${marker} ` : '\n';
+    const next = `${description.slice(0, input.selectionStart)}${continuation}${description.slice(input.selectionEnd)}`;
+    const cursor = input.selectionStart + continuation.length;
+    setDescription(next);
+    requestAnimationFrame(() => input.setSelectionRange(cursor, cursor));
+  }
+
+  function uploadImages(files: File[]) {
+    if (files.length === 0) return;
     const formData = new FormData();
-    formData.set('file', file);
+    files.forEach((file) => formData.append('files', file));
     startTransition(() => {
       uploadPersonalTaskImageAction(ownerUserId, task.id, formData)
         .then((updated) => {
           onTaskUpdated(updated);
+          setDetail((current) => (current ? { ...current, task: updated } : current));
+          setError(null);
           loadDetail();
         })
         .catch((err) => setError(err instanceof Error ? err.message : 'Không tải được ảnh.'));
     });
+  }
+
+  function handleImageDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDraggingImages(false);
+    uploadImages(Array.from(event.dataTransfer.files));
+  }
+
+  function handleImagePaste(event: ClipboardEvent<HTMLElement>) {
+    const files = Array.from(event.clipboardData.files);
+    if (files.length === 0) return;
+    event.preventDefault();
+    uploadImages(files);
   }
 
   function removeTask() {
@@ -214,11 +258,13 @@ export default function PersonalTaskDetailDrawer({
     });
   }
 
-  function removeImage() {
+  function removeImage(imageUrl: string) {
     startTransition(() => {
-      removePersonalTaskImageAction(ownerUserId, task.id)
+      removePersonalTaskImageAction(ownerUserId, task.id, imageUrl)
         .then((updated) => {
           onTaskUpdated(updated);
+          setDetail((current) => (current ? { ...current, task: updated } : current));
+          setError(null);
           loadDetail();
         })
         .catch((err) => setError(err instanceof Error ? err.message : 'Không xoá được ảnh.'));
@@ -254,6 +300,7 @@ export default function PersonalTaskDetailDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="personal-task-detail-title"
+        onPaste={handleImagePaste}
         className="theme-light-surface absolute inset-y-0 right-0 flex w-full flex-col border-l-2 border-black bg-[#f8fafc] shadow-[-24px_0_60px_-32px_rgba(16,26,48,0.55)] sm:w-[min(70vw,440px)] min-[1025px]:w-[clamp(360px,33vw,520px)]"
       >
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[#e2e8f0] bg-white/95 px-3.5 py-2.5 backdrop-blur sm:px-4">
@@ -289,27 +336,76 @@ export default function PersonalTaskDetailDrawer({
               />
             </label>
 
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Mô tả</span>
-              <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={10_000} placeholder="Thêm mô tả…" className="mt-1 w-full resize-y rounded-[10px] border border-[#dbe4f2] bg-white px-3 py-2 text-sm leading-relaxed text-ink outline-none focus:border-blue focus:ring-2 focus:ring-blue/15" />
-            </label>
-
             <div className="block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Ảnh</span>
-              <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadImage(file); event.currentTarget.value = ''; }} />
-              {currentTask.imageUrl ? (
-                <div className="relative mt-1 overflow-hidden rounded-[10px] border border-[#dbe4f2] bg-white">
-                  <div className="relative h-32 w-full">
-                    <Image src={currentTask.imageUrl} alt={`Ảnh của task ${currentTask.title}`} fill sizes="(max-width: 640px) 100vw, 520px" className="object-contain" />
-                  </div>
-                  <button type="button" disabled={isPending} onClick={() => imageInputRef.current?.click()} className="absolute left-2 top-2 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-blue shadow hover:bg-white">Thay ảnh</button>
-                  <button type="button" disabled={isPending} onClick={removeImage} aria-label="Xoá ảnh" className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-red-500 shadow hover:bg-white"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Mô tả</span>
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(normalizePersonalTaskDescription(event.target.value))}
+                onKeyDown={handleDescriptionEnter}
+                rows={4}
+                maxLength={10_000}
+                placeholder="Gõ “- ” để tạo gạch đầu dòng…"
+                className="mt-1 w-full resize-y rounded-[10px] border border-[#dbe4f2] bg-white px-3 py-2.5 text-sm leading-7 text-ink outline-none focus:border-blue focus:ring-2 focus:ring-blue/15"
+              />
+            </div>
+
+            <div
+              className="block"
+              onDragEnter={(event) => { event.preventDefault(); setIsDraggingImages(true); }}
+              onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsDraggingImages(false);
+              }}
+              onDrop={handleImageDrop}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted">Ảnh</span>
+                {currentTask.imageUrls.length > 0 && (
+                  <span className="text-[11px] text-muted">{currentTask.imageUrls.length}/10 ảnh</span>
+                )}
+              </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  uploadImages(Array.from(event.target.files ?? []));
+                  event.currentTarget.value = '';
+                }}
+              />
+              {currentTask.imageUrls.length > 0 && (
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  {currentTask.imageUrls.map((imageUrl, index) => (
+                    <div key={imageUrl} className="relative overflow-hidden rounded-[10px] border border-[#dbe4f2] bg-white">
+                      <div className="relative h-28 w-full">
+                        <Image src={imageUrl} alt={`Ảnh ${index + 1} của task ${currentTask.title}`} fill sizes="(max-width: 640px) 50vw, 260px" className="object-contain" />
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => removeImage(imageUrl)}
+                        aria-label={`Xoá ảnh ${index + 1}`}
+                        className="absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-red-500 shadow hover:bg-white disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <button type="button" onClick={() => imageInputRef.current?.click()} className="mt-1 flex h-14 w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[#cbd7e8] bg-white text-xs font-semibold text-muted hover:border-blue hover:text-blue">
-                  <ImagePlus className="h-4 w-4" aria-hidden="true" /> Thêm ảnh
-                </button>
               )}
+              <button
+                type="button"
+                disabled={isPending || currentTask.imageUrls.length >= 10}
+                onClick={() => imageInputRef.current?.click()}
+                className={`mt-2 flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed bg-white px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  isDraggingImages ? 'border-blue bg-blue/5 text-blue ring-2 ring-blue/10' : 'border-[#cbd7e8] text-muted hover:border-blue hover:text-blue'
+                }`}
+              >
+                <span className="flex items-center gap-2"><ImagePlus className="h-4 w-4" aria-hidden="true" /> Thêm ảnh</span>
+                <span className="text-[11px] font-normal">Chọn nhiều ảnh, kéo thả hoặc Ctrl/Cmd + V</span>
+              </button>
             </div>
 
             <div className="flex flex-col gap-2">

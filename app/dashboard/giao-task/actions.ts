@@ -1,9 +1,11 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
 import { put, del } from '@vercel/blob';
 import { getSession } from '@/lib/auth';
 import { findUserById, listTeammatesByLabel, type Teammate } from '@/lib/users';
 import { logAdminAction } from '@/lib/audit';
+import { todayIso } from '@/lib/date';
 import {
   findTeamIdByUserId,
   isTeamManager,
@@ -50,7 +52,8 @@ import {
   getPersonalMonthDayCounts,
   getPersonalTaskDetail,
   addPersonalTaskComment,
-  setPersonalTaskImageUrl,
+  addPersonalTaskImageUrls,
+  removePersonalTaskImageUrl,
   hasPersonalTasks,
   countAllPersonalTasks,
   type Task,
@@ -106,16 +109,26 @@ async function requireManagerContext(explicitTeamId: number): Promise<{ userId: 
 
 type Session = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 
-/** Task cá nhân: chỉ chính chủ hoặc BGĐ, và chỉ khi ownerUserId thực sự là
- *  người ngoài 6 đội KD (không thuộc team_members, không phải BGĐ) — thiếu
- *  vế sau thì bất kỳ user đã đăng nhập nào (kể cả thành viên đội KD) đều tạo
- *  được task cá nhân cho chính mình, sinh dữ liệu team_id=NULL không màn
- *  hình nào hiển thị. */
+/** Đồng đội cùng `team_label` + department (vd 3 người IT "Development
+ *  Team") — cả nhóm ngang quyền với nhau, không chỉ 1 trưởng nhóm, theo yêu
+ *  cầu "ai trong nhóm cũng giao task được cho nhau". */
+async function isSameTeammateGroup(viewerId: number, ownerId: number): Promise<boolean> {
+  const [viewer, owner] = await Promise.all([findUserById(viewerId), findUserById(ownerId)]);
+  if (!viewer || !owner) return false;
+  return viewer.teamLabel !== null && viewer.teamLabel === owner.teamLabel && viewer.department === owner.department;
+}
+
+/** Task cá nhân: chính chủ, BGĐ, hoặc 1 đồng đội cùng `team_label` (xem
+ *  isSameTeammateGroup) — và chỉ khi ownerUserId thực sự là người ngoài 6
+ *  đội KD (không thuộc team_members, không phải BGĐ). Thiếu vế sau thì bất
+ *  kỳ user đã đăng nhập nào (kể cả thành viên đội KD) đều tạo được task cá
+ *  nhân cho chính mình, sinh dữ liệu team_id=NULL không màn hình nào hiển
+ *  thị. */
 async function requirePersonalTaskContext(ownerUserId: number): Promise<{ session: Session }> {
   const session = await requireSession();
   const isSelf = session.userId === ownerUserId;
   const isBgd = session.tier === 'full';
-  if (!isSelf && !isBgd) {
+  if (!isSelf && !isBgd && !(await isSameTeammateGroup(session.userId, ownerUserId))) {
     throw new Error('Bạn không có quyền xem/sửa task cá nhân của người khác.');
   }
   const [ownerTeamId, owner] = await Promise.all([findTeamIdByUserId(ownerUserId), findUserById(ownerUserId)]);
@@ -301,44 +314,8 @@ export async function listMyTeammatesAction(): Promise<TeammateWithTaskCount[]> 
   return mates.map((mate, i) => ({ ...mate, taskCount: counts[i] }));
 }
 
-/** Chỉ chính chủ hoặc 1 đồng đội cùng `team_label`/department mới xem hộ
- *  được (KHÔNG được sửa — khác hẳn requirePersonalTaskContext dành cho
- *  chính chủ/BGĐ) — dùng khi bấm vào 1 đồng đội ở mục "Đồng đội". */
-async function requirePeerReadContext(ownerUserId: number): Promise<void> {
-  const session = await requireSession();
-  if (session.userId === ownerUserId) return;
-  const [viewer, owner] = await Promise.all([findUserById(session.userId), findUserById(ownerUserId)]);
-  if (!viewer || !owner) throw new Error('Không tìm thấy user.');
-  const sameGroup = viewer.teamLabel !== null && viewer.teamLabel === owner.teamLabel && viewer.department === owner.department;
-  if (!sameGroup) throw new Error('Bạn không có quyền xem task cá nhân của người này.');
-  const ownerTeamId = await findTeamIdByUserId(ownerUserId);
-  if (ownerTeamId !== null || owner.department === 'bgd') {
-    throw new Error('Người này không thuộc diện xem task cá nhân đồng đội.');
-  }
-}
-
-/** Đồng đội xem (không sửa) board cá nhân của nhau — dữ liệu giống hệt
- *  getPersonalBoardAsBgdAction nhưng KHÔNG cấp quyền tạo/sửa/xoá task (client
- *  tự ẩn các nút thao tác khi ownerUserId khác session.userId và không phải
- *  BGĐ; các action tạo/sửa/xoá bên dưới vẫn chặn ở requirePersonalTaskContext
- *  nếu lỡ gọi tới). */
-export async function getPersonalBoardAsPeerAction(
-  ownerUserId: number,
-  range: DateRange,
-  calendarYearMonth: string
-): Promise<PersonalBoard> {
-  await requirePeerReadContext(ownerUserId);
-  assertValidRange(range);
-  assertValidYearMonth(calendarYearMonth);
-  const [tasks, monthProgress, monthDayCounts] = await Promise.all([
-    listTasksForOwner(ownerUserId, range),
-    getPersonalMonthProgress(ownerUserId, calendarYearMonth),
-    getPersonalMonthDayCounts(ownerUserId, calendarYearMonth),
-  ]);
-  return { tasks, monthProgress, monthDayCounts };
-}
-
-/** BGĐ xem board cá nhân của 1 người khác (xem hộ). */
+/** BGĐ hoặc 1 đồng đội cùng `team_label` xem/sửa board cá nhân của người
+ *  khác (xem hộ hoặc giao task hộ) — quyền chặn ở requirePersonalTaskContext. */
 export async function getPersonalBoardAsBgdAction(
   ownerUserId: number,
   range: DateRange,
@@ -438,7 +415,7 @@ export async function updatePersonalTaskAction(ownerUserId: number, taskId: numb
       throw new Error('Ngày kết thúc phải sau ngày bắt đầu.');
     }
   }
-  const updated = await updatePersonalTask(taskId, ownerUserId, patch, session.userId);
+  const updated = await updatePersonalTask(taskId, ownerUserId, patch, session.userId, todayIso());
   if (session.userId !== ownerUserId) {
     await logAdminAction(session.userId, 'personal_task.update', ownerUserId, { docId: String(taskId) });
   }
@@ -450,9 +427,11 @@ export async function deletePersonalTaskAction(ownerUserId: number, taskId: numb
   const existing = await getPersonalTaskById(taskId, ownerUserId);
   if (!existing) throw new Error('Không tìm thấy task.');
   await deletePersonalTask(taskId, ownerUserId);
-  if (existing.imageUrl?.includes('.public.blob.vercel-storage.com')) {
-    await del(existing.imageUrl).catch(() => {});
-  }
+  await Promise.all(
+    existing.imageUrls
+      .filter((url) => url.includes('.public.blob.vercel-storage.com'))
+      .map((url) => del(url).catch(() => {}))
+  );
   if (session.userId !== ownerUserId) {
     await logAdminAction(session.userId, 'personal_task.delete', ownerUserId, { docId: String(taskId) });
   }
@@ -469,6 +448,8 @@ export async function duplicatePersonalTaskAction(ownerUserId: number, taskId: n
 }
 
 const PERSONAL_TASK_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const PERSONAL_TASK_IMAGES_MAX_TOTAL_BYTES = 20 * 1024 * 1024;
+const PERSONAL_TASK_IMAGES_MAX_COUNT = 10;
 
 /** Đọc magic bytes thay vì tin `file.type` (client tự khai, giả mạo được) —
  *  đây là nguồn sự thật duy nhất cho loại ảnh thật sự nằm trong file. */
@@ -521,39 +502,51 @@ export async function uploadPersonalTaskImageAction(
   const { session } = await requirePersonalTaskContext(ownerUserId);
   const existing = await getPersonalTaskById(taskId, ownerUserId);
   if (!existing) throw new Error('Không tìm thấy task.');
-  const file = formData.get('file');
-  if (!(file instanceof File)) throw new Error('Thiếu file ảnh.');
-  if (file.size > PERSONAL_TASK_IMAGE_MAX_BYTES) throw new Error('Ảnh vượt quá 5MB.');
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const sniffed = sniffPersonalTaskImageType(buffer);
-  if (!sniffed) throw new Error('Chỉ nhận ảnh JPEG, PNG hoặc WebP.');
+  const files = formData.getAll('files').filter((value): value is File => value instanceof File);
+  const legacyFile = formData.get('file');
+  if (files.length === 0 && legacyFile instanceof File) files.push(legacyFile);
+  if (files.length === 0) throw new Error('Thiếu file ảnh.');
+  if (existing.imageUrls.length + files.length > PERSONAL_TASK_IMAGES_MAX_COUNT) {
+    throw new Error(`Mỗi task được thêm tối đa ${PERSONAL_TASK_IMAGES_MAX_COUNT} ảnh.`);
+  }
+  if (files.some((file) => file.size > PERSONAL_TASK_IMAGE_MAX_BYTES)) {
+    throw new Error('Mỗi ảnh không được vượt quá 5MB.');
+  }
+  if (files.reduce((total, file) => total + file.size, 0) > PERSONAL_TASK_IMAGES_MAX_TOTAL_BYTES) {
+    throw new Error('Tổng dung lượng ảnh mỗi lần tải không được vượt quá 20MB.');
+  }
 
-  const blob = await put(
-    `personal-tasks/${ownerUserId}/${taskId}-${Date.now()}.${sniffed.ext}`,
-    new Blob([buffer], { type: sniffed.mime }),
-    { access: 'public' }
-  );
-  let updated: Task;
-  let previousImageUrl: string | null;
+  const prepared = await Promise.all(files.map(async (file) => {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const sniffed = sniffPersonalTaskImageType(buffer);
+    if (!sniffed) throw new Error('Chỉ nhận ảnh JPEG, PNG hoặc WebP.');
+    return { buffer, ...sniffed };
+  }));
+  const uploadedUrls: string[] = [];
   try {
-    ({ task: updated, previousImageUrl } = await setPersonalTaskImageUrl(taskId, ownerUserId, blob.url, session.userId));
+    for (const [index, image] of prepared.entries()) {
+      const blob = await put(
+        `personal-tasks/${ownerUserId}/${taskId}-${Date.now()}-${index}-${randomUUID()}.${image.ext}`,
+        new Blob([image.buffer], { type: image.mime }),
+        { access: 'public' }
+      );
+      uploadedUrls.push(blob.url);
+    }
+    return await addPersonalTaskImageUrls(taskId, ownerUserId, uploadedUrls, session.userId);
   } catch (error) {
-    await del(blob.url).catch(() => {});
+    await Promise.all(uploadedUrls.map((url) => del(url).catch(() => {})));
     throw error;
   }
-  if (previousImageUrl?.includes('.public.blob.vercel-storage.com')) {
-    await del(previousImageUrl).catch(() => {});
-  }
-  return updated;
 }
 
-export async function removePersonalTaskImageAction(ownerUserId: number, taskId: number): Promise<Task> {
+export async function removePersonalTaskImageAction(ownerUserId: number, taskId: number, imageUrl: string): Promise<Task> {
   const { session } = await requirePersonalTaskContext(ownerUserId);
   const existing = await getPersonalTaskById(taskId, ownerUserId);
   if (!existing) throw new Error('Không tìm thấy task.');
-  const { task: updated, previousImageUrl } = await setPersonalTaskImageUrl(taskId, ownerUserId, null, session.userId);
-  if (previousImageUrl?.includes('.public.blob.vercel-storage.com')) {
-    await del(previousImageUrl).catch(() => {});
+  if (!existing.imageUrls.includes(imageUrl)) throw new Error('Không tìm thấy ảnh trong task.');
+  const updated = await removePersonalTaskImageUrl(taskId, ownerUserId, imageUrl, session.userId);
+  if (imageUrl.includes('.public.blob.vercel-storage.com')) {
+    await del(imageUrl).catch(() => {});
   }
   return updated;
 }

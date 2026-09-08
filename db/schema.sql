@@ -268,6 +268,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_owner_date ON tasks (owner_user_id, task_da
  *  đầu tiên, rolled_over_at cho biết task đang mang trạng thái trễ hạn. */
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS image_urls TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal';
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS original_task_date DATE;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS rolled_over_at TIMESTAMPTZ;
@@ -284,6 +285,15 @@ ALTER TABLE tasks ADD CONSTRAINT tasks_priority_check CHECK (priority IN ('low',
 UPDATE tasks
 SET description = note
 WHERE owner_user_id IS NOT NULL AND description IS NULL AND note IS NOT NULL;
+
+/** Nâng cấp ảnh task cá nhân từ 1 URL sang danh sách URL mà không làm mất
+ *  ảnh cũ. image_url vẫn giữ ảnh đầu tiên để các card cũ hiển thị thumbnail. */
+UPDATE tasks
+SET image_urls = ARRAY[image_url]
+WHERE image_url IS NOT NULL AND cardinality(image_urls) = 0;
+
+ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_image_urls_count_check;
+ALTER TABLE tasks ADD CONSTRAINT tasks_image_urls_count_check CHECK (cardinality(image_urls) <= 10);
 
 CREATE TABLE IF NOT EXISTS personal_task_comments (
   id SERIAL PRIMARY KEY,

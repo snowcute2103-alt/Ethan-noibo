@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { todayIso } from '@/lib/date';
 import { findTeamIdByUserId } from '@/lib/teams';
+import { listTeammatesByLabel } from '@/lib/users';
 import TaskBoard from '@/components/dashboard/task-board';
 import PersonalTaskBoard from '@/components/dashboard/personal-task-board';
 import { loadPersonalBoardCore, loadTeamBoardCore, loadTeamsOverview } from './team-board-data';
@@ -16,8 +17,13 @@ export default async function GiaoTaskPage() {
 
   if (!teamId) {
     if (!isBgd) {
-      // Không thuộc đội KD nào và không phải BGĐ — tự quản lý Kanban cá
-      // nhân của chính mình (thay cho redirect('/dashboard') trước đây).
+      // Có đồng đội cùng team_label (vd 3 người IT) — vào thẳng dashboard
+      // tổng quan nhóm trước, thay vì Kanban cá nhân (xem /nhom/page.tsx).
+      const mates = await listTeammatesByLabel(session.userId);
+      if (mates.length > 0) redirect('/dashboard/giao-task/nhom');
+
+      // Không thuộc đội KD nào, không có đồng đội, không phải BGĐ — tự quản
+      // lý Kanban cá nhân của chính mình (thay cho redirect('/dashboard') trước đây).
       const initialBoard = await loadPersonalBoardCore(session.userId, today);
       return <PersonalTaskBoard today={today} ownerUserId={session.userId} viewerIsBgd={false} initialBoard={initialBoard} />;
     }

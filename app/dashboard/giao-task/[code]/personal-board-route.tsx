@@ -10,13 +10,14 @@ interface PersonalBoardRouteProps {
   ownerName: string;
   ownerAvatarUrl: string | null;
   initialBoard: PersonalBoardCore;
-  /** true khi người xem là đồng đội (chỉ xem), false/mặc định là BGĐ xem hộ
-   *  (toàn quyền quản lý) — xem requirePeerReadContext vs requirePersonalTaskContext. */
+  /** Không còn dùng cho đồng đội (giờ cả nhóm ngang quyền, xem toàn bộ như
+   *  BGĐ) — giữ lại cho các chế độ chỉ-xem khác trong tương lai nếu cần. */
   readOnly?: boolean;
 }
 
-/** BGĐ (hoặc đồng đội, readOnly) xem Kanban cá nhân của người khác qua URL
- *  thật (/dashboard/giao-task/{slug-tên}) — cần wrapper 'use client' riêng vì
+/** BGĐ hoặc đồng đội (cùng team_label) xem VÀ giao task hộ Kanban cá nhân
+ *  của người khác qua URL thật (/dashboard/giao-task/{slug-tên}) — cần
+ *  wrapper 'use client' riêng vì
  *  nút "Bộ phận khác"/"Quay lại" của PersonalTaskBoard dùng router.push,
  *  không truyền được callback từ server component (page.tsx) sang thẳng
  *  client component. */

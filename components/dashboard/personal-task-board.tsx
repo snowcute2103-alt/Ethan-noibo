@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Check, Flag, ImagePlus, MessageCircle, Plus, StickyNote, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Flag, ImagePlus, MessageCircle, Plus, Trash2, X } from 'lucide-react';
 import type { Task, TaskStatus, TaskPriority, MonthDayCategoryCount } from '@/lib/tasks';
 import type { TeammateWithTaskCount } from '@/app/dashboard/giao-task/actions';
 import { nameSlug } from '@/lib/name-slug';
@@ -22,13 +22,13 @@ import {
 import {
   getMyPersonalBoardAction,
   getPersonalBoardAsBgdAction,
-  getPersonalBoardAsPeerAction,
   listMyTeammatesAction,
   createPersonalTasksAction,
   updatePersonalTaskAction,
   uploadPersonalTaskImageAction,
 } from '@/app/dashboard/giao-task/actions';
 import type { PersonalBoardCore } from '@/app/dashboard/giao-task/team-board-data';
+import { parsePersonalTaskDescription } from '@/lib/personal-task-description';
 
 // Cùng khoảng polling đã có tiền lệ ở task-board.tsx / sticky-board.tsx.
 const POLL_INTERVAL_MS = 150_000;
@@ -44,9 +44,8 @@ interface PersonalTaskBoardProps {
   today: string;
   ownerUserId: number;
   viewerIsBgd: boolean;
-  /** true khi người xem là đồng đội (cùng team_label), không phải chính chủ/BGĐ
-   *  — chỉ xem, ẩn mọi thao tác tạo/sửa/xoá/kéo-thả (server cũng chặn riêng, xem
-   *  getPersonalBoardAsPeerAction). */
+  /** Không còn được set true cho đồng đội (giờ cả nhóm ngang quyền) — giữ lại
+   *  cho các chế độ chỉ-xem khác trong tương lai nếu cần. */
   readOnly?: boolean;
   ownerName?: string;
   ownerAvatarUrl?: string | null;
@@ -120,6 +119,24 @@ function initialsOf(fullName: string): string {
   return (parts[parts.length - 1]?.[0] ?? '?').toUpperCase();
 }
 
+function PersonalTaskDescriptionPreview({ value, limit = 3 }: { value: string | null | undefined; limit?: number }) {
+  const items = parsePersonalTaskDescription(value);
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-1.5 space-y-1 text-xs leading-4 text-muted">
+      {items.slice(0, limit).map((item, index) => (
+        <p key={`${item.kind}-${index}`} className="flex min-w-0 items-start gap-1.5">
+          <span className={`shrink-0 font-bold ${item.kind === 'arrow' ? 'text-blue' : 'text-slate-400'}`} aria-hidden="true">
+            {item.kind === 'arrow' ? '→' : '•'}
+          </span>
+          <span className="line-clamp-1 min-w-0">{item.content}</span>
+        </p>
+      ))}
+      {items.length > limit && <p className="pl-3.5 text-[10px] font-semibold text-slate-400">+{items.length - limit} ý khác</p>}
+    </div>
+  );
+}
+
 const KANBAN_BOARD_COLUMNS: { status: TaskStatus; label: string; headerBg: string; bodyBg: string; ring: string }[] = [
   { status: 'not_started', label: 'Chưa làm', headerBg: 'bg-[#8B95A8]', bodyBg: 'bg-[#F1F3F7]', ring: 'ring-[#8B95A8]/50' },
   { status: 'in_progress', label: 'Đang làm', headerBg: 'bg-blue', bodyBg: 'bg-[#EBF2FE]', ring: 'ring-blue/50' },
@@ -176,11 +193,9 @@ export default function PersonalTaskBoard({
   async function refresh(opts?: { silent?: boolean }) {
     const requestId = ++refreshRequestRef.current;
     try {
-      const result = readOnly
-        ? await getPersonalBoardAsPeerAction(ownerUserId, range, calendarYearMonth)
-        : viewerIsBgd
-          ? await getPersonalBoardAsBgdAction(ownerUserId, range, calendarYearMonth)
-          : await getMyPersonalBoardAction(range, calendarYearMonth);
+      const result = viewerIsBgd
+        ? await getPersonalBoardAsBgdAction(ownerUserId, range, calendarYearMonth)
+        : await getMyPersonalBoardAction(range, calendarYearMonth);
       if (requestId !== refreshRequestRef.current) return;
       clearServerActionRecoveryMarker();
       setTasks(result.tasks);
@@ -430,7 +445,12 @@ export default function PersonalTaskBoard({
           </div>
           {teammates.length > 0 && (
             <div className="rounded-[14px] border border-[#FF2E7A]/25 bg-[#FFE1EC] px-4 py-3">
-              <p className="text-xs font-semibold text-[#FF2E7A]">Đồng đội</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-[#FF2E7A]">Đồng đội</p>
+                <Link href="/dashboard/giao-task/nhom" className="text-xs font-semibold text-[#FF2E7A] underline underline-offset-2 hover:text-[#FF2E7A]/80">
+                  Xem tổng quan nhóm →
+                </Link>
+              </div>
               <div className="mt-2 flex flex-col gap-1.5">
                 {teammates.map((mate) => (
                   <Link
@@ -715,12 +735,7 @@ function PersonalKanban({
             transition={SPRING_TRANSITION}
           >
             <p className="truncate text-sm font-semibold text-navy">{draggingTask.title}</p>
-            {(draggingTask.description ?? draggingTask.note) && (
-              <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted">
-                <StickyNote className="h-3 w-3 shrink-0" aria-hidden="true" />
-                {draggingTask.description ?? draggingTask.note}
-              </p>
-            )}
+            <PersonalTaskDescriptionPreview value={draggingTask.description ?? draggingTask.note} limit={2} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -764,7 +779,10 @@ function PersonalKanbanCard({
   const suppressDetailRef = useRef(false);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
   const isFromBoss = task.createdBy !== null && task.createdBy !== ownerUserId;
-  const isOverdue = task.rolledOverAt !== null && task.status !== 'done';
+  // rolledOverAt là cờ dính từ lần trễ hạn gần nhất — nếu người dùng đã gia
+  // hạn dueDate sang hôm nay/tương lai thì không còn trễ nữa, kể cả khi cờ
+  // này chưa được xoá ở lần lưu trước đó.
+  const isOverdue = task.rolledOverAt !== null && task.status !== 'done' && (!task.dueDate || task.dueDate < today);
 
   function commitTitle() {
     setEditing(false);
@@ -881,12 +899,7 @@ function PersonalKanbanCard({
             </p>
           )}
         </div>
-        {(task.description ?? task.note) && (
-          <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted">
-            <StickyNote className="h-3 w-3 shrink-0" aria-hidden="true" />
-            {task.description ?? task.note}
-          </p>
-        )}
+        <PersonalTaskDescriptionPreview value={task.description ?? task.note} />
         {task.imageUrl && (
           <div className="relative mt-2 h-24 w-full overflow-hidden rounded-[8px] bg-surface-2">
             <Image src={task.imageUrl} alt="" fill sizes="272px" className="object-cover" />

@@ -1,2 +1,13 @@
-# Local browser artifacts
---full-page
+# Local source media kept at the repository root. The application serves the
+# optimized/copy versions under public/, so these files are not deploy inputs.
+/2 Ngày 1 Đêm.mp4
+/nhac.mp4
+/toa chinh.png
+/toanha.png
+/toaxuong.png
+/vid.mp4
+/vid1.mp4
+/vid2.mp4
+/vid3.mp4
+/vid4mp4.mp4
+/xuong1.png

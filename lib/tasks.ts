@@ -35,6 +35,7 @@ export interface Task {
   note: string | null;
   description: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
   priority: TaskPriority;
   originalTaskDate: string | null;
   rolledOverAt: string | null;
@@ -112,7 +113,7 @@ const TASK_SELECT_CORE = `
   t.id, t.team_id, t.owner_user_id, t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.assignee_user_id,
   u.full_name AS assignee_full_name, u.avatar_url AS assignee_avatar_url, t.account_name, t.title, t.channel_name, t.channel, t.video_count,
   t.product, t.option_tag, t.reference_link, t.note, t.status, t.sort_order, t.duplicated_from_task_id,
-  t.description, t.image_url, t.priority, t.original_task_date::text AS original_task_date, t.rolled_over_at,
+  t.description, t.image_url, t.image_urls, t.priority, t.original_task_date::text AS original_task_date, t.rolled_over_at,
   t.created_by, cb.full_name AS created_by_full_name, cb.avatar_url AS created_by_avatar_url
 `;
 
@@ -155,6 +156,7 @@ function mapTaskRow(row: any): Task {
     note: row.note,
     description: row.description,
     imageUrl: row.image_url,
+    imageUrls: row.image_urls ?? (row.image_url ? [row.image_url] : []),
     priority: row.priority ?? 'normal',
     originalTaskDate: row.original_task_date,
     rolledOverAt: row.rolled_over_at,
@@ -750,7 +752,8 @@ export async function updatePersonalTask(
   taskId: number,
   ownerUserId: number,
   patch: PersonalTaskPatch,
-  actorUserId: number
+  actorUserId: number,
+  today: string
 ): Promise<Task> {
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -765,15 +768,28 @@ export async function updatePersonalTask(
     sets.push(`title = $${params.length}`);
     addHistoryPart('title', 'title');
   }
+  let effectiveTaskDateExpr: string | null = null;
   if (patch.taskDate !== undefined) {
     params.push(patch.taskDate);
     sets.push(`task_date = $${params.length}`);
     addHistoryPart('taskDate', 'task_date');
+    effectiveTaskDateExpr = `$${params.length}`;
   }
   if (patch.dueDate !== undefined) {
     params.push(patch.dueDate);
     sets.push(`due_date = $${params.length}`);
     addHistoryPart('dueDate', 'due_date');
+  }
+  // Người dùng tự dời ngày bắt đầu (hoặc chỉ kéo dài ngày kết thúc trong khi
+  // ngày bắt đầu vẫn là hôm nay/tương lai) — không còn trễ hạn nữa nên bỏ cờ
+  // rollover, tránh thẻ báo "Trễ" mãi dù đã đổi ngày. Dùng b.task_date (giá
+  // trị trước khi sửa) khi taskDate không nằm trong patch lần này.
+  if (patch.taskDate !== undefined || patch.dueDate !== undefined) {
+    const dateExpr = effectiveTaskDateExpr ?? 'b.task_date';
+    params.push(today);
+    const todayParam = params.length;
+    sets.push(`rolled_over_at = CASE WHEN ${dateExpr} >= $${todayParam} THEN NULL ELSE rolled_over_at END`);
+    sets.push(`original_task_date = CASE WHEN ${dateExpr} >= $${todayParam} THEN NULL ELSE original_task_date END`);
   }
   if (patch.description !== undefined) {
     params.push(patch.description);
@@ -823,12 +839,13 @@ export async function updatePersonalTask(
   return updated;
 }
 
-export async function deletePersonalTask(taskId: number, ownerUserId: number): Promise<string | null> {
+export async function deletePersonalTask(taskId: number, ownerUserId: number): Promise<string[]> {
   const rows = await sql.query(
-    'DELETE FROM tasks WHERE id = $1 AND owner_user_id = $2 RETURNING image_url',
+    'DELETE FROM tasks WHERE id = $1 AND owner_user_id = $2 RETURNING image_url, image_urls',
     [taskId, ownerUserId]
   );
-  return rows[0]?.image_url ?? null;
+  if (!rows[0]) return [];
+  return rows[0].image_urls ?? (rows[0].image_url ? [rows[0].image_url] : []);
 }
 
 /** Nhân bản 1 task cá nhân sang 1 ngày khác — dòng thật, độc lập, status
@@ -859,31 +876,62 @@ export async function duplicatePersonalTask(
   return mapTaskRow(rows[0]);
 }
 
-export async function setPersonalTaskImageUrl(
+export async function addPersonalTaskImageUrls(
   taskId: number,
   ownerUserId: number,
-  imageUrl: string | null,
+  imageUrls: string[],
   actorUserId: number
-): Promise<{ task: Task; previousImageUrl: string | null }> {
+): Promise<Task> {
   const rows = await sql.query(
     `/* write */ WITH before AS MATERIALIZED (
        SELECT * FROM tasks WHERE id = $1 AND owner_user_id = $2 FOR UPDATE
      ), upd AS (
        UPDATE tasks t
-       SET image_url = $3, updated_at = now()
+       SET image_urls = b.image_urls || $3::text[],
+           image_url = (b.image_urls || $3::text[])[1],
+           updated_at = now()
        FROM before b WHERE t.id = b.id
-       RETURNING t.*, b.image_url AS old_image_url
+       RETURNING t.*, b.image_urls AS old_image_urls
      ), history AS (
        INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
        SELECT id, $4, 'image_updated', jsonb_build_object(
-         'imageUrl', jsonb_build_object('from', old_image_url, 'to', image_url)
-       ) FROM upd WHERE old_image_url IS DISTINCT FROM image_url
+         'imageUrls', jsonb_build_object('from', old_image_urls, 'to', image_urls)
+       ) FROM upd WHERE old_image_urls IS DISTINCT FROM image_urls
+     )
+     SELECT ${PERSONAL_TASK_SELECT} FROM upd t ${TASK_JOINS}`,
+    [taskId, ownerUserId, imageUrls, actorUserId]
+  );
+  if (!rows[0]) throw new Error('Không tìm thấy task.');
+  return mapTaskRow(rows[0]);
+}
+
+export async function removePersonalTaskImageUrl(
+  taskId: number,
+  ownerUserId: number,
+  imageUrl: string,
+  actorUserId: number
+): Promise<Task> {
+  const rows = await sql.query(
+    `/* write */ WITH before AS MATERIALIZED (
+       SELECT * FROM tasks WHERE id = $1 AND owner_user_id = $2 FOR UPDATE
+     ), upd AS (
+       UPDATE tasks t
+       SET image_urls = array_remove(b.image_urls, $3),
+           image_url = (array_remove(b.image_urls, $3))[1],
+           updated_at = now()
+       FROM before b WHERE t.id = b.id AND $3 = ANY(b.image_urls)
+       RETURNING t.*, b.image_urls AS old_image_urls
+     ), history AS (
+       INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
+       SELECT id, $4, 'image_updated', jsonb_build_object(
+         'imageUrls', jsonb_build_object('from', old_image_urls, 'to', image_urls)
+       ) FROM upd
      )
      SELECT ${PERSONAL_TASK_SELECT} FROM upd t ${TASK_JOINS}`,
     [taskId, ownerUserId, imageUrl, actorUserId]
   );
-  if (!rows[0]) throw new Error('Không tìm thấy task.');
-  return { task: mapTaskRow(rows[0]), previousImageUrl: rows[0].old_image_url ?? null };
+  if (!rows[0]) throw new Error('Không tìm thấy ảnh trong task.');
+  return mapTaskRow(rows[0]);
 }
 
 export async function addPersonalTaskComment(

@@ -78,8 +78,9 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
     );
   }
 
-  // Đồng đội cùng team_label/department chỉ được XEM (không sửa) — khớp
-  // requirePeerReadContext ở actions.ts, chặn ở cả đây lẫn server action.
+  // Đồng đội cùng team_label/department được xem VÀ giao task hộ nhau (cả
+  // nhóm ngang quyền) — khớp isSameTeammateGroup/requirePersonalTaskContext
+  // ở actions.ts, chặn ở cả đây lẫn server action.
   const [viewer, owner] = await Promise.all([findUserById(session.userId), findUserById(person.userId)]);
   const isTeammate =
     viewer !== null &&
@@ -96,7 +97,6 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
         ownerName={person.fullName}
         ownerAvatarUrl={person.avatarUrl}
         initialBoard={initialBoard}
-        readOnly
       />
     );
   }

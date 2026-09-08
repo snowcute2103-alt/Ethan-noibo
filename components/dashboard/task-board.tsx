@@ -829,6 +829,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       note: input.note ?? null,
       description: null,
       imageUrl: null,
+      imageUrls: [],
       priority: 'normal',
       originalTaskDate: null,
       rolledOverAt: null,
