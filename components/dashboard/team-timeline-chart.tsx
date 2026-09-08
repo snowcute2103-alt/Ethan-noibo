@@ -55,7 +55,9 @@ function statusOf(task: { status: string; isFromBoss: boolean }): keyof typeof S
 
 interface OpenPopup {
   key: string;
-  weekIndex: number;
+  /** Tiêu đề popup: "Tuần dd/mm - dd/mm" cho nút tròn 1 tuần, hoặc khoảng
+   *  ngày thật "dd/mm → dd/mm" cho thanh nối nhiều tuần của task có dueDate. */
+  headerLabel: string;
   count: TimelineWeekCount;
   color: { solid: string; text: string };
   /** Toạ độ viewport của tâm nút + mép trên/dưới, dùng để đặt popup ngay
@@ -195,6 +197,36 @@ export default function TeamTimelineChart({ data, avatarByUserId }: TeamTimeline
                     {/* Dải ruy băng nền liên tục, canh giữa đúng tâm nút tròn (đỉnh nút cách top 0, nút cao 34px → tâm ở 17px). */}
                     <div className={`absolute inset-x-0 top-[17px] h-[6px] -translate-y-1/2 rounded-full ${color.track}`} />
 
+                    {row.ranges.map((range) => {
+                      const key = `${row.userId}-range-${range.task.id}`;
+                      const leftPercent = (range.startWeekIndex / weeks.length) * 100;
+                      const widthPercent = ((range.endWeekIndex - range.startWeekIndex + 1) / weeks.length) * 100;
+                      const rangeCount: TimelineWeekCount = {
+                        bossCount: range.task.isFromBoss ? 1 : 0,
+                        notStartedCount: !range.task.isFromBoss && range.task.status === 'not_started' ? 1 : 0,
+                        inProgressCount: range.task.status === 'in_progress' ? 1 : 0,
+                        doneCount: range.task.status === 'done' ? 1 : 0,
+                        total: 1,
+                        tasks: [range.task],
+                      };
+                      const headerLabel = `${shortDateOf(range.startDate)} → ${shortDateOf(range.dueDate)}`;
+                      return (
+                        <div
+                          key={key}
+                          role="button"
+                          tabIndex={0}
+                          onMouseEnter={(e) => setHoverPopup({ key, headerLabel, count: rangeCount, color, anchor: anchorOf(e.currentTarget) })}
+                          onMouseLeave={() => setHoverPopup((p) => (p?.key === key ? null : p))}
+                          onClick={(e) => {
+                            const anchor = anchorOf(e.currentTarget);
+                            setPinnedPopup((p) => (p?.key === key ? null : { key, headerLabel, count: rangeCount, color, anchor }));
+                          }}
+                          className={`absolute top-[17px] z-[5] h-[10px] -translate-y-1/2 cursor-pointer rounded-full opacity-80 ring-2 ring-white transition-opacity hover:opacity-100 ${color.solid}`}
+                          style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
+                        />
+                      );
+                    })}
+
                     {row.weeks.map((count, weekIndex) => {
                       const key = `${row.userId}-${weekIndex}`;
                       if (count.total === 0) return <div key={key} className="h-full flex-1" />;
@@ -202,7 +234,9 @@ export default function TeamTimelineChart({ data, avatarByUserId }: TeamTimeline
                         <div key={key} className="flex h-full flex-1 flex-col items-center px-[2px]">
                           <button
                             type="button"
-                            onMouseEnter={(e) => setHoverPopup({ key, weekIndex, count, color, anchor: anchorOf(e.currentTarget) })}
+                            onMouseEnter={(e) =>
+                              setHoverPopup({ key, headerLabel: `Tuần ${weeks[weekIndex].rangeLabel}`, count, color, anchor: anchorOf(e.currentTarget) })
+                            }
                             onMouseLeave={() => setHoverPopup((p) => (p?.key === key ? null : p))}
                             onClick={(e) => {
                               // Đọc toạ độ ngay trong handler (đồng bộ) rồi mới đưa vào updater —
@@ -210,7 +244,8 @@ export default function TeamTimelineChart({ data, avatarByUserId }: TeamTimeline
                               // nên gọi anchorOf(e.currentTarget) bên trong callback của setState
                               // (chạy trễ hơn) sẽ ném lỗi "Cannot read properties of null".
                               const anchor = anchorOf(e.currentTarget);
-                              setPinnedPopup((p) => (p?.key === key ? null : { key, weekIndex, count, color, anchor }));
+                              const headerLabel = `Tuần ${weeks[weekIndex].rangeLabel}`;
+                              setPinnedPopup((p) => (p?.key === key ? null : { key, headerLabel, count, color, anchor }));
                             }}
                             className={`relative z-10 grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full text-xs font-bold text-white shadow-[0_4px_10px_-2px_rgba(16,26,48,0.4)] ring-2 ring-white transition-transform hover:scale-110 active:scale-95 ${color.solid}`}
                           >
@@ -242,7 +277,7 @@ export default function TeamTimelineChart({ data, avatarByUserId }: TeamTimeline
       {popup &&
         createPortal(
           <TimelineWeekPopup
-            week={weeks[popup.weekIndex]}
+            headerLabel={popup.headerLabel}
             count={popup.count}
             color={popup.color}
             anchor={popup.anchor}
@@ -255,13 +290,13 @@ export default function TeamTimelineChart({ data, avatarByUserId }: TeamTimeline
 }
 
 function TimelineWeekPopup({
-  week,
+  headerLabel,
   count,
   color,
   anchor,
   onClose,
 }: {
-  week: { rangeLabel: string };
+  headerLabel: string;
   count: TimelineWeekCount;
   color: { solid: string; text: string };
   anchor: { x: number; top: number; bottom: number };
@@ -285,7 +320,7 @@ function TimelineWeekPopup({
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className={`text-xs font-bold uppercase tracking-wide ${color.text}`}>Tuần {week.rangeLabel}</p>
+        <p className={`text-xs font-bold uppercase tracking-wide ${color.text}`}>{headerLabel}</p>
         <button type="button" onClick={onClose} className="text-muted hover:text-navy" aria-label="Đóng">
           ✕
         </button>

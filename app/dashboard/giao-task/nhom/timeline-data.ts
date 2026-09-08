@@ -29,11 +29,22 @@ export interface TimelineWeekCount {
   tasks: TimelineWeekTask[];
 }
 
+export interface TimelineRange {
+  task: TimelineWeekTask;
+  startDate: string;
+  dueDate: string;
+  startWeekIndex: number;
+  endWeekIndex: number;
+}
+
 export interface TimelineMemberRow {
   userId: number;
   fullName: string;
   isSelf: boolean;
   weeks: TimelineWeekCount[];
+  /** Task có `dueDate` kéo dài sang tuần khác so với `taskDate` — vẽ thành 1
+   *  thanh nối 2 tuần thay vì chỉ 1 nút tròn ở tuần bắt đầu. */
+  ranges: TimelineRange[];
 }
 
 export interface TeamTimelineData {
@@ -69,8 +80,8 @@ const DAY_MS = 86_400_000;
  *  tháng trước + tháng hiện tại + 2 tháng tới (đủ nhìn lại gần và nhìn tới
  *  trước, khớp lựa chọn "theo tuần, nhiều tháng"). Mỗi ô tuần/thành viên gộp
  *  task theo `taskDate` rồi phân loại 4 nhóm giống board cá nhân (Sếp đưa/
- *  Chưa làm/Đang làm/Hoàn thành), không tách theo `dueDate` để giữ đơn giản
- *  vì phần lớn task cá nhân chỉ trong 1 ngày. Tuần bắt đầu đúng ngày 1 của
+ *  Chưa làm/Đang làm/Hoàn thành). Task có `dueDate` kéo sang tuần khác còn
+ *  được gom thêm vào `ranges` để vẽ thanh nối giữa 2 tuần. Tuần bắt đầu đúng ngày 1 của
  *  tháng trước (không ép về thứ Hai) để tháng đầu tiên không bị 1 tuần lạc
  *  sang tháng trước đó nữa — đổi lại tuần cuối mỗi tháng có thể lấn nhẹ sang
  *  tháng kế, chấp nhận được vì vẫn gộp đúng vào 1 trong 2 tháng liền kề. */
@@ -123,6 +134,7 @@ export async function buildTeamTimeline(
         total: 0,
         tasks: [],
       }));
+      const ranges: TimelineRange[] = [];
 
       for (const task of tasks) {
         const taskTs = parseIsoToUtc(task.taskDate);
@@ -135,10 +147,19 @@ export async function buildTeamTimeline(
         else if (isFromBoss) bucket.bossCount++;
         else bucket.notStartedCount++;
         bucket.total++;
-        bucket.tasks.push({ id: task.id, title: task.title, status: task.status, isFromBoss });
+        const weekTask: TimelineWeekTask = { id: task.id, title: task.title, status: task.status, isFromBoss };
+        bucket.tasks.push(weekTask);
+
+        if (task.dueDate && task.dueDate !== task.taskDate) {
+          const dueTs = parseIsoToUtc(task.dueDate);
+          const endWeekIndex = Math.min(weekStarts.length - 1, Math.floor((dueTs - gridStartTs) / (7 * DAY_MS)));
+          if (endWeekIndex > weekIndex) {
+            ranges.push({ task: weekTask, startDate: task.taskDate, dueDate: task.dueDate, startWeekIndex: weekIndex, endWeekIndex });
+          }
+        }
       }
 
-      return { userId: member.userId, fullName: member.fullName, isSelf: member.isSelf, weeks: weekCounts };
+      return { userId: member.userId, fullName: member.fullName, isSelf: member.isSelf, weeks: weekCounts, ranges };
     })
   );
 
