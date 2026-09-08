@@ -788,8 +788,8 @@ export async function updatePersonalTask(
     const dateExpr = effectiveTaskDateExpr ?? 'b.task_date';
     params.push(today);
     const todayParam = params.length;
-    sets.push(`rolled_over_at = CASE WHEN ${dateExpr} >= $${todayParam} THEN NULL ELSE rolled_over_at END`);
-    sets.push(`original_task_date = CASE WHEN ${dateExpr} >= $${todayParam} THEN NULL ELSE original_task_date END`);
+    sets.push(`rolled_over_at = CASE WHEN ${dateExpr} >= $${todayParam} THEN NULL ELSE t.rolled_over_at END`);
+    sets.push(`original_task_date = CASE WHEN ${dateExpr} >= $${todayParam} THEN NULL ELSE t.original_task_date END`);
   }
   if (patch.description !== undefined) {
     params.push(patch.description);
