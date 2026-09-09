@@ -1,13 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
 
 export interface GroupMemberStat {
   userId: number;
   fullName: string;
   avatarUrl: string | null;
-  href: string;
   isSelf: boolean;
   monthProgress: { done: number; total: number };
 }
@@ -30,20 +28,10 @@ function initialsOf(fullName: string): string {
  *  "Development Team") — bấm 1 thẻ để lọc board gộp bên dưới (TeamMergedTaskBoard)
  *  chỉ còn task của đúng người đó, bấm lại lần nữa để xem lại tất cả. */
 export default function TeamGroupDashboard({ groupLabel, members, selectedUserId, onToggleMember }: TeamGroupDashboardProps) {
-  // /dashboard/giao-task giờ tự chuyển hướng về /nhom cho người có đồng đội
-  // (xem page.tsx gốc), nên nút quay lại phải trỏ thẳng vào board cá nhân
-  // của chính mình theo slug — trỏ về root sẽ tạo vòng lặp redirect.
-  const selfHref = members.find((member) => member.isSelf)?.href ?? '/dashboard/giao-task';
   return (
     <div className="team-group-dashboard-page px-4 py-6 sm:px-6 sm:py-8 min-[1025px]:px-10 min-[1025px]:py-10">
       <div className="mb-6">
-        <Link
-          href={selfHref}
-          className="flex items-center gap-1 font-heading text-xs font-bold uppercase tracking-[0.2em] text-blue hover:text-blue-cta"
-        >
-          ← Task của tôi
-        </Link>
-        <h1 className="mt-1 font-heading text-2xl font-semibold text-navy sm:text-3xl">Nhóm {groupLabel}</h1>
+        <h1 className="font-heading text-2xl font-semibold text-navy sm:text-3xl">Nhóm {groupLabel}</h1>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-3">

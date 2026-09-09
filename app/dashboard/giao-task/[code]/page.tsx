@@ -2,10 +2,9 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { todayIso } from '@/lib/date';
 import { findOutsideTeamUserBySlug, findOutsideTeamUsersByDepartment, findTeamIdByUserId, getTeamByCode } from '@/lib/teams';
-import { findUserById } from '@/lib/users';
+import { findUserById, listTeammatesByLabel } from '@/lib/users';
 import { getGroupDailyMemberCounts, getPersonalMonthProgress, listTasksForOwners } from '@/lib/tasks';
-import { DEPARTMENTS, departmentLabel } from '@/lib/roles';
-import { nameSlug } from '@/lib/name-slug';
+import { DEPARTMENTS, departmentLabel, type Department } from '@/lib/roles';
 import TaskBoard from '@/components/dashboard/task-board';
 import PersonalTaskBoard from '@/components/dashboard/personal-task-board';
 import { type GroupMemberStat } from '@/components/dashboard/team-group-dashboard';
@@ -17,6 +16,69 @@ import PersonalBoardRoute from './personal-board-route';
 
 interface PageProps {
   params: Promise<{ code: string }>;
+}
+
+interface GroupWorkspaceMember {
+  userId: number;
+  fullName: string;
+  avatarUrl: string | null;
+}
+
+/** Dùng chung cho cả 2 audience của 1 phòng ban ngoài 6 đội KD (vd "IT /
+ *  Development"): BGĐ xem hộ cả phòng ban (department có giá trị, không ai
+ *  isSelf) và chính nhân sự phòng ban đó tự xem nhóm mình (selfUserId là
+ *  session.userId, department để trống nên TeamMergedTaskBoard gọi đúng
+ *  getMergedTeamBoardAction thay vì action chỉ BGĐ mới gọi được). Gộp 1 chỗ
+ *  để tránh lặp lại đúng khối Promise.all này 2 lần trong cùng file. */
+async function renderGroupWorkspace(
+  today: string,
+  members: GroupWorkspaceMember[],
+  groupLabel: string,
+  defaultAssigneeUserId: number,
+  selfUserId: number | null,
+  department?: Department
+) {
+  const yearMonth = today.slice(0, 7);
+  const memberUserIds = members.map((member) => member.userId);
+  const [stats, timeline, tasks, dayCounts] = await Promise.all([
+    Promise.all(
+      members.map(async (member): Promise<GroupMemberStat> => {
+        const monthProgress = await getPersonalMonthProgress(member.userId, yearMonth);
+        return {
+          userId: member.userId,
+          fullName: member.fullName,
+          avatarUrl: member.avatarUrl,
+          isSelf: member.userId === selfUserId,
+          monthProgress,
+        };
+      })
+    ),
+    buildTeamTimeline(
+      members.map((member) => ({ userId: member.userId, fullName: member.fullName, isSelf: member.userId === selfUserId })),
+      today
+    ),
+    listTasksForOwners(memberUserIds, { fromDate: today, toDate: today }),
+    getGroupDailyMemberCounts(memberUserIds, yearMonth),
+  ]);
+  const avatarByUserId = Object.fromEntries(members.map((member) => [member.userId, member.avatarUrl]));
+
+  return (
+    <>
+      <TeamWorkspace
+        groupLabel={groupLabel}
+        stats={stats}
+        today={today}
+        members={members}
+        defaultAssigneeUserId={defaultAssigneeUserId}
+        initialTasks={tasks}
+        initialDayCounts={dayCounts}
+        department={department}
+      />
+      <div className="px-4 pb-6 sm:px-6 sm:pb-8 min-[1025px]:px-10 min-[1025px]:pb-10">
+        <TeamTimelineChart data={timeline} avatarByUserId={avatarByUserId} />
+      </div>
+    </>
+  );
 }
 
 /** URL thật cho 1 đội (vd /dashboard/giao-task/kd2) hoặc 1 người ngoài 6 đội
@@ -55,61 +117,25 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
     );
   }
 
-  // BGĐ mở dashboard gộp của cả 1 phòng ban ngoài 6 đội KD (vd
-  // /dashboard/giao-task/it từ thẻ "IT / Development" ở khối "Bộ phận khác")
-  // — chỉ BGĐ mới đi được nhánh này, đồng đội thường vào /dashboard/giao-task/nhom.
-  // Cùng bộ component (TeamGroupDashboard + TeamTimelineChart + TeamMergedTaskBoard)
-  // với /nhom để BGĐ thấy đúng dashboard nhóm đầy đủ như nhân sự phòng ban tự xem,
-  // không phải chỉ 1 board Kanban gộp đơn giản. Không ai isSelf vì BGĐ không thuộc
-  // phòng ban này — TeamGroupDashboard tự rơi về nút "quay lại" trỏ /dashboard/giao-task.
-  if (isBgd) {
-    const department = DEPARTMENTS.find((d) => d.id === code && d.id !== 'bgd');
-    if (department) {
+  // Dashboard gộp của cả 1 phòng ban ngoài 6 đội KD (vd "IT / Development",
+  // /dashboard/giao-task/it) — dùng chung URL cho cả 2 audience: BGĐ xem hộ
+  // cả phòng ban (department có giá trị, phạm vi người theo
+  // findOutsideTeamUsersByDepartment), và chính nhân sự phòng ban đó vào
+  // thẳng nhóm mình (phạm vi người theo team_label như /dashboard/giao-task
+  // gốc đã redirect tới đây). Người ngoài 2 diện này gõ đúng URL vẫn rơi
+  // xuống nhánh khớp người/slug bên dưới rồi bị chặn ở đó.
+  const department = DEPARTMENTS.find((d) => d.id === code && d.id !== 'bgd');
+  if (department) {
+    if (isBgd) {
       const members = await findOutsideTeamUsersByDepartment(department.id);
       if (members.length === 0) redirect('/dashboard/giao-task');
+      return renderGroupWorkspace(today, members, departmentLabel(department.id), members[0].userId, null, department.id);
+    }
 
-      const yearMonth = today.slice(0, 7);
-      const memberUserIds = members.map((member) => member.userId);
-      const [stats, timeline, tasks, dayCounts] = await Promise.all([
-        Promise.all(
-          members.map(async (member): Promise<GroupMemberStat> => {
-            const monthProgress = await getPersonalMonthProgress(member.userId, yearMonth);
-            return {
-              userId: member.userId,
-              fullName: member.fullName,
-              avatarUrl: member.avatarUrl,
-              href: `/dashboard/giao-task/${nameSlug(member.fullName)}`,
-              isSelf: false,
-              monthProgress,
-            };
-          })
-        ),
-        buildTeamTimeline(
-          members.map((member) => ({ userId: member.userId, fullName: member.fullName, isSelf: false })),
-          today
-        ),
-        listTasksForOwners(memberUserIds, { fromDate: today, toDate: today }),
-        getGroupDailyMemberCounts(memberUserIds, yearMonth),
-      ]);
-      const avatarByUserId = Object.fromEntries(members.map((member) => [member.userId, member.avatarUrl]));
-
-      return (
-        <>
-          <TeamWorkspace
-            groupLabel={departmentLabel(department.id)}
-            stats={stats}
-            today={today}
-            members={members}
-            defaultAssigneeUserId={members[0].userId}
-            initialTasks={tasks}
-            initialDayCounts={dayCounts}
-            department={department.id}
-          />
-          <div className="px-4 pb-6 sm:px-6 sm:pb-8 min-[1025px]:px-10 min-[1025px]:pb-10">
-            <TeamTimelineChart data={timeline} avatarByUserId={avatarByUserId} />
-          </div>
-        </>
-      );
+    const [self, mates] = await Promise.all([findUserById(session.userId), listTeammatesByLabel(session.userId)]);
+    if (self && self.department === department.id && mates.length > 0) {
+      const members = [{ userId: self.id, fullName: self.fullName, avatarUrl: self.avatarUrl }, ...mates];
+      return renderGroupWorkspace(today, members, self.teamLabel ?? departmentLabel(department.id), self.id, self.id);
     }
   }
 
