@@ -38,11 +38,17 @@ async function renderGroupWorkspace(
   selfUserId: number | null,
   department?: Department
 ) {
+  // Sắp theo full_name giống hệt truy vấn SQL của findOutsideTeamUsersByDepartment
+  // (ORDER BY full_name ASC) — nếu không sort lại ở đây, nhánh tự xem nhóm sẽ
+  // luôn đẩy chính mình lên đầu ([self, ...mates]) trong khi BGĐ xem cùng phòng
+  // ban lại thấy thứ tự khác, gây lệch thứ tự + Timeline nhóm không nhất quán
+  // giữa 2 audience của cùng 1 URL.
+  const sortedMembers = [...members].sort((a, b) => (a.fullName < b.fullName ? -1 : a.fullName > b.fullName ? 1 : 0));
   const yearMonth = today.slice(0, 7);
-  const memberUserIds = members.map((member) => member.userId);
+  const memberUserIds = sortedMembers.map((member) => member.userId);
   const [stats, timeline, tasks, dayCounts] = await Promise.all([
     Promise.all(
-      members.map(async (member): Promise<GroupMemberStat> => {
+      sortedMembers.map(async (member): Promise<GroupMemberStat> => {
         const monthProgress = await getPersonalMonthProgress(member.userId, yearMonth);
         return {
           userId: member.userId,
@@ -53,14 +59,16 @@ async function renderGroupWorkspace(
         };
       })
     ),
+    // Timeline nhóm không tô riêng "Bạn" — hiện đúng tên thật + màu theo thứ
+    // tự hàng như nhau cho mọi người xem, khớp cách BGĐ xem cùng nhóm.
     buildTeamTimeline(
-      members.map((member) => ({ userId: member.userId, fullName: member.fullName, isSelf: member.userId === selfUserId })),
+      sortedMembers.map((member) => ({ userId: member.userId, fullName: member.fullName, isSelf: false })),
       today
     ),
     listTasksForOwners(memberUserIds, { fromDate: today, toDate: today }),
     getGroupDailyMemberCounts(memberUserIds, yearMonth),
   ]);
-  const avatarByUserId = Object.fromEntries(members.map((member) => [member.userId, member.avatarUrl]));
+  const avatarByUserId = Object.fromEntries(sortedMembers.map((member) => [member.userId, member.avatarUrl]));
 
   return (
     <>
@@ -68,7 +76,7 @@ async function renderGroupWorkspace(
         groupLabel={groupLabel}
         stats={stats}
         today={today}
-        members={members}
+        members={sortedMembers}
         defaultAssigneeUserId={defaultAssigneeUserId}
         initialTasks={tasks}
         initialDayCounts={dayCounts}
