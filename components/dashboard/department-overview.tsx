@@ -1,10 +1,6 @@
-'use client';
-
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import type { DepartmentGroup } from '@/lib/teams';
-import { nameSlug } from '@/lib/name-slug';
 
 interface DepartmentOverviewProps {
   groups: DepartmentGroup[];
@@ -12,42 +8,38 @@ interface DepartmentOverviewProps {
 
 /** Khối "Bộ phận khác" — luôn hiện ngay dưới bảng 6 đội KD trên cùng trang
  *  Tổng quan (không phải màn riêng phải chọn dropdown mới thấy), theo đúng
- *  yêu cầu gộp chung 1 trang. Chỉ là danh sách chọn người — bấm 1 người điều
- *  hướng thẳng tới URL Kanban cá nhân của họ (giống cách chọn 1 đội KD), giữ
- *  được bookmark/back-forward thay vì đổi state ở component cha. Dùng chung
- *  thanh chọn tháng với bảng 6 đội phía trên (yearMonth do cha truyền xuống
- *  qua `groups`). */
+ *  yêu cầu gộp chung 1 trang. Cả tiêu đề phòng ban lẫn từng người trong danh
+ *  sách đều trỏ về cùng 1 URL board gộp của phòng ban đó (vd IT/Development
+ *  3 người dùng chung 1 board) thay vì tách mỗi người 1 trang Kanban cá nhân
+ *  riêng — giữ được bookmark/back-forward thay vì đổi state ở component cha.
+ *  Dùng chung thanh chọn tháng với bảng 6 đội phía trên (yearMonth do cha
+ *  truyền xuống qua `groups`). */
 export default function DepartmentOverview({ groups }: DepartmentOverviewProps) {
-  const router = useRouter();
   if (groups.length === 0) return null;
-
-  // Danh sách có thể dài (mọi nhân sự ngoài 6 đội) — prefetch theo intent
-  // (hover/focus/touch) thay vì để Next tự prefetch mọi route khi cuộn vào
-  // viewport, tránh tải trước hàng loạt board cá nhân không ai mở tới.
-  const prefetchMember = (fullName: string) => router.prefetch(`/dashboard/giao-task/${nameSlug(fullName)}`);
 
   return (
     <div className="mt-6 border-t-2 border-[#dbe4f2] pt-6 min-[1025px]:mt-10 min-[1025px]:pt-10">
       <p className="font-heading text-2xl font-light uppercase tracking-wide text-navy sm:text-3xl min-[1025px]:text-5xl">Bộ phận khác</p>
       <p className="mt-0.5 text-xs text-muted">
-        Nhân sự không thuộc 6 đội kinh doanh — mỗi người tự quản lý task cá nhân của mình.
+        Nhân sự không thuộc 6 đội kinh doanh. Mỗi phòng ban dùng chung 1 board task.
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 min-[1025px]:mt-4 min-[1025px]:gap-5 xl:grid-cols-3">
         {groups.map((group) => (
           <div key={group.department} className="stat-panel rounded-[16px] bg-white p-3 min-[1025px]:p-4">
-            <p className="font-heading text-base font-bold text-navy">{group.departmentLabel}</p>
+            <Link
+              href={`/dashboard/giao-task/${group.department}`}
+              className="font-heading text-base font-bold text-navy underline decoration-transparent underline-offset-2 hover:decoration-navy/40"
+            >
+              {group.departmentLabel}
+            </Link>
             <ul className="mt-3 flex flex-col gap-2">
               {group.members.map((member) => {
                 const pct = member.monthProgress.total > 0 ? Math.round((member.monthProgress.done / member.monthProgress.total) * 100) : 0;
                 return (
                   <li key={member.userId}>
                     <Link
-                      href={`/dashboard/giao-task/${nameSlug(member.fullName)}`}
-                      prefetch={false}
-                      onMouseEnter={() => prefetchMember(member.fullName)}
-                      onFocus={() => prefetchMember(member.fullName)}
-                      onTouchStart={() => prefetchMember(member.fullName)}
+                      href={`/dashboard/giao-task/${group.department}`}
                       className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left transition-colors duration-150 hover:bg-surface-2"
                     >
                       {member.avatarUrl ? (

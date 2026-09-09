@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Check, Flag, ImagePlus, MessageCircle, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Flag, ImagePlus, MessageCircle, Plus, Trash2, X } from 'lucide-react';
 import type { Task, TaskStatus, TaskPriority, MonthDayCategoryCount } from '@/lib/tasks';
 import type { TeammateWithTaskCount } from '@/app/dashboard/giao-task/actions';
 import { nameSlug } from '@/lib/name-slug';
@@ -33,9 +33,9 @@ import { parsePersonalTaskDescription } from '@/lib/personal-task-description';
 // Cùng khoảng polling đã có tiền lệ ở task-board.tsx / sticky-board.tsx.
 const POLL_INTERVAL_MS = 150_000;
 
-type ViewMode = 'day' | 'week' | 'month';
+export type ViewMode = 'day' | 'week' | 'month';
 
-interface DateRange {
+export interface DateRange {
   fromDate: string;
   toDate: string;
 }
@@ -91,7 +91,7 @@ function endOfMonth(dateStr: string): string {
   date.setUTCDate(0);
   return toISO(date);
 }
-function rangeFor(mode: ViewMode, anchor: string): DateRange {
+export function rangeFor(mode: ViewMode, anchor: string): DateRange {
   if (mode === 'day') return { fromDate: anchor, toDate: anchor };
   if (mode === 'week') {
     const start = startOfWeek(anchor);
@@ -99,7 +99,7 @@ function rangeFor(mode: ViewMode, anchor: string): DateRange {
   }
   return { fromDate: startOfMonth(anchor), toDate: endOfMonth(anchor) };
 }
-function shiftAnchor(mode: ViewMode, anchor: string, direction: 1 | -1): string {
+export function shiftAnchor(mode: ViewMode, anchor: string, direction: 1 | -1): string {
   if (mode === 'day') return addDays(anchor, direction);
   if (mode === 'week') return addDays(anchor, direction * 7);
   const date = parseISO(anchor);
@@ -110,11 +110,11 @@ function shiftAnchor(mode: ViewMode, anchor: string, direction: 1 | -1): string 
   date.setUTCMonth(date.getUTCMonth() + direction);
   return toISO(date);
 }
-function formatVi(dateStr: string): string {
+export function formatVi(dateStr: string): string {
   const [y, m, d] = dateStr.split('-');
   return `${d}/${m}/${y}`;
 }
-function initialsOf(fullName: string): string {
+export function initialsOf(fullName: string): string {
   const parts = fullName.trim().split(/\s+/);
   return (parts[parts.length - 1]?.[0] ?? '?').toUpperCase();
 }
@@ -137,7 +137,7 @@ function PersonalTaskDescriptionPreview({ value, limit = 3 }: { value: string | 
   );
 }
 
-const KANBAN_BOARD_COLUMNS: { status: TaskStatus; label: string; headerBg: string; bodyBg: string; ring: string }[] = [
+export const KANBAN_BOARD_COLUMNS: { status: TaskStatus; label: string; headerBg: string; bodyBg: string; ring: string }[] = [
   { status: 'not_started', label: 'Chưa làm', headerBg: 'bg-[#8B95A8]', bodyBg: 'bg-[#F1F3F7]', ring: 'ring-[#8B95A8]/50' },
   { status: 'in_progress', label: 'Đang làm', headerBg: 'bg-blue', bodyBg: 'bg-[#EBF2FE]', ring: 'ring-blue/50' },
   { status: 'done', label: 'Hoàn thành', headerBg: 'bg-emerald-500', bodyBg: 'bg-[#EAFAF3]', ring: 'ring-emerald-500/50' },
@@ -152,9 +152,9 @@ const QUICK_ADD_PRIORITIES: Array<{ value: TaskPriority; label: string; tone: st
 // GIF 1x1 trong suốt — thay cho ảnh "bóng mờ" mặc định của trình duyệt khi kéo
 // thả kiểu HTML5 DnD, để nhường chỗ cho thẻ nổi (floating preview) tự vẽ bên
 // dưới bám theo con trỏ, giống hiệu ứng "nhấc thẻ lên" của Trello.
-const TRANSPARENT_DRAG_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7';
+export const TRANSPARENT_DRAG_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7';
 
-const SPRING_TRANSITION = { type: 'spring', stiffness: 500, damping: 34, mass: 0.7 } as const;
+export const SPRING_TRANSITION = { type: 'spring', stiffness: 500, damping: 34, mass: 0.7 } as const;
 
 export default function PersonalTaskBoard({
   today,
@@ -522,11 +522,12 @@ export default function PersonalTaskBoard({
   );
 }
 
-function PersonalKanban({
+export function PersonalKanban({
   tasks,
   today,
   ownerUserId,
   readOnly = false,
+  showOwnerAvatar = false,
   viewMode,
   onViewModeChange,
   rangeLabel,
@@ -542,6 +543,9 @@ function PersonalKanban({
   today: string;
   ownerUserId: number;
   readOnly?: boolean;
+  /** Board gộp nhiều đồng đội — hiện icon chủ task trên từng thẻ, lọc "Task
+   *  sếp đưa" theo owner_user_id thật của TỪNG task thay vì 1 owner duy nhất. */
+  showOwnerAvatar?: boolean;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   rangeLabel: string;
@@ -584,7 +588,7 @@ function PersonalKanban({
   // Task do người khác (BGĐ xem hộ) tạo hộ — hiện riêng ở cột "Task Sếp đưa"
   // thay vì lẫn vào "Chưa làm", cho tới khi được kéo sang Đang làm/Hoàn
   // thành (từ đó dùng chung 2 cột đó với task tự tạo, vẫn giữ nhãn người giao).
-  const bossTasks = tasks.filter((t) => t.status === 'not_started' && t.createdBy !== null && t.createdBy !== ownerUserId);
+  const bossTasks = tasks.filter((t) => t.status === 'not_started' && t.createdBy !== null && t.createdBy !== (t.ownerUserId ?? ownerUserId));
   const bossTaskIds = new Set(bossTasks.map((t) => t.id));
 
   return (
@@ -655,8 +659,9 @@ function PersonalKanban({
                 key={task.id}
                 task={task}
                 today={today}
-                ownerUserId={ownerUserId}
+                ownerUserId={task.ownerUserId ?? ownerUserId}
                 readOnly={readOnly}
+                showOwnerAvatar={showOwnerAvatar}
                 isDragging={draggingTask?.id === task.id}
                 onDragLift={(x, y) => {
                   setDraggingTask(task);
@@ -699,7 +704,8 @@ function PersonalKanban({
                     key={task.id}
                     task={task}
                     today={today}
-                    ownerUserId={ownerUserId}
+                    ownerUserId={task.ownerUserId ?? ownerUserId}
+                    showOwnerAvatar={showOwnerAvatar}
                     isDragging={draggingTask?.id === task.id}
                     onDragLift={(x, y) => {
                       setDraggingTask(task);
@@ -748,11 +754,12 @@ function PersonalKanban({
  *  người phụ trách (task cá nhân chỉ có đúng 1 người: chủ task) — avatar duy
  *  nhất có thể hiện là của NGƯỜI GIAO (createdBy khác ownerUserId, tức BGĐ tạo
  *  hộ), để phân biệt task "sếp đưa" với task tự thêm. */
-function PersonalKanbanCard({
+export function PersonalKanbanCard({
   task,
   today,
   ownerUserId,
   readOnly = false,
+  showOwnerAvatar = false,
   isDragging,
   onDragLift,
   onDragMove,
@@ -765,6 +772,10 @@ function PersonalKanbanCard({
   today: string;
   ownerUserId: number;
   readOnly?: boolean;
+  /** Chỉ bật ở board gộp nhiều đồng đội — hiện icon chủ task để phân biệt
+   *  task của ai giữa nhiều người, thẻ trên board cá nhân (1 chủ duy nhất)
+   *  không cần icon này. */
+  showOwnerAvatar?: boolean;
   isDragging: boolean;
   onDragLift: (x: number, y: number) => void;
   onDragMove: (x: number, y: number) => void;
@@ -926,23 +937,44 @@ function PersonalKanbanCard({
           )}
         </div>
       </div>
-      {isFromBoss && task.createdByFullName && (
-        <div
-          className="pointer-events-none absolute -right-1.5 -top-1.5"
-          title={`${task.createdByFullName} giao`}
-        >
-          {task.createdByAvatarUrl ? (
-            <Image
-              src={task.createdByAvatarUrl}
-              alt={task.createdByFullName}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover ring-2 ring-white"
-            />
-          ) : (
-            <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-gold text-[9px] font-bold text-navy ring-2 ring-white">
-              {initialsOf(task.createdByFullName)}
-            </span>
+      {(showOwnerAvatar || isFromBoss) && (
+        <div className="pointer-events-none absolute -right-1.5 -top-1.5 flex items-center gap-0.5">
+          {isFromBoss && task.createdByFullName && (
+            <div title={`${task.createdByFullName} giao`}>
+              {task.createdByAvatarUrl ? (
+                <Image
+                  src={task.createdByAvatarUrl}
+                  alt={task.createdByFullName}
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 rounded-full object-cover"
+                />
+              ) : (
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-gold text-[10px] font-bold text-navy">
+                  {initialsOf(task.createdByFullName)}
+                </span>
+              )}
+            </div>
+          )}
+          {isFromBoss && showOwnerAvatar && task.ownerFullName && (
+            <ArrowRight className="h-3 w-3 shrink-0 text-navy" strokeWidth={2.5} aria-hidden="true" />
+          )}
+          {showOwnerAvatar && task.ownerFullName && (
+            <div title={`Task của ${task.ownerFullName}`}>
+              {task.ownerAvatarUrl ? (
+                <Image
+                  src={task.ownerAvatarUrl}
+                  alt={task.ownerFullName}
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 rounded-full object-cover"
+                />
+              ) : (
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-blue text-[10px] font-bold text-white">
+                  {initialsOf(task.ownerFullName)}
+                </span>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -956,11 +988,18 @@ function PersonalKanbanCard({
  *  trải nghiệm thêm/sửa nhất quán thay vì 1 form nhỏ nhúng trong cột. Không
  *  có mục Ảnh/Bình luận/Lịch sử vì task chưa tồn tại — mở lại task vừa tạo
  *  (PersonalTaskDetailDrawer) để dùng các mục đó. */
-function PersonalTaskCreateDrawer({
+export interface TeamBoardMember {
+  userId: number;
+  fullName: string;
+  avatarUrl: string | null;
+}
+
+export function PersonalTaskCreateDrawer({
   ownerUserId,
   today,
   status,
   defaultDate,
+  members,
   onClose,
   onCreated,
 }: {
@@ -968,9 +1007,14 @@ function PersonalTaskCreateDrawer({
   today: string;
   status: TaskStatus;
   defaultDate: string;
+  /** Chỉ truyền ở board gộp nhiều đồng đội — hiện picker chọn "Giao cho ai",
+   *  mặc định là ownerUserId (thường là chính mình). Board cá nhân (1 chủ
+   *  duy nhất) không truyền, giữ nguyên hành vi cũ. */
+  members?: TeamBoardMember[];
   onClose: () => void;
   onCreated: (created: Task[]) => void;
 }) {
+  const [assigneeId, setAssigneeId] = useState(ownerUserId);
   const [title, setTitle] = useState('');
   const [taskDate, setTaskDate] = useState(defaultDate);
   const [dueDate, setDueDate] = useState<string | null>(null);
@@ -1065,7 +1109,7 @@ function PersonalTaskCreateDrawer({
       description: description.trim() || null,
     }));
     startTransition(() => {
-      createPersonalTasksAction(ownerUserId, inputs)
+      createPersonalTasksAction(assigneeId, inputs)
         .then((created) => {
           if (!stagedImage) return created;
           // Ảnh chỉ upload được sau khi task đã có id thật — giữ tạm ở client
@@ -1075,7 +1119,7 @@ function PersonalTaskCreateDrawer({
             created.map((t) => {
               const formData = new FormData();
               formData.set('file', stagedImage);
-              return uploadPersonalTaskImageAction(ownerUserId, t.id, formData);
+              return uploadPersonalTaskImageAction(assigneeId, t.id, formData);
             })
           );
         })
@@ -1113,6 +1157,42 @@ function PersonalTaskCreateDrawer({
           {error && <p className="mb-3 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600" role="alert">{error}</p>}
 
           <form onSubmit={submit} className="space-y-3">
+            {members && members.length > 1 && (
+              <div className="block">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted">Giao cho</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {members.map((member) => {
+                    const isChosen = member.userId === assigneeId;
+                    return (
+                      <button
+                        key={member.userId}
+                        type="button"
+                        onClick={() => setAssigneeId(member.userId)}
+                        aria-pressed={isChosen}
+                        className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-semibold transition-colors ${
+                          isChosen ? 'border-blue bg-blue/10 text-blue' : 'border-[#dbe4f2] bg-white text-muted hover:text-navy'
+                        }`}
+                      >
+                        {member.avatarUrl ? (
+                          <Image
+                            src={member.avatarUrl}
+                            alt=""
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 shrink-0 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue text-[9px] font-bold text-white" aria-hidden="true">
+                            {initialsOf(member.fullName)}
+                          </span>
+                        )}
+                        {member.fullName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted">Tiêu đề</span>
               <textarea

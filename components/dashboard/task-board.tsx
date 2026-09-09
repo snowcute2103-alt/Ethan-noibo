@@ -812,6 +812,8 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
       id: tempId,
       teamId,
       ownerUserId: null,
+      ownerFullName: null,
+      ownerAvatarUrl: null,
       categoryId: input.categoryId ?? null,
       taskDate: input.taskDate,
       dueDate: null,

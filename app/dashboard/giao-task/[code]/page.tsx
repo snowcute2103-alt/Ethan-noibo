@@ -1,11 +1,18 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { todayIso } from '@/lib/date';
-import { findOutsideTeamUserBySlug, findTeamIdByUserId, getTeamByCode } from '@/lib/teams';
+import { findOutsideTeamUserBySlug, findOutsideTeamUsersByDepartment, findTeamIdByUserId, getTeamByCode } from '@/lib/teams';
 import { findUserById } from '@/lib/users';
+import { getGroupDailyMemberCounts, getPersonalMonthProgress, listTasksForOwners } from '@/lib/tasks';
+import { DEPARTMENTS, departmentLabel } from '@/lib/roles';
+import { nameSlug } from '@/lib/name-slug';
 import TaskBoard from '@/components/dashboard/task-board';
 import PersonalTaskBoard from '@/components/dashboard/personal-task-board';
+import { type GroupMemberStat } from '@/components/dashboard/team-group-dashboard';
+import TeamTimelineChart from '@/components/dashboard/team-timeline-chart';
+import TeamWorkspace from '@/components/dashboard/team-workspace';
 import { loadPersonalBoardCore, loadTeamBoardCore } from '../team-board-data';
+import { buildTeamTimeline } from '../nhom/timeline-data';
 import PersonalBoardRoute from './personal-board-route';
 
 interface PageProps {
@@ -46,6 +53,64 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
     return (
       <TaskBoard key={`team-${core.team.id}`} isBgd={isBgd} today={today} overview={null} board={{ ...core, isManager }} />
     );
+  }
+
+  // BGĐ mở dashboard gộp của cả 1 phòng ban ngoài 6 đội KD (vd
+  // /dashboard/giao-task/it từ thẻ "IT / Development" ở khối "Bộ phận khác")
+  // — chỉ BGĐ mới đi được nhánh này, đồng đội thường vào /dashboard/giao-task/nhom.
+  // Cùng bộ component (TeamGroupDashboard + TeamTimelineChart + TeamMergedTaskBoard)
+  // với /nhom để BGĐ thấy đúng dashboard nhóm đầy đủ như nhân sự phòng ban tự xem,
+  // không phải chỉ 1 board Kanban gộp đơn giản. Không ai isSelf vì BGĐ không thuộc
+  // phòng ban này — TeamGroupDashboard tự rơi về nút "quay lại" trỏ /dashboard/giao-task.
+  if (isBgd) {
+    const department = DEPARTMENTS.find((d) => d.id === code && d.id !== 'bgd');
+    if (department) {
+      const members = await findOutsideTeamUsersByDepartment(department.id);
+      if (members.length === 0) redirect('/dashboard/giao-task');
+
+      const yearMonth = today.slice(0, 7);
+      const memberUserIds = members.map((member) => member.userId);
+      const [stats, timeline, tasks, dayCounts] = await Promise.all([
+        Promise.all(
+          members.map(async (member): Promise<GroupMemberStat> => {
+            const monthProgress = await getPersonalMonthProgress(member.userId, yearMonth);
+            return {
+              userId: member.userId,
+              fullName: member.fullName,
+              avatarUrl: member.avatarUrl,
+              href: `/dashboard/giao-task/${nameSlug(member.fullName)}`,
+              isSelf: false,
+              monthProgress,
+            };
+          })
+        ),
+        buildTeamTimeline(
+          members.map((member) => ({ userId: member.userId, fullName: member.fullName, isSelf: false })),
+          today
+        ),
+        listTasksForOwners(memberUserIds, { fromDate: today, toDate: today }),
+        getGroupDailyMemberCounts(memberUserIds, yearMonth),
+      ]);
+      const avatarByUserId = Object.fromEntries(members.map((member) => [member.userId, member.avatarUrl]));
+
+      return (
+        <>
+          <TeamWorkspace
+            groupLabel={departmentLabel(department.id)}
+            stats={stats}
+            today={today}
+            members={members}
+            defaultAssigneeUserId={members[0].userId}
+            initialTasks={tasks}
+            initialDayCounts={dayCounts}
+            department={department.id}
+          />
+          <div className="px-4 pb-6 sm:px-6 sm:pb-8 min-[1025px]:px-10 min-[1025px]:pb-10">
+            <TeamTimelineChart data={timeline} avatarByUserId={avatarByUserId} />
+          </div>
+        </>
+      );
+    }
   }
 
   const person = await findOutsideTeamUserBySlug(code);

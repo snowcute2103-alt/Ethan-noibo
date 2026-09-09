@@ -21,12 +21,14 @@ import {
   createTeamCategory,
   updateTeamCategory,
   deleteTeamCategory,
+  findOutsideTeamUsersByDepartment,
   type TeamMemberRole,
   type TeamWithRoster,
   type TeamSummary,
   type TeamTaskCategory,
   type DepartmentGroup,
 } from '@/lib/teams';
+import type { Department } from '@/lib/roles';
 import {
   listTasksForTeam,
   createTask,
@@ -42,6 +44,7 @@ import {
   getDistinctProductsForTeam,
   getAllTeamsMonthProgress,
   listTasksForOwner,
+  listTasksForOwners,
   createPersonalTask,
   createPersonalTasks,
   getPersonalTaskById,
@@ -50,6 +53,7 @@ import {
   duplicatePersonalTask,
   getPersonalMonthProgress,
   getPersonalMonthDayCounts,
+  getGroupDailyMemberCounts,
   getPersonalTaskDetail,
   addPersonalTaskComment,
   addPersonalTaskImageUrls,
@@ -312,6 +316,61 @@ export async function listMyTeammatesAction(): Promise<TeammateWithTaskCount[]> 
   const mates = await listTeammatesByLabel(session.userId);
   const counts = await Promise.all(mates.map((mate) => countAllPersonalTasks(mate.userId)));
   return mates.map((mate, i) => ({ ...mate, taskCount: counts[i] }));
+}
+
+/** Board Kanban gộp của chính mình + toàn bộ đồng đội cùng `team_label` (vd 3
+ *  người IT "Development Team") vào 1 danh sách task duy nhất — mỗi task vẫn
+ *  giữ nguyên owner_user_id thật của nó (task.ownerUserId) để UI hiện đúng
+ *  icon người phụ trách. Chặn quyền như requirePersonalTaskContext: chỉ người
+ *  ngoài 6 đội KD, không phải BGĐ. */
+export async function getMergedTeamBoardAction(
+  range: DateRange,
+  calendarYearMonth: string
+): Promise<{ tasks: Task[]; dayCounts: DailyAssigneeCount[] }> {
+  const session = await requireSession();
+  assertValidRange(range);
+  assertValidYearMonth(calendarYearMonth);
+  const [ownTeamId, self, mates] = await Promise.all([
+    findTeamIdByUserId(session.userId),
+    findUserById(session.userId),
+    listTeammatesByLabel(session.userId),
+  ]);
+  if (ownTeamId !== null || !self || self.department === 'bgd') {
+    throw new Error('Bạn không thuộc diện quản lý task cá nhân theo nhóm.');
+  }
+  const ownerUserIds = [session.userId, ...mates.map((mate) => mate.userId)];
+  const [tasks, dayCounts] = await Promise.all([
+    listTasksForOwners(ownerUserIds, range),
+    getGroupDailyMemberCounts(ownerUserIds, calendarYearMonth),
+  ]);
+  return { tasks, dayCounts };
+}
+
+export interface DepartmentBoardMember {
+  userId: number;
+  fullName: string;
+  avatarUrl: string | null;
+}
+
+/** BGĐ mở board Kanban gộp của cả 1 phòng ban ngoài 6 đội KD (vd "IT /
+ *  Development") từ thẻ ở khối "Bộ phận khác" — cùng dữ liệu task với
+ *  getMergedTeamBoardAction nhưng phạm vi người do BGĐ chỉ định (department),
+ *  không suy ra từ session.userId. */
+export async function getMergedDepartmentBoardAsBgdAction(
+  department: Department,
+  range: DateRange,
+  calendarYearMonth: string
+): Promise<{ tasks: Task[]; members: DepartmentBoardMember[]; dayCounts: DailyAssigneeCount[] }> {
+  await requireBgd();
+  assertValidRange(range);
+  assertValidYearMonth(calendarYearMonth);
+  const members = await findOutsideTeamUsersByDepartment(department);
+  const ownerUserIds = members.map((member) => member.userId);
+  const [tasks, dayCounts] = await Promise.all([
+    listTasksForOwners(ownerUserIds, range),
+    getGroupDailyMemberCounts(ownerUserIds, calendarYearMonth),
+  ]);
+  return { tasks, members, dayCounts };
 }
 
 /** BGĐ hoặc 1 đồng đội cùng `team_label` xem/sửa board cá nhân của người

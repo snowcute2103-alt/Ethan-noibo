@@ -3,10 +3,11 @@ import { getSession } from '@/lib/auth';
 import { todayIso } from '@/lib/date';
 import { findTeamIdByUserId } from '@/lib/teams';
 import { findUserById, listTeammatesByLabel } from '@/lib/users';
-import { getPersonalMonthProgress, listTasksForOwner } from '@/lib/tasks';
+import { getGroupDailyMemberCounts, getPersonalMonthProgress, listTasksForOwners } from '@/lib/tasks';
 import { nameSlug } from '@/lib/name-slug';
-import TeamGroupDashboard, { type GroupMemberStat } from '@/components/dashboard/team-group-dashboard';
+import { type GroupMemberStat } from '@/components/dashboard/team-group-dashboard';
 import TeamTimelineChart from '@/components/dashboard/team-timeline-chart';
+import TeamWorkspace from '@/components/dashboard/team-workspace';
 import { buildTeamTimeline } from './timeline-data';
 
 /** Dashboard gộp task của nhóm đồng đội (cùng team_label + department, vd 3
@@ -34,20 +35,7 @@ export default async function GiaoTaskNhomPage() {
 
   const stats = await Promise.all(
     members.map(async (member): Promise<GroupMemberStat> => {
-      const [monthProgress, todayTasks] = await Promise.all([
-        getPersonalMonthProgress(member.userId, yearMonth),
-        listTasksForOwner(member.userId, { fromDate: today, toDate: today }),
-      ]);
-      let bossCount = 0;
-      let notStartedCount = 0;
-      let inProgressCount = 0;
-      let doneCount = 0;
-      for (const task of todayTasks) {
-        if (task.status === 'done') doneCount++;
-        else if (task.status === 'in_progress') inProgressCount++;
-        else if (task.createdBy !== null && task.createdBy !== member.userId) bossCount++;
-        else notStartedCount++;
-      }
+      const monthProgress = await getPersonalMonthProgress(member.userId, yearMonth);
       return {
         userId: member.userId,
         fullName: member.fullName,
@@ -55,10 +43,6 @@ export default async function GiaoTaskNhomPage() {
         href: `/dashboard/giao-task/${nameSlug(member.fullName)}`,
         isSelf: member.userId === self.id,
         monthProgress,
-        bossCount,
-        notStartedCount,
-        inProgressCount,
-        doneCount,
       };
     })
   );
@@ -68,10 +52,23 @@ export default async function GiaoTaskNhomPage() {
     today
   );
   const avatarByUserId = Object.fromEntries(members.map((member) => [member.userId, member.avatarUrl]));
+  const memberUserIds = members.map((member) => member.userId);
+  const [mergedTasks, dayCounts] = await Promise.all([
+    listTasksForOwners(memberUserIds, { fromDate: today, toDate: today }),
+    getGroupDailyMemberCounts(memberUserIds, yearMonth),
+  ]);
 
   return (
     <>
-      <TeamGroupDashboard groupLabel={self.teamLabel ?? 'của tôi'} monthLabel={yearMonth.slice(5, 7)} members={stats} />
+      <TeamWorkspace
+        groupLabel={self.teamLabel ?? 'của tôi'}
+        stats={stats}
+        today={today}
+        members={members}
+        defaultAssigneeUserId={self.id}
+        initialTasks={mergedTasks}
+        initialDayCounts={dayCounts}
+      />
       <div className="px-4 pb-6 sm:px-6 sm:pb-8 min-[1025px]:px-10 min-[1025px]:pb-10">
         <TeamTimelineChart data={timeline} avatarByUserId={avatarByUserId} />
       </div>

@@ -199,6 +199,24 @@ export async function listUsersOutsideTeamsByDepartment(yearMonth: string): Prom
     .filter((group) => group.members.length > 0);
 }
 
+/** Cùng phạm vi người với 1 nhóm trong listUsersOutsideTeamsByDepartment (1
+ *  department, ngoài 6 đội KD, không phải BGĐ) nhưng không JOIN tiến độ
+ *  tháng — dùng cho BGĐ mở board Kanban gộp của cả phòng ban (xem
+ *  getMergedDepartmentBoardAsBgdAction), khác mục đích liệt kê tiến độ. */
+export async function findOutsideTeamUsersByDepartment(
+  department: Department
+): Promise<{ userId: number; fullName: string; avatarUrl: string | null }[]> {
+  const rows = await sql.query(
+    `SELECT u.id AS user_id, u.full_name, u.avatar_url FROM users u
+     WHERE u.is_active = true AND u.department = $1
+       AND NOT EXISTS (SELECT 1 FROM team_members tm WHERE tm.user_id = u.id)
+     ORDER BY u.full_name ASC`,
+    [department]
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (rows as any[]).map((row) => ({ userId: row.user_id, fullName: row.full_name, avatarUrl: row.avatar_url }));
+}
+
 /** Tra ngược slug tên -> user, cho route /dashboard/giao-task/[code] khi mã
  *  không khớp đội nào (xem getTeamByCode) — cùng phạm vi người với
  *  listUsersOutsideTeamsByDepartment (ngoài 6 đội KD, không phải BGĐ), nhưng

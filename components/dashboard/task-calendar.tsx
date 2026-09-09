@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import type { TeamTaskCategory } from '@/lib/teams';
-import type { MonthDayCategoryCount } from '@/lib/tasks';
+import type { MonthDayCategoryCount, DailyAssigneeCount } from '@/lib/tasks';
 
 /** Tách khỏi task-board.tsx để dùng chung cho cả board đội KD lẫn board cá
  *  nhân (bộ phận ngoài 6 đội KD, personal-task-board.tsx) — trước đây board
@@ -42,6 +42,13 @@ function startOfMonth(dateStr: string): string {
  *  trong DB, để dòng đủ ngắn không bị cắt bằng "…". */
 function abbreviateCategoryName(name: string): string {
   return name.replace(/^Support\b/i, 'SP');
+}
+
+/** Ô lịch quá nhỏ để hiện trọn họ tên — rút về tên gọi (từ cuối cùng, vd "Đỗ
+ *  Duy Long" -> "Long"), cùng quy ước với initialsOf ở personal-task-board.tsx. */
+function lastNameOf(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  return parts[parts.length - 1] ?? fullName;
 }
 
 function endOfMonth(dateStr: string): string {
@@ -92,6 +99,7 @@ function MonthGrid({
   countsByDate,
   activeDates,
   totalByDate,
+  memberCountsByDate,
   onSelectDay,
   hideLabel,
 }: {
@@ -102,6 +110,10 @@ function MonthGrid({
   countsByDate: Map<string, Map<number, number>>;
   activeDates: Set<string>;
   totalByDate: Map<string, number>;
+  /** Có giá trị khi lịch dùng cho board gộp nhiều người (TeamMergedTaskBoard)
+   *  — ưu tiên hiện "Tên: đã xong/tổng" riêng từng người thay vì tổng số task
+   *  chung như totalByDate. */
+  memberCountsByDate?: Map<string, DailyAssigneeCount[]>;
   onSelectDay: (date: string) => void;
   hideLabel?: boolean;
 }) {
@@ -151,6 +163,7 @@ function MonthGrid({
         {cells.map((dateStr, i) => {
           const inMonth = dateStr >= monthStart && dateStr <= monthEnd;
           const dayCounts = countsByDate.get(dateStr);
+          const memberRows = memberCountsByDate?.get(dateStr) ?? [];
           return (
             <button
               key={`${dateStr}-${i}`}
@@ -163,21 +176,30 @@ function MonthGrid({
                 <>
                   <span className="text-xs font-bold">{Number(dateStr.slice(8, 10))}</span>
                   {VIETNAM_FLAG_DATES.has(dateStr) && <VietnamFlag />}
-                  {categories.length > 0
-                    ? categories.map((cat) => {
-                        const count = dayCounts?.get(cat.id) ?? 0;
-                        if (count === 0) return null;
-                        return (
-                          <span key={cat.id} className="w-full break-words text-center text-[8px] leading-tight opacity-90">
-                            {abbreviateCategoryName(cat.name)}:{count}
-                          </span>
-                        );
-                      })
-                    : (totalByDate.get(dateStr) ?? 0) > 0 && (
-                        <span className="w-full truncate text-center text-[9px] font-semibold leading-tight opacity-90">
-                          {totalByDate.get(dateStr)} task
+                  {memberRows.length > 0
+                    ? memberRows.map((row) => (
+                        <span
+                          key={row.assigneeUserId ?? row.fullName}
+                          className="w-full truncate text-center text-[8px] leading-tight opacity-90"
+                        >
+                          {lastNameOf(row.fullName ?? '')}: {row.done}/{row.count}
                         </span>
-                      )}
+                      ))
+                    : categories.length > 0
+                      ? categories.map((cat) => {
+                          const count = dayCounts?.get(cat.id) ?? 0;
+                          if (count === 0) return null;
+                          return (
+                            <span key={cat.id} className="w-full break-words text-center text-[8px] leading-tight opacity-90">
+                              {abbreviateCategoryName(cat.name)}:{count}
+                            </span>
+                          );
+                        })
+                      : (totalByDate.get(dateStr) ?? 0) > 0 && (
+                          <span className="w-full truncate text-center text-[9px] font-semibold leading-tight opacity-90">
+                            {totalByDate.get(dateStr)} task
+                          </span>
+                        )}
                 </>
               )}
             </button>
@@ -203,6 +225,7 @@ export default function TaskCalendar({
   today,
   categories,
   dayCategoryCounts,
+  memberDayCounts,
   onSelectDay,
   onShiftMonth,
 }: {
@@ -216,6 +239,9 @@ export default function TaskCalendar({
   today: string;
   categories: TeamTaskCategory[];
   dayCategoryCounts: MonthDayCategoryCount[];
+  /** Board gộp nhiều người (TeamMergedTaskBoard) truyền số task/ngày riêng
+   *  từng người vào đây thay vì dùng categories/dayCategoryCounts. */
+  memberDayCounts?: DailyAssigneeCount[];
   onSelectDay: (date: string) => void;
   onShiftMonth: (direction: 1 | -1) => void;
 }) {
@@ -231,7 +257,19 @@ export default function TaskCalendar({
     }
     return map;
   }, [dayCategoryCounts]);
-  const activeDates = useMemo(() => new Set(dayCategoryCounts.map((r) => r.date)), [dayCategoryCounts]);
+  const memberCountsByDate = useMemo(() => {
+    if (!memberDayCounts) return undefined;
+    const map = new Map<string, DailyAssigneeCount[]>();
+    for (const row of memberDayCounts) {
+      if (!map.has(row.date)) map.set(row.date, []);
+      map.get(row.date)!.push(row);
+    }
+    return map;
+  }, [memberDayCounts]);
+  const activeDates = useMemo(
+    () => new Set([...dayCategoryCounts.map((r) => r.date), ...(memberDayCounts ?? []).map((r) => r.date)]),
+    [dayCategoryCounts, memberDayCounts]
+  );
   // Board cá nhân không có category (categories=[]) nên không có dòng nào hiện
   // ra từ countsByDate — bù lại bằng tổng số task/ngày bất kể category, để ô
   // ngày vẫn cho biết "hôm đó có mấy task" thay vì chỉ tô màu suông.
@@ -280,6 +318,7 @@ export default function TaskCalendar({
         countsByDate={countsByDate}
         activeDates={activeDates}
         totalByDate={totalByDate}
+        memberCountsByDate={memberCountsByDate}
         onSelectDay={onSelectDay}
         hideLabel
       />
@@ -292,6 +331,7 @@ export default function TaskCalendar({
           countsByDate={countsByDate}
           activeDates={activeDates}
           totalByDate={totalByDate}
+          memberCountsByDate={memberCountsByDate}
           onSelectDay={onSelectDay}
         />
       </div>

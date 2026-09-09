@@ -18,6 +18,8 @@ export interface Task {
   id: number;
   teamId: number | null;
   ownerUserId: number | null;
+  ownerFullName: string | null;
+  ownerAvatarUrl: string | null;
   categoryId: number | null;
   taskDate: string;
   dueDate: string | null;
@@ -110,7 +112,8 @@ export interface PersonalTaskDetail {
 }
 
 const TASK_SELECT_CORE = `
-  t.id, t.team_id, t.owner_user_id, t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.assignee_user_id,
+  t.id, t.team_id, t.owner_user_id, ow.full_name AS owner_full_name, ow.avatar_url AS owner_avatar_url,
+  t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.assignee_user_id,
   u.full_name AS assignee_full_name, u.avatar_url AS assignee_avatar_url, t.account_name, t.title, t.channel_name, t.channel, t.video_count,
   t.product, t.option_tag, t.reference_link, t.note, t.status, t.sort_order, t.duplicated_from_task_id,
   t.description, t.image_url, t.image_urls, t.priority, t.original_task_date::text AS original_task_date, t.rolled_over_at,
@@ -130,8 +133,10 @@ const PERSONAL_TASK_SELECT = `${TASK_SELECT_CORE},
 // Join dùng chung ở mọi query task (đội KD lẫn cá nhân) — cb (creator) cho biết
 // AI thực sự tạo dòng task này, khác owner_user_id/assignee_user_id. Task cá
 // nhân do BGĐ tạo hộ (viewerIsBgd, xem requirePersonalTaskContext) dùng field
-// này để board cá nhân hiện "Task sếp đưa" kèm tên/avatar người giao.
-const TASK_JOINS = `LEFT JOIN users u ON u.id = t.assignee_user_id LEFT JOIN users cb ON cb.id = t.created_by`;
+// này để board cá nhân hiện "Task sếp đưa" kèm tên/avatar người giao. ow (owner)
+// chỉ có giá trị cho task cá nhân — board gộp nhiều đồng đội (nhóm ngang
+// quyền) cần tên/avatar chủ task để phân biệt task của ai giữa nhiều người.
+const TASK_JOINS = `LEFT JOIN users u ON u.id = t.assignee_user_id LEFT JOIN users cb ON cb.id = t.created_by LEFT JOIN users ow ON ow.id = t.owner_user_id`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapTaskRow(row: any): Task {
@@ -139,6 +144,8 @@ function mapTaskRow(row: any): Task {
     id: row.id,
     teamId: row.team_id,
     ownerUserId: row.owner_user_id,
+    ownerFullName: row.owner_full_name,
+    ownerAvatarUrl: row.owner_avatar_url,
     categoryId: row.category_id,
     taskDate: row.task_date,
     dueDate: row.due_date,
@@ -653,6 +660,25 @@ export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOw
   return rows.map(mapTaskRow);
 }
 
+/** Board gộp nhiều đồng đội ngang quyền (vd 3 người IT "Development Team")
+ *  vào 1 Kanban chung — cùng điều kiện lọc với listTasksForOwner, chỉ khác
+ *  owner_user_id khớp nhiều id thay vì 1. */
+export async function listTasksForOwners(ownerUserIds: number[], filter: ListTasksOwnerFilter): Promise<Task[]> {
+  if (ownerUserIds.length === 0) return [];
+  const rows = await sql.query(
+    `SELECT ${PERSONAL_TASK_SELECT}
+     FROM tasks t ${TASK_JOINS}
+     WHERE t.owner_user_id = ANY($1::int[]) AND t.task_date BETWEEN $2 AND $3
+     ORDER BY
+       CASE WHEN t.rolled_over_at IS NOT NULL AND t.status != 'done' THEN 0 ELSE 1 END ASC,
+       COALESCE(t.original_task_date, t.task_date) ASC,
+       CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END ASC,
+       t.id ASC`,
+    [ownerUserIds, filter.fromDate, filter.toDate]
+  );
+  return rows.map(mapTaskRow);
+}
+
 /** category_id/assignee_user_id/channel/product/option_tag/reference_link/
  *  account_name hardcode NULL ngay trong câu SQL (không đọc từ input) —
  *  task cá nhân không dùng các field đặc thù đội KD này, và hardcode ở đây
@@ -1071,6 +1097,34 @@ export async function getPersonalMonthDayCounts(ownerUserId: number, yearMonth: 
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return rows.map((r: any) => ({ date: r.date, categoryId: null, count: r.count }));
+}
+
+/** Số task theo từng ngày, chia theo TỪNG NGƯỜI trong nhóm — cho lịch mini ở
+ *  board gộp nhiều đồng đội (TeamMergedTaskBoard, vd 3 người IT dùng chung 1
+ *  board). Cùng shape DailyAssigneeCount với bản biểu đồ đội KD
+ *  (getDailyAssigneeBreakdown) để tái dùng type, nhưng lọc theo owner_user_id
+ *  của board cá nhân thay vì team_id + assignee_user_id. */
+export async function getGroupDailyMemberCounts(ownerUserIds: number[], yearMonth: string): Promise<DailyAssigneeCount[]> {
+  if (ownerUserIds.length === 0) return [];
+  const { from } = monthRange(previousYearMonth(yearMonth));
+  const { to } = monthRange(yearMonth);
+  const rows = await sql.query(
+    `SELECT t.task_date::text AS date, t.owner_user_id AS assignee_user_id, u.full_name, count(*)::int AS count,
+            count(*) FILTER (WHERE t.status = 'done')::int AS done
+     FROM tasks t JOIN users u ON u.id = t.owner_user_id
+     WHERE t.owner_user_id = ANY($1::int[]) AND t.task_date >= $2 AND t.task_date < $3
+     GROUP BY t.task_date, t.owner_user_id, u.full_name
+     ORDER BY t.task_date ASC, u.full_name ASC`,
+    [ownerUserIds, from, to]
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.map((row: any) => ({
+    date: row.date,
+    assigneeUserId: row.assignee_user_id,
+    fullName: row.full_name,
+    count: row.count,
+    done: row.done,
+  }));
 }
 
 /** Dùng để chặn thêm 1 người đang có task cá nhân vào đội KD (xem
