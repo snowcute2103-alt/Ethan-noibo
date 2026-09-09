@@ -444,7 +444,7 @@ export default function PersonalTaskBoard({
             </p>
           </div>
           {teammates.length > 0 && (
-            <div className="rounded-[14px] border border-[#FF2E7A]/25 bg-[#FFE1EC] px-4 py-3">
+            <div className="theme-light-surface rounded-[14px] border border-[#FF2E7A]/25 bg-[#FFE1EC] px-4 py-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold text-[#FF2E7A]">Đồng đội</p>
                 <Link href="/dashboard/giao-task/nhom" className="text-xs font-semibold text-[#FF2E7A] underline underline-offset-2 hover:text-[#FF2E7A]/80">
