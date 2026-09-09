@@ -28,6 +28,7 @@ import {
   updatePersonalTaskAction,
   uploadPersonalTaskImageAction,
 } from '@/app/dashboard/giao-task/actions';
+import ImageLightbox from '@/components/dashboard/image-lightbox';
 import TaskDateRangePicker from '@/components/dashboard/task-date-range-picker';
 import { normalizePersonalTaskDescription } from '@/lib/personal-task-description';
 
@@ -120,6 +121,7 @@ export default function PersonalTaskDetailDrawer({
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isDraggingImages, setIsDraggingImages] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
@@ -379,9 +381,14 @@ export default function PersonalTaskDetailDrawer({
                 <div className="mt-1 grid grid-cols-2 gap-2">
                   {currentTask.imageUrls.map((imageUrl, index) => (
                     <div key={imageUrl} className="relative overflow-hidden rounded-[10px] border border-[#dbe4f2] bg-white">
-                      <div className="relative h-28 w-full">
+                      <button
+                        type="button"
+                        onClick={() => setLightboxUrl(imageUrl)}
+                        title="Bấm để xem ảnh to hơn"
+                        className="relative h-28 w-full cursor-zoom-in"
+                      >
                         <Image src={imageUrl} alt={`Ảnh ${index + 1} của task ${currentTask.title}`} fill sizes="(max-width: 640px) 50vw, 260px" className="object-contain" />
-                      </div>
+                      </button>
                       <button
                         type="button"
                         disabled={isPending}
@@ -406,6 +413,7 @@ export default function PersonalTaskDetailDrawer({
                 <span className="flex items-center gap-2"><ImagePlus className="h-4 w-4" aria-hidden="true" /> Thêm ảnh</span>
                 <span className="text-[11px] font-normal">Chọn nhiều ảnh, kéo thả hoặc Ctrl/Cmd + V</span>
               </button>
+              <ImageLightbox src={lightboxUrl} alt={currentTask.title} onClose={() => setLightboxUrl(null)} />
             </div>
 
             <div className="flex flex-col gap-2">

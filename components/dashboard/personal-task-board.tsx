@@ -13,6 +13,7 @@ import TaskCalendar from '@/components/dashboard/task-calendar';
 // Chỉ mở theo intent (bấm 1 task) — tách khỏi chunk ban đầu của board thay
 // vì import thẳng, giảm initial JS mà không đổi hành vi (đã 'use client').
 const PersonalTaskDetailDrawer = dynamic(() => import('@/components/dashboard/personal-task-detail-drawer'));
+import ImageLightbox from '@/components/dashboard/image-lightbox';
 import TaskDateRangePicker, { type TaskRecurrence } from '@/components/dashboard/task-date-range-picker';
 import { useCheckboxConfetti } from '@/components/dashboard/checkbox-confetti';
 import {
@@ -612,7 +613,7 @@ export function PersonalKanban({
                 type="button"
                 onClick={() => onViewModeChange(mode)}
                 className={`h-full rounded-[8px] px-3 text-xs font-semibold ${
-                  viewMode === mode ? 'bg-blue text-white shadow-sm' : 'text-muted hover:text-navy'
+                  viewMode === mode ? 'bg-blue text-white shadow-sm' : 'text-muted hover:text-ink'
                 }`}
               >
                 {mode === 'day' ? 'Ngày' : mode === 'week' ? 'Tuần' : 'Tháng'}
@@ -788,6 +789,7 @@ export function PersonalKanbanCard({
   const [title, setTitle] = useState(task.title);
   const cardRef = useRef<HTMLDivElement>(null);
   const suppressDetailRef = useRef(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
   const isFromBoss = task.createdBy !== null && task.createdBy !== ownerUserId;
   // rolledOverAt là cờ dính từ lần trễ hạn gần nhất — nếu người dùng đã gia
@@ -912,9 +914,24 @@ export function PersonalKanbanCard({
         </div>
         <PersonalTaskDescriptionPreview value={task.description ?? task.note} />
         {task.imageUrl && (
-          <div className="relative mt-2 h-24 w-full overflow-hidden rounded-[8px] bg-surface-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxOpen(true);
+            }}
+            title="Bấm để xem ảnh to hơn"
+            className="relative mt-2 h-24 w-full cursor-zoom-in overflow-hidden rounded-[8px] bg-surface-2"
+          >
             <Image src={task.imageUrl} alt="" fill sizes="272px" className="object-cover" />
-          </div>
+          </button>
+        )}
+        {task.imageUrl && (
+          <ImageLightbox
+            src={lightboxOpen ? task.imageUrl : null}
+            alt={task.title}
+            onClose={() => setLightboxOpen(false)}
+          />
         )}
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${isOverdue ? 'bg-red-50 text-red-600' : dateTone}`}>
