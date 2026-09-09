@@ -118,32 +118,12 @@ export default function TeamTimelineChart({ data, avatarByUserId }: TeamTimeline
       ref={containerRef}
       className="theme-light-surface mt-6 rounded-[16px] border border-[#e8edf5] bg-gradient-to-br from-[#DCE9FF] via-[#EDE6FF] to-[#FFE1F0] p-4 shadow-[0_1px_0_rgba(16,26,48,0.03)] min-[1025px]:p-6"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="font-heading text-base font-semibold uppercase tracking-wide text-navy">Timeline nhóm</p>
-          <p className="mt-1 text-xs text-muted">Task theo tuần của cả nhóm, từ tháng trước tới 2 tháng tới. Bấm vào 1 nút để xem chi tiết.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          {rows.map((row, i) => {
-            const color = colorFor(i, row.isSelf);
-            return (
-              <span key={row.userId} className="flex items-center gap-1.5 text-xs font-medium text-muted">
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color.solid}`} aria-hidden="true" />
-                {row.isSelf ? 'Bạn' : row.fullName}
-              </span>
-            );
-          })}
-          <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
-            <span className="h-2.5 w-[3px] shrink-0 rounded-full bg-slate-700" aria-hidden="true" />
-            Hôm nay
-          </span>
-        </div>
-      </div>
+      <p className="font-heading text-base font-semibold uppercase tracking-wide text-navy">Timeline nhóm</p>
 
       <div className="mt-6 overflow-x-auto pt-6">
         <div className="flex min-w-[960px] gap-4">
           {/* Cột label: avatar + tên, 1 ô trống bù cho hàng tháng phía trên. */}
-          <div className="flex w-44 shrink-0 flex-col gap-5">
+          <div className="flex w-56 shrink-0 flex-col gap-5">
             <div className="h-5" />
             {rows.map((row, i) => {
               const color = colorFor(i, row.isSelf);
@@ -165,9 +145,7 @@ export default function TeamTimelineChart({ data, avatarByUserId }: TeamTimeline
                       {initialsOf(row.fullName)}
                     </span>
                   )}
-                  <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase text-navy" title={row.fullName}>
-                    {row.fullName}
-                  </span>
+                  <span className="min-w-0 flex-1 text-xs font-semibold uppercase leading-tight text-navy">{row.fullName}</span>
                 </div>
               );
             })}
