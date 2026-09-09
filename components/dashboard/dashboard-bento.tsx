@@ -289,7 +289,7 @@ export default function DashboardBento({
         Xem ai sinh nhật tháng này
         <ArrowUpRight size={16} strokeWidth={2.5} className="birthday-cta-arrow text-gold-2" aria-hidden="true" />
       </button>
-      <div className="relative z-30 mt-2 flex flex-wrap items-center gap-2">
+      <div className="relative z-30 mt-2 flex flex-col items-start gap-2">
         <button
           type="button"
           onClick={() => {
@@ -317,7 +317,7 @@ export default function DashboardBento({
           alt="Minh hoạ chương trình sinh nhật của Ethan"
           fill
           sizes="(min-width: 640px) 24vw, calc(100vw - 64px)"
-          className="object-contain object-center"
+          className="object-contain object-center [clip-path:inset(1px_0_0_0)]"
         />
       </div>
     </BorderBeamPanel>

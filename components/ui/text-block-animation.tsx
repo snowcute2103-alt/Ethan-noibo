@@ -72,7 +72,7 @@ export default function TextBlockAnimation({
           ? {
               trigger: containerRef.current,
               start: 'top 85%',
-              toggleActions: 'play none none reverse',
+              once: true,
             }
           : undefined,
         delay,
