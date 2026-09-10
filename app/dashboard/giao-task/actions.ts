@@ -1,7 +1,7 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
-import { put, del } from '@vercel/blob';
+import { uploadStorageFile, deleteStorageFile } from '@/lib/storage';
 import { getSession } from '@/lib/auth';
 import { findUserById, listTeammatesByLabel, type Teammate } from '@/lib/users';
 import { logAdminAction } from '@/lib/audit';
@@ -499,11 +499,7 @@ export async function deletePersonalTaskAction(ownerUserId: number, taskId: numb
     throw new Error('Chỉ người đã tạo/giao task này mới được xoá.');
   }
   await deletePersonalTask(taskId, ownerUserId);
-  await Promise.all(
-    existing.imageUrls
-      .filter((url) => url.includes('.public.blob.vercel-storage.com'))
-      .map((url) => del(url).catch(() => {}))
-  );
+  await Promise.all(existing.imageUrls.map((url) => deleteStorageFile(url)));
   if (session.userId !== ownerUserId) {
     await logAdminAction(session.userId, 'personal_task.delete', ownerUserId, { docId: String(taskId) });
   }
@@ -597,16 +593,16 @@ export async function uploadPersonalTaskImageAction(
   const uploadedUrls: string[] = [];
   try {
     for (const [index, image] of prepared.entries()) {
-      const blob = await put(
+      const { url } = await uploadStorageFile(
         `personal-tasks/${ownerUserId}/${taskId}-${Date.now()}-${index}-${randomUUID()}.${image.ext}`,
         new Blob([image.buffer], { type: image.mime }),
-        { access: 'public' }
+        image.mime
       );
-      uploadedUrls.push(blob.url);
+      uploadedUrls.push(url);
     }
     return await addPersonalTaskImageUrls(taskId, ownerUserId, uploadedUrls, session.userId);
   } catch (error) {
-    await Promise.all(uploadedUrls.map((url) => del(url).catch(() => {})));
+    await Promise.all(uploadedUrls.map((url) => deleteStorageFile(url)));
     throw error;
   }
 }
@@ -617,9 +613,7 @@ export async function removePersonalTaskImageAction(ownerUserId: number, taskId:
   if (!existing) throw new Error('Không tìm thấy task.');
   if (!existing.imageUrls.includes(imageUrl)) throw new Error('Không tìm thấy ảnh trong task.');
   const updated = await removePersonalTaskImageUrl(taskId, ownerUserId, imageUrl, session.userId);
-  if (imageUrl.includes('.public.blob.vercel-storage.com')) {
-    await del(imageUrl).catch(() => {});
-  }
+  await deleteStorageFile(imageUrl);
   return updated;
 }
 
