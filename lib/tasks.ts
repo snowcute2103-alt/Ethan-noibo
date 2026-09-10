@@ -1038,30 +1038,30 @@ export async function getPersonalTaskDetail(taskId: number, ownerUserId: number)
   };
 }
 
-/** Chuyển task chưa xong ở ngày cũ thẳng tới hôm nay. UPDATE predicate làm
+/** Chuyển task chưa xong ở ngày cũ thẳng tới hôm nay, GIỮ NGUYÊN status cũ
+ *  (task "Chưa làm" trễ hạn vẫn ở "Chưa làm", không bị ép sang "Đang làm") —
+ *  chỉ gắn cờ rolled_over_at để UI hiện badge "Trễ". UPDATE predicate làm
  *  thao tác idempotent kể cả hai lượt tải chạy đồng thời; history chỉ được
  *  tạo từ đúng các hàng UPDATE thực sự trả về. */
 export async function rolloverOverduePersonalTasks(ownerUserId: number, today: string): Promise<number> {
   const rows = await sql.query(
     `/* write */ WITH candidates AS MATERIALIZED (
-       SELECT id, task_date, status FROM tasks
+       SELECT id, task_date FROM tasks
        WHERE owner_user_id = $1 AND task_date < $2::date AND status != 'done'
        FOR UPDATE
      ), upd AS (
        UPDATE tasks t
        SET original_task_date = COALESCE(t.original_task_date, c.task_date),
            task_date = $2::date,
-           status = 'in_progress',
            rolled_over_at = now(),
            updated_at = now()
        FROM candidates c
        WHERE t.id = c.id AND t.task_date < $2::date AND t.status != 'done'
-       RETURNING t.id, c.task_date AS old_date, c.status AS old_status
+       RETURNING t.id, c.task_date AS old_date
      ), history AS (
        INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
        SELECT id, NULL, 'rollover', jsonb_build_object(
-         'taskDate', jsonb_build_object('from', old_date::text, 'to', $2),
-         'status', jsonb_build_object('from', old_status, 'to', 'in_progress')
+         'taskDate', jsonb_build_object('from', old_date::text, 'to', $2)
        ) FROM upd
      )
      SELECT count(*)::int AS count FROM upd`,
