@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Lock, Repeat } from 'lucide-react';
 
 // Hàm ngày tháng riêng cho component này (trùng bản ở personal-task-board.tsx/
 // task-calendar.tsx) — theo đúng tiền lệ lặp nhỏ đã chấp nhận trong repo thay
@@ -71,6 +71,10 @@ interface TaskDateRangePickerProps {
   onChange: (next: { startDate: string; dueDate: string | null }) => void;
   recurrence?: TaskRecurrence;
   onRecurrenceChange?: (next: TaskRecurrence) => void;
+  /** Khoá không cho đổi ngày bắt đầu — chỉ còn chọn được ngày kết thúc. Dùng khi sửa
+   *  task đã tồn tại (xem personal-task-detail-drawer.tsx) để ngày bắt đầu giữ nguyên
+   *  như lúc tạo, tránh lặp lại lỗi rollover từng ghi đè task_date đã sửa hôm nay. */
+  lockStartDate?: boolean;
 }
 
 /** Chọn ngày bắt đầu/kết thúc cho task cá nhân (kéo dài nhiều ngày thay vì
@@ -85,21 +89,28 @@ export default function TaskDateRangePicker({
   onChange,
   recurrence,
   onRecurrenceChange,
+  lockStartDate = false,
 }: TaskDateRangePickerProps) {
   const [open, setOpen] = useState(false);
-  const [activeField, setActiveField] = useState<'start' | 'due'>('start');
+  const [activeField, setActiveField] = useState<'start' | 'due'>(lockStartDate ? 'due' : 'start');
   const [monthAnchor, setMonthAnchor] = useState(() => startOfMonth(startDate));
   const [recurringOpen, setRecurringOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
       setMonthAnchor(startOfMonth(activeField === 'due' && dueDate ? dueDate : startDate));
-      setActiveField('start');
+      setActiveField(lockStartDate ? 'due' : 'start');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function applyPick(dateStr: string) {
+    if (lockStartDate) {
+      // Ngày bắt đầu cố định — chỉ chọn ngày kết thúc, ngày trước ngày bắt đầu bỏ qua.
+      if (dateStr < startDate) return;
+      onChange({ startDate, dueDate: dateStr === startDate ? null : dateStr });
+      return;
+    }
     if (activeField === 'due') {
       if (dateStr <= startDate) {
         onChange({ startDate: dateStr, dueDate: null });
@@ -177,11 +188,18 @@ export default function TaskDateRangePicker({
       <div className="flex items-center gap-1.5">
         <button
           type="button"
+          disabled={lockStartDate}
           onClick={() => setActiveField('start')}
-          className={`flex h-8 flex-1 items-center justify-center rounded-[6px] border px-2 text-xs font-semibold transition-colors ${
-            activeField === 'start' ? 'border-blue bg-blue text-white' : 'border-white/15 text-white/80 hover:border-blue/50'
+          title={lockStartDate ? 'Ngày bắt đầu giữ nguyên như lúc tạo task, không sửa được' : undefined}
+          className={`flex h-8 flex-1 items-center justify-center gap-1 rounded-[6px] border px-2 text-xs font-semibold transition-colors ${
+            lockStartDate
+              ? 'cursor-not-allowed border-white/10 text-white/50'
+              : activeField === 'start'
+                ? 'border-blue bg-blue text-white'
+                : 'border-white/15 text-white/80 hover:border-blue/50'
           }`}
         >
+          {lockStartDate && <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />}
           {formatVi(startDate)}
         </button>
         <span className="text-xs text-white/40">→</span>
@@ -201,17 +219,23 @@ export default function TaskDateRangePicker({
       </div>
 
       <div className="mt-2 grid grid-cols-2 gap-1">
-        {presets.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            onClick={() => applyPick(p.date)}
-            className="flex items-center justify-between gap-1 rounded-[6px] px-2 py-1.5 text-left text-[11px] font-semibold text-white/85 hover:bg-white/10"
-          >
-            <span>{p.label}</span>
-            <span className="text-white/40">{formatVi(p.date)}</span>
-          </button>
-        ))}
+        {presets.map((p) => {
+          const disabled = lockStartDate && p.date < startDate;
+          return (
+            <button
+              key={p.key}
+              type="button"
+              disabled={disabled}
+              onClick={() => applyPick(p.date)}
+              className={`flex items-center justify-between gap-1 rounded-[6px] px-2 py-1.5 text-left text-[11px] font-semibold ${
+                disabled ? 'cursor-not-allowed text-white/20' : 'text-white/85 hover:bg-white/10'
+              }`}
+            >
+              <span>{p.label}</span>
+              <span className={disabled ? 'text-white/15' : 'text-white/40'}>{formatVi(p.date)}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="mt-2 border-t border-white/10 pt-2">
@@ -232,13 +256,16 @@ export default function TaskDateRangePicker({
         <div className="grid grid-cols-7 gap-y-0.5">
           {cells.map((dateStr, i) => {
             const inMonth = dateStr >= monthStart && dateStr <= monthEnd;
+            const beforeLockedStart = lockStartDate && dateStr < startDate;
             return (
               <button
                 key={`${dateStr}-${i}`}
                 type="button"
-                disabled={!inMonth}
+                disabled={!inMonth || beforeLockedStart}
                 onClick={() => applyPick(dateStr)}
-                className={`h-7 w-full text-[11px] ${inMonth ? cellClass(dateStr) : 'invisible'}`}
+                className={`h-7 w-full text-[11px] ${
+                  !inMonth ? 'invisible' : beforeLockedStart ? 'cursor-not-allowed text-white/20' : cellClass(dateStr)
+                }`}
               >
                 {Number(dateStr.slice(8, 10))}
               </button>

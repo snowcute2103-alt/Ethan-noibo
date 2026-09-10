@@ -816,6 +816,9 @@ export function PersonalKanbanCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const suppressDetailRef = useRef(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  /** Tỉ lệ ảnh thumbnail, đọc từ naturalWidth/naturalHeight khi tải xong — giúp lightbox
+   *  fit khít viền ảnh (không khung/nền bao quanh), xem components/dashboard/image-lightbox.tsx. */
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | undefined>(undefined);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
   const isFromBoss = task.createdBy !== null && task.createdBy !== ownerUserId;
   const isOverdue = task.status !== 'done' && (task.dueDate ?? task.taskDate) < today;
@@ -949,13 +952,25 @@ export function PersonalKanbanCard({
             title="Bấm để xem ảnh to hơn"
             className="relative mt-2 h-24 w-full cursor-zoom-in overflow-hidden rounded-[8px] bg-surface-2"
           >
-            <Image src={task.imageUrl} alt="" fill sizes="272px" className="object-cover" />
+            <Image
+              src={task.imageUrl}
+              alt=""
+              fill
+              sizes="272px"
+              className="object-cover"
+              onLoad={(event) => {
+                const { naturalWidth, naturalHeight } = event.currentTarget;
+                if (naturalWidth > 0 && naturalHeight > 0) setImageAspectRatio(naturalWidth / naturalHeight);
+              }}
+            />
           </button>
         )}
         {task.imageUrl && (
           <ImageLightbox
             src={lightboxOpen ? task.imageUrl : null}
             alt={task.title}
+            aspectRatio={imageAspectRatio}
+            viewportScale={0.6}
             onClose={() => setLightboxOpen(false)}
           />
         )}

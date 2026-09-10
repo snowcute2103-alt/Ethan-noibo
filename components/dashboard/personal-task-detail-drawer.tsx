@@ -128,6 +128,9 @@ export default function PersonalTaskDetailDrawer({
   const [error, setError] = useState<string | null>(null);
   const [isDraggingImages, setIsDraggingImages] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  /** width/height ảnh, đọc từ thumbnail đã tải — dùng để lightbox fit khít viền ảnh
+   *  (không khung/nền bao quanh), giống cách components/dashboard/culture-gallery-hero.tsx làm. */
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
   const [isPending, startTransition] = useTransition();
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
@@ -393,7 +396,19 @@ export default function PersonalTaskDetailDrawer({
                         title="Bấm để xem ảnh to hơn"
                         className="relative h-28 w-full cursor-zoom-in"
                       >
-                        <Image src={imageUrl} alt={`Ảnh ${index + 1} của task ${currentTask.title}`} fill sizes="(max-width: 640px) 50vw, 260px" className="object-contain" />
+                        <Image
+                          src={imageUrl}
+                          alt={`Ảnh ${index + 1} của task ${currentTask.title}`}
+                          fill
+                          sizes="(max-width: 640px) 50vw, 260px"
+                          className="object-contain"
+                          onLoad={(event) => {
+                            const { naturalWidth, naturalHeight } = event.currentTarget;
+                            if (naturalWidth > 0 && naturalHeight > 0) {
+                              setImageAspectRatios((prev) => ({ ...prev, [imageUrl]: naturalWidth / naturalHeight }));
+                            }
+                          }}
+                        />
                       </button>
                       <button
                         type="button"
@@ -419,7 +434,13 @@ export default function PersonalTaskDetailDrawer({
                 <span className="flex items-center gap-2"><ImagePlus className="h-4 w-4" aria-hidden="true" /> Thêm ảnh</span>
                 <span className="text-[11px] font-normal">Chọn nhiều ảnh, kéo thả hoặc Ctrl/Cmd + V</span>
               </button>
-              <ImageLightbox src={lightboxUrl} alt={currentTask.title} onClose={() => setLightboxUrl(null)} />
+              <ImageLightbox
+                src={lightboxUrl}
+                alt={currentTask.title}
+                aspectRatio={lightboxUrl ? imageAspectRatios[lightboxUrl] : undefined}
+                viewportScale={0.6}
+                onClose={() => setLightboxUrl(null)}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
@@ -430,6 +451,7 @@ export default function PersonalTaskDetailDrawer({
                     startDate={taskDate}
                     dueDate={dueDate}
                     today={today}
+                    lockStartDate
                     onChange={(next) => {
                       setTaskDate(next.startDate);
                       setDueDate(next.dueDate);
