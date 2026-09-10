@@ -11,6 +11,9 @@ interface TeamWorkspaceProps {
   groupLabel: string;
   stats: GroupMemberStat[];
   today: string;
+  /** Id người đang đăng nhập xem workspace này — truyền xuống
+   *  TeamMergedTaskBoard/PersonalTaskDetailDrawer để quyết định quyền xoá task. */
+  viewerUserId: number;
   members: TeamBoardMember[];
   defaultAssigneeUserId: number;
   initialTasks: Task[];
@@ -26,6 +29,7 @@ export default function TeamWorkspace({
   groupLabel,
   stats,
   today,
+  viewerUserId,
   members,
   defaultAssigneeUserId,
   initialTasks,
@@ -44,6 +48,7 @@ export default function TeamWorkspace({
       />
       <TeamMergedTaskBoard
         today={today}
+        viewerUserId={viewerUserId}
         members={members}
         defaultAssigneeUserId={defaultAssigneeUserId}
         initialTasks={initialTasks}

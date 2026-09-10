@@ -28,6 +28,10 @@ const POLL_INTERVAL_MS = 150_000;
 
 interface TeamMergedTaskBoardProps {
   today: string;
+  /** Id người đang đăng nhập xem board này — truyền xuống
+   *  PersonalTaskDetailDrawer để quyết định có hiện nút "Xoá task" không
+   *  (chỉ người tạo/giao mới xoá được, khác owner của task). */
+  viewerUserId: number;
   /** Cả nhóm được gộp vào board này — chính mình + đồng đội (view tự quản
    *  lý), hoặc mọi người trong 1 phòng ban (view BGĐ, xem
    *  getMergedDepartmentBoardAsBgdAction). */
@@ -59,6 +63,7 @@ interface TeamMergedTaskBoardProps {
  *  action riêng nào cho việc sửa/xoá. */
 export default function TeamMergedTaskBoard({
   today,
+  viewerUserId,
   members,
   defaultAssigneeUserId,
   initialTasks,
@@ -271,6 +276,7 @@ export default function TeamMergedTaskBoard({
         <PersonalTaskDetailDrawer
           task={selectedTask}
           ownerUserId={selectedTask.ownerUserId}
+          viewerUserId={viewerUserId}
           today={today}
           onClose={() => setSelectedTaskId(null)}
           onTaskUpdated={(updated) => reconcileTasks([{ previous: selectedTask, next: updated }])}

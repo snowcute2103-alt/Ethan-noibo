@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth';
 import { todayIso } from '@/lib/date';
 import { findOutsideTeamUserBySlug, findOutsideTeamUsersByDepartment, findTeamIdByUserId, getTeamByCode } from '@/lib/teams';
 import { findUserById, listTeammatesByLabel } from '@/lib/users';
-import { getGroupDailyMemberCounts, getPersonalMonthProgress, listTasksForOwners, rolloverOverduePersonalTasks } from '@/lib/tasks';
+import { getGroupDailyMemberCounts, getPersonalMonthProgress, listTasksForOwners } from '@/lib/tasks';
 import { DEPARTMENTS, departmentLabel, type Department } from '@/lib/roles';
 import TaskBoard from '@/components/dashboard/task-board';
 import PersonalTaskBoard from '@/components/dashboard/personal-task-board';
@@ -36,6 +36,7 @@ async function renderGroupWorkspace(
   groupLabel: string,
   defaultAssigneeUserId: number,
   selfUserId: number | null,
+  viewerUserId: number,
   department?: Department
 ) {
   // Sắp theo full_name giống hệt truy vấn SQL của findOutsideTeamUsersByDepartment
@@ -46,7 +47,6 @@ async function renderGroupWorkspace(
   const sortedMembers = [...members].sort((a, b) => (a.fullName < b.fullName ? -1 : a.fullName > b.fullName ? 1 : 0));
   const yearMonth = today.slice(0, 7);
   const memberUserIds = sortedMembers.map((member) => member.userId);
-  await Promise.all(memberUserIds.map((id) => rolloverOverduePersonalTasks(id, today)));
   const [stats, timeline, tasks, dayCounts] = await Promise.all([
     Promise.all(
       sortedMembers.map(async (member): Promise<GroupMemberStat> => {
@@ -66,7 +66,7 @@ async function renderGroupWorkspace(
       sortedMembers.map((member) => ({ userId: member.userId, fullName: member.fullName, isSelf: false })),
       today
     ),
-    listTasksForOwners(memberUserIds, { fromDate: today, toDate: today }),
+    listTasksForOwners(memberUserIds, { fromDate: today, toDate: today }, today),
     getGroupDailyMemberCounts(memberUserIds, yearMonth),
   ]);
   const avatarByUserId = Object.fromEntries(sortedMembers.map((member) => [member.userId, member.avatarUrl]));
@@ -77,6 +77,7 @@ async function renderGroupWorkspace(
         groupLabel={groupLabel}
         stats={stats}
         today={today}
+        viewerUserId={viewerUserId}
         members={sortedMembers}
         defaultAssigneeUserId={defaultAssigneeUserId}
         initialTasks={tasks}
@@ -138,13 +139,21 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
     if (isBgd) {
       const members = await findOutsideTeamUsersByDepartment(department.id);
       if (members.length === 0) redirect('/dashboard/giao-task');
-      return renderGroupWorkspace(today, members, departmentLabel(department.id), members[0].userId, null, department.id);
+      return renderGroupWorkspace(
+        today,
+        members,
+        departmentLabel(department.id),
+        members[0].userId,
+        null,
+        session.userId,
+        department.id
+      );
     }
 
     const [self, mates] = await Promise.all([findUserById(session.userId), listTeammatesByLabel(session.userId)]);
     if (self && self.department === department.id && mates.length > 0) {
       const members = [{ userId: self.id, fullName: self.fullName, avatarUrl: self.avatarUrl }, ...mates];
-      return renderGroupWorkspace(today, members, self.teamLabel ?? departmentLabel(department.id), self.id, self.id);
+      return renderGroupWorkspace(today, members, self.teamLabel ?? departmentLabel(department.id), self.id, self.id, session.userId);
     }
   }
 
@@ -159,6 +168,7 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
       <PersonalTaskBoard
         today={today}
         ownerUserId={person.userId}
+        viewerUserId={session.userId}
         viewerIsBgd={false}
         ownerAvatarUrl={person.avatarUrl}
         initialBoard={initialBoard}
@@ -171,6 +181,7 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
       <PersonalBoardRoute
         today={today}
         ownerUserId={person.userId}
+        viewerUserId={session.userId}
         ownerName={person.fullName}
         ownerAvatarUrl={person.avatarUrl}
         initialBoard={initialBoard}
@@ -194,6 +205,7 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
       <PersonalBoardRoute
         today={today}
         ownerUserId={person.userId}
+        viewerUserId={session.userId}
         ownerName={person.fullName}
         ownerAvatarUrl={person.avatarUrl}
         initialBoard={initialBoard}

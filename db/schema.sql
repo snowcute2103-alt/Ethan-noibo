@@ -278,6 +278,12 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS rolled_over_at TIMESTAMPTZ;
  *  ngày. NULL nghĩa là task 1 ngày như trước, không đổi hành vi cũ. */
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date DATE;
 
+/** Ngày thực sự bấm hoàn thành (khác task_date là ngày dự kiến bắt đầu) —
+ *  board "Hoàn thành" của 1 ngày phải hiện đúng việc đã xong NGÀY ĐÓ, không
+ *  phải việc dự kiến bắt đầu ngày đó. NULL nghĩa là task chưa xong hoặc xong
+ *  từ trước khi có cột này (fallback về task_date, xem listTasksForOwner). */
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at DATE;
+
 ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_priority_check;
 ALTER TABLE tasks ADD CONSTRAINT tasks_priority_check CHECK (priority IN ('low', 'normal', 'high'));
 

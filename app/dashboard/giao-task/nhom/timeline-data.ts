@@ -125,7 +125,7 @@ export async function buildTeamTimeline(
 
   const rows = await Promise.all(
     members.map(async (member): Promise<TimelineMemberRow> => {
-      const tasks = await listTasksForOwner(member.userId, { fromDate, toDate });
+      const tasks = await listTasksForOwner(member.userId, { fromDate, toDate }, today);
       const weekCounts: TimelineWeekCount[] = weekStarts.map(() => ({
         bossCount: 0,
         notStartedCount: 0,

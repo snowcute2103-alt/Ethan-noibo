@@ -7,6 +7,9 @@ import type { PersonalBoardCore } from '../team-board-data';
 interface PersonalBoardRouteProps {
   today: string;
   ownerUserId: number;
+  /** Id người đang đăng nhập xem board này (BGĐ hoặc đồng đội) — quyết định
+   *  quyền xoá task ở PersonalTaskDetailDrawer (chỉ người tạo/giao mới xoá được). */
+  viewerUserId: number;
   ownerName: string;
   ownerAvatarUrl: string | null;
   initialBoard: PersonalBoardCore;
@@ -24,6 +27,7 @@ interface PersonalBoardRouteProps {
 export default function PersonalBoardRoute({
   today,
   ownerUserId,
+  viewerUserId,
   ownerName,
   ownerAvatarUrl,
   initialBoard,
@@ -34,6 +38,7 @@ export default function PersonalBoardRoute({
     <PersonalTaskBoard
       today={today}
       ownerUserId={ownerUserId}
+      viewerUserId={viewerUserId}
       viewerIsBgd={!readOnly}
       readOnly={readOnly}
       ownerName={ownerName}

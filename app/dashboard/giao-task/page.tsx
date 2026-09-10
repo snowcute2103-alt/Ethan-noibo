@@ -26,7 +26,15 @@ export default async function GiaoTaskPage() {
       // Không thuộc đội KD nào, không có đồng đội, không phải BGĐ — tự quản
       // lý Kanban cá nhân của chính mình (thay cho redirect('/dashboard') trước đây).
       const initialBoard = await loadPersonalBoardCore(session.userId, today);
-      return <PersonalTaskBoard today={today} ownerUserId={session.userId} viewerIsBgd={false} initialBoard={initialBoard} />;
+      return (
+        <PersonalTaskBoard
+          today={today}
+          ownerUserId={session.userId}
+          viewerUserId={session.userId}
+          viewerIsBgd={false}
+          initialBoard={initialBoard}
+        />
+      );
     }
 
     const overview = await loadTeamsOverview(today);

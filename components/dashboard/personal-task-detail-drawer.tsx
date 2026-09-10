@@ -35,6 +35,10 @@ import { normalizePersonalTaskDescription } from '@/lib/personal-task-descriptio
 interface PersonalTaskDetailDrawerProps {
   task: Task;
   ownerUserId: number;
+  /** Id người đang xem drawer — so với task.createdBy để quyết định có hiện
+   *  nút "Xoá task" không (chỉ đúng người tạo/giao mới xoá được, xem
+   *  deletePersonalTaskAction). Sửa/cập nhật thì ai có quyền xem cũng làm được. */
+  viewerUserId: number;
   today: string;
   onClose: () => void;
   onTaskUpdated: (task: Task) => void;
@@ -106,11 +110,13 @@ function initialsOf(name: string): string {
 export default function PersonalTaskDetailDrawer({
   task,
   ownerUserId,
+  viewerUserId,
   today,
   onClose,
   onTaskUpdated,
   onDeleted,
 }: PersonalTaskDetailDrawerProps) {
+  const canDelete = viewerUserId === (task.createdBy ?? ownerUserId);
   const [detail, setDetail] = useState<PersonalTaskDetail | null>(null);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(() => normalizePersonalTaskDescription(task.description ?? task.note ?? ''));
@@ -454,14 +460,16 @@ export default function PersonalTaskDetailDrawer({
             <button type="submit" disabled={isPending || !title.trim()} className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[10px] bg-blue px-4 text-sm font-semibold text-white hover:bg-blue-cta disabled:cursor-not-allowed disabled:opacity-50 min-[1025px]:h-10">
               <Save className="h-4 w-4" aria-hidden="true" /> Lưu thay đổi
             </button>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={removeTask}
-              className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[10px] border border-red-200 px-4 text-sm font-semibold text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 min-[1025px]:h-10"
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" /> Xoá task
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={removeTask}
+                className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[10px] border border-red-200 px-4 text-sm font-semibold text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 min-[1025px]:h-10"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" /> Xoá task
+              </button>
+            )}
           </form>
 
           <section className="mt-5 border-t border-[#e2e8f0] pt-4">

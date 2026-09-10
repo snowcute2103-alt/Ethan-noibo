@@ -19,7 +19,6 @@ import {
   getMonthTaskCategoryCounts,
   getPersonalMonthProgress,
   getPersonalMonthDayCounts,
-  rolloverOverduePersonalTasks,
   type Task,
   type DailyAssigneeCount,
   type MonthDayCategoryCount,
@@ -99,9 +98,8 @@ export async function loadTeamsOverview(today: string): Promise<TeamsOverview> {
 export async function loadPersonalBoardCore(ownerUserId: number, today: string): Promise<PersonalBoardCore> {
   const range = { fromDate: today, toDate: today };
   const yearMonth = today.slice(0, 7);
-  await rolloverOverduePersonalTasks(ownerUserId, today);
   const [tasks, monthProgress, monthDayCounts] = await Promise.all([
-    listTasksForOwner(ownerUserId, range),
+    listTasksForOwner(ownerUserId, range, today),
     getPersonalMonthProgress(ownerUserId, yearMonth),
     getPersonalMonthDayCounts(ownerUserId, yearMonth),
   ]);

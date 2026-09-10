@@ -23,6 +23,7 @@ export interface Task {
   categoryId: number | null;
   taskDate: string;
   dueDate: string | null;
+  completedAt: string | null;
   assigneeUserId: number | null;
   assigneeFullName: string | null;
   assigneeAvatarUrl: string | null;
@@ -113,7 +114,7 @@ export interface PersonalTaskDetail {
 
 const TASK_SELECT_CORE = `
   t.id, t.team_id, t.owner_user_id, ow.full_name AS owner_full_name, ow.avatar_url AS owner_avatar_url,
-  t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.assignee_user_id,
+  t.category_id, t.task_date::text AS task_date, t.due_date::text AS due_date, t.completed_at::text AS completed_at, t.assignee_user_id,
   u.full_name AS assignee_full_name, u.avatar_url AS assignee_avatar_url, t.account_name, t.title, t.channel_name, t.channel, t.video_count,
   t.product, t.option_tag, t.reference_link, t.note, t.status, t.sort_order, t.duplicated_from_task_id,
   t.description, t.image_url, t.image_urls, t.priority, t.original_task_date::text AS original_task_date, t.rolled_over_at,
@@ -149,6 +150,7 @@ function mapTaskRow(row: any): Task {
     categoryId: row.category_id,
     taskDate: row.task_date,
     dueDate: row.due_date,
+    completedAt: row.completed_at,
     assigneeUserId: row.assignee_user_id,
     assigneeFullName: row.assignee_full_name,
     assigneeAvatarUrl: row.assignee_avatar_url,
@@ -649,19 +651,44 @@ export interface ListTasksOwnerFilter {
 // thấy. Task tự thêm (created_by = owner) vẫn chỉ hiện đúng ngày như cũ.
 const PENDING_BOSS_TASK_CLAUSE = `t.status = 'not_started' AND t.created_by IS NOT NULL AND t.created_by != t.owner_user_id`;
 
+// Task chưa xong mà đã qua due_date (hoặc task_date nếu không đặt due_date)
+// so với `today` — điều kiện "trễ" dùng cho ORDER BY (đẩy task trễ lên đầu),
+// KHÔNG ghi đè task_date/due_date thật trong DB (xem lib/tasks.ts trước đây
+// có rolloverOverduePersonalTasks làm việc này bằng UPDATE — đã bỏ vì phá
+// khoảng ngày người dùng tự đặt).
+const OVERDUE_CLAUSE = `t.status != 'done' AND COALESCE(t.due_date, t.task_date) < $4::date`;
+
+// Task chưa xong "đang diễn ra" suốt từ task_date tới due_date (hoặc tới
+// task_date nếu không đặt due_date) — mỗi ngày trong khoảng đó board đều
+// phải hiện task, không chỉ đúng ngày task_date. Task quá hạn (qua due_date)
+// mà vẫn chưa xong thì coi như khoảng kéo dài tới tận hôm nay ($4), để nó
+// tiếp tục nổi lên board mỗi ngày cho tới khi được đánh dấu xong — GREATEST
+// đảm bảo không thu hẹp khoảng lại với task chưa tới hạn.
+const NOT_DONE_RANGE_END_EXPR = `GREATEST(COALESCE(t.due_date, t.task_date), $4::date)`;
+
+// Ngày board dùng để xếp task ĐÃ XONG vào đúng cột ngày: theo ngày BẤM XONG
+// THẬT (completed_at), không phải task_date (ngày dự kiến bắt đầu) — task
+// tạo 7/9 nhưng mãi 10/9 mới làm xong thì cột "Hoàn thành" của ngày 10/9 mới
+// hiện, không phải ngày 7/9.
+const DONE_BUCKET_DATE_EXPR = `COALESCE(t.completed_at, t.task_date)`;
+
 /** Task cá nhân của người không thuộc đội KD nào — luôn lọc theo
  *  owner_user_id, không có category/roster như task đội KD. */
-export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOwnerFilter): Promise<Task[]> {
+export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOwnerFilter, today: string): Promise<Task[]> {
   const rows = await sql.query(
     `SELECT ${PERSONAL_TASK_SELECT}
      FROM tasks t ${TASK_JOINS}
-     WHERE t.owner_user_id = $1 AND (t.task_date BETWEEN $2 AND $3 OR (${PENDING_BOSS_TASK_CLAUSE}))
+     WHERE t.owner_user_id = $1 AND (
+       (t.status = 'done' AND (${DONE_BUCKET_DATE_EXPR}) BETWEEN $2 AND $3)
+       OR (t.status != 'done' AND t.task_date <= $3 AND (${NOT_DONE_RANGE_END_EXPR}) >= $2)
+       OR (${PENDING_BOSS_TASK_CLAUSE})
+     )
      ORDER BY
-       CASE WHEN t.rolled_over_at IS NOT NULL AND t.status != 'done' THEN 0 ELSE 1 END ASC,
-       COALESCE(t.original_task_date, t.task_date) ASC,
+       CASE WHEN ${OVERDUE_CLAUSE} THEN 0 ELSE 1 END ASC,
+       CASE WHEN t.status = 'done' THEN (${DONE_BUCKET_DATE_EXPR}) ELSE t.task_date END ASC,
        CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END ASC,
        t.id ASC`,
-    [ownerUserId, filter.fromDate, filter.toDate]
+    [ownerUserId, filter.fromDate, filter.toDate, today]
   );
   return rows.map(mapTaskRow);
 }
@@ -669,18 +696,22 @@ export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOw
 /** Board gộp nhiều đồng đội ngang quyền (vd 3 người IT "Development Team")
  *  vào 1 Kanban chung — cùng điều kiện lọc với listTasksForOwner, chỉ khác
  *  owner_user_id khớp nhiều id thay vì 1. */
-export async function listTasksForOwners(ownerUserIds: number[], filter: ListTasksOwnerFilter): Promise<Task[]> {
+export async function listTasksForOwners(ownerUserIds: number[], filter: ListTasksOwnerFilter, today: string): Promise<Task[]> {
   if (ownerUserIds.length === 0) return [];
   const rows = await sql.query(
     `SELECT ${PERSONAL_TASK_SELECT}
      FROM tasks t ${TASK_JOINS}
-     WHERE t.owner_user_id = ANY($1::int[]) AND (t.task_date BETWEEN $2 AND $3 OR (${PENDING_BOSS_TASK_CLAUSE}))
+     WHERE t.owner_user_id = ANY($1::int[]) AND (
+       (t.status = 'done' AND (${DONE_BUCKET_DATE_EXPR}) BETWEEN $2 AND $3)
+       OR (t.status != 'done' AND t.task_date <= $3 AND (${NOT_DONE_RANGE_END_EXPR}) >= $2)
+       OR (${PENDING_BOSS_TASK_CLAUSE})
+     )
      ORDER BY
-       CASE WHEN t.rolled_over_at IS NOT NULL AND t.status != 'done' THEN 0 ELSE 1 END ASC,
-       COALESCE(t.original_task_date, t.task_date) ASC,
+       CASE WHEN ${OVERDUE_CLAUSE} THEN 0 ELSE 1 END ASC,
+       CASE WHEN t.status = 'done' THEN (${DONE_BUCKET_DATE_EXPR}) ELSE t.task_date END ASC,
        CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END ASC,
        t.id ASC`,
-    [ownerUserIds, filter.fromDate, filter.toDate]
+    [ownerUserIds, filter.fromDate, filter.toDate, today]
   );
   return rows.map(mapTaskRow);
 }
@@ -692,8 +723,8 @@ export async function listTasksForOwners(ownerUserIds: number[], filter: ListTas
 export async function createPersonalTask(ownerUserId: number, input: PersonalTaskInput, createdBy: number | null): Promise<Task> {
   const rows = await sql.query(
     `/* write */ WITH ins AS (
-       INSERT INTO tasks (owner_user_id, task_date, due_date, title, description, priority, status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       INSERT INTO tasks (owner_user_id, task_date, due_date, title, description, priority, status, completed_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $7 = 'done' THEN $2::date ELSE NULL END, $8)
        RETURNING *
      ), history AS (
        INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
@@ -737,15 +768,16 @@ export async function createPersonalTasks(
     description: input.description ?? null,
     priority: input.priority ?? 'normal',
     status: input.status ?? 'not_started',
+    completed_at: input.status === 'done' ? input.taskDate : null,
   }));
   const rows = await sql.query(
     `/* write */ WITH payload AS (
        SELECT * FROM jsonb_to_recordset($2::jsonb) AS p(
-         ordinal int, task_date date, due_date date, title text, description text, priority text, status text
+         ordinal int, task_date date, due_date date, title text, description text, priority text, status text, completed_at date
        )
      ), ins AS (
-       INSERT INTO tasks (owner_user_id, task_date, due_date, title, description, priority, status, created_by)
-       SELECT $1, task_date, due_date, title, description, priority, status, $3
+       INSERT INTO tasks (owner_user_id, task_date, due_date, title, description, priority, status, completed_at, created_by)
+       SELECT $1, task_date, due_date, title, description, priority, status, completed_at, $3
        FROM payload ORDER BY ordinal
        RETURNING *
      ), history AS (
@@ -800,28 +832,15 @@ export async function updatePersonalTask(
     sets.push(`title = $${params.length}`);
     addHistoryPart('title', 'title');
   }
-  let effectiveTaskDateExpr: string | null = null;
   if (patch.taskDate !== undefined) {
     params.push(patch.taskDate);
     sets.push(`task_date = $${params.length}`);
     addHistoryPart('taskDate', 'task_date');
-    effectiveTaskDateExpr = `$${params.length}`;
   }
   if (patch.dueDate !== undefined) {
     params.push(patch.dueDate);
     sets.push(`due_date = $${params.length}`);
     addHistoryPart('dueDate', 'due_date');
-  }
-  // Người dùng tự dời ngày bắt đầu (hoặc chỉ kéo dài ngày kết thúc trong khi
-  // ngày bắt đầu vẫn là hôm nay/tương lai) — không còn trễ hạn nữa nên bỏ cờ
-  // rollover, tránh thẻ báo "Trễ" mãi dù đã đổi ngày. Dùng b.task_date (giá
-  // trị trước khi sửa) khi taskDate không nằm trong patch lần này.
-  if (patch.taskDate !== undefined || patch.dueDate !== undefined) {
-    const dateExpr = effectiveTaskDateExpr ?? 'b.task_date';
-    params.push(today);
-    const todayParam = params.length;
-    sets.push(`rolled_over_at = CASE WHEN ${dateExpr} >= $${todayParam} THEN NULL ELSE t.rolled_over_at END`);
-    sets.push(`original_task_date = CASE WHEN ${dateExpr} >= $${todayParam} THEN NULL ELSE t.original_task_date END`);
   }
   if (patch.description !== undefined) {
     params.push(patch.description);
@@ -837,6 +856,12 @@ export async function updatePersonalTask(
     params.push(patch.status);
     sets.push(`status = $${params.length}`);
     addHistoryPart('status', 'status');
+    // Ngày bấm hoàn thành thật — board "Hoàn thành" của 1 ngày lọc theo cột
+    // này (xem listTasksForOwner), không phải task_date (ngày dự kiến bắt
+    // đầu). Bỏ đánh dấu xong thì xoá lại, để nếu đánh dấu xong lần nữa ghi
+    // đúng ngày thật của lần đó.
+    params.push(patch.status === 'done' ? today : null);
+    sets.push(`completed_at = $${params.length}`);
   }
   if (sets.length > 0) {
     sets.push('updated_at = now()');
@@ -1044,37 +1069,6 @@ export async function getPersonalTaskDetail(taskId: number, ownerUserId: number)
   };
 }
 
-/** Chuyển task chưa xong ở ngày cũ thẳng tới hôm nay, GIỮ NGUYÊN status cũ
- *  (task "Chưa làm" trễ hạn vẫn ở "Chưa làm", không bị ép sang "Đang làm") —
- *  chỉ gắn cờ rolled_over_at để UI hiện badge "Trễ". UPDATE predicate làm
- *  thao tác idempotent kể cả hai lượt tải chạy đồng thời; history chỉ được
- *  tạo từ đúng các hàng UPDATE thực sự trả về. */
-export async function rolloverOverduePersonalTasks(ownerUserId: number, today: string): Promise<number> {
-  const rows = await sql.query(
-    `/* write */ WITH candidates AS MATERIALIZED (
-       SELECT id, task_date FROM tasks
-       WHERE owner_user_id = $1 AND task_date < $2::date AND status != 'done'
-       FOR UPDATE
-     ), upd AS (
-       UPDATE tasks t
-       SET original_task_date = COALESCE(t.original_task_date, c.task_date),
-           task_date = $2::date,
-           rolled_over_at = now(),
-           updated_at = now()
-       FROM candidates c
-       WHERE t.id = c.id AND t.task_date < $2::date AND t.status != 'done'
-       RETURNING t.id, c.task_date AS old_date
-     ), history AS (
-       INSERT INTO personal_task_history (task_id, actor_user_id, event_type, changes)
-       SELECT id, NULL, 'rollover', jsonb_build_object(
-         'taskDate', jsonb_build_object('from', old_date::text, 'to', $2)
-       ) FROM upd
-     )
-     SELECT count(*)::int AS count FROM upd`,
-    [ownerUserId, today]
-  );
-  return rows[0]?.count ?? 0;
-}
 
 export async function getPersonalMonthProgress(ownerUserId: number, yearMonth: string): Promise<{ done: number; total: number }> {
   const { from, to } = monthRange(yearMonth);

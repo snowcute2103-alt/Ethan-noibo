@@ -45,7 +45,6 @@ import {
   getAllTeamsMonthProgress,
   listTasksForOwner,
   listTasksForOwners,
-  rolloverOverduePersonalTasks,
   createPersonalTask,
   createPersonalTasks,
   getPersonalTaskById,
@@ -297,9 +296,9 @@ export async function getMyPersonalBoardAction(range: DateRange, calendarYearMon
   const session = await requireSession();
   assertValidRange(range);
   assertValidYearMonth(calendarYearMonth);
-  await rolloverOverduePersonalTasks(session.userId, todayIso());
+  const today = todayIso();
   const [tasks, monthProgress, monthDayCounts] = await Promise.all([
-    listTasksForOwner(session.userId, range),
+    listTasksForOwner(session.userId, range, today),
     getPersonalMonthProgress(session.userId, calendarYearMonth),
     getPersonalMonthDayCounts(session.userId, calendarYearMonth),
   ]);
@@ -342,9 +341,8 @@ export async function getMergedTeamBoardAction(
   }
   const ownerUserIds = [session.userId, ...mates.map((mate) => mate.userId)];
   const today = todayIso();
-  await Promise.all(ownerUserIds.map((id) => rolloverOverduePersonalTasks(id, today)));
   const [tasks, dayCounts] = await Promise.all([
-    listTasksForOwners(ownerUserIds, range),
+    listTasksForOwners(ownerUserIds, range, today),
     getGroupDailyMemberCounts(ownerUserIds, calendarYearMonth),
   ]);
   return { tasks, dayCounts };
@@ -371,9 +369,8 @@ export async function getMergedDepartmentBoardAsBgdAction(
   const members = await findOutsideTeamUsersByDepartment(department);
   const ownerUserIds = members.map((member) => member.userId);
   const today = todayIso();
-  await Promise.all(ownerUserIds.map((id) => rolloverOverduePersonalTasks(id, today)));
   const [tasks, dayCounts] = await Promise.all([
-    listTasksForOwners(ownerUserIds, range),
+    listTasksForOwners(ownerUserIds, range, today),
     getGroupDailyMemberCounts(ownerUserIds, calendarYearMonth),
   ]);
   return { tasks, members, dayCounts };
@@ -389,9 +386,9 @@ export async function getPersonalBoardAsBgdAction(
   await requirePersonalTaskContext(ownerUserId);
   assertValidRange(range);
   assertValidYearMonth(calendarYearMonth);
-  await rolloverOverduePersonalTasks(ownerUserId, todayIso());
+  const today = todayIso();
   const [tasks, monthProgress, monthDayCounts] = await Promise.all([
-    listTasksForOwner(ownerUserId, range),
+    listTasksForOwner(ownerUserId, range, today),
     getPersonalMonthProgress(ownerUserId, calendarYearMonth),
     getPersonalMonthDayCounts(ownerUserId, calendarYearMonth),
   ]);
@@ -492,6 +489,15 @@ export async function deletePersonalTaskAction(ownerUserId: number, taskId: numb
   const { session } = await requirePersonalTaskContext(ownerUserId);
   const existing = await getPersonalTaskById(taskId, ownerUserId);
   if (!existing) throw new Error('Không tìm thấy task.');
+  // Sửa/cập nhật thì cả nhóm (self/BGĐ/đồng đội, xem requirePersonalTaskContext)
+  // đều làm được, nhưng XOÁ chỉ đúng người đã tạo/giao task đó mới được — kể
+  // cả chính chủ task cũng không xoá được task do người khác giao cho mình.
+  // createdBy luôn được set = actor lúc tạo (xem createPersonalTask), fallback
+  // về owner chỉ để phòng dữ liệu cũ thiếu created_by.
+  const creatorId = existing.createdBy ?? ownerUserId;
+  if (session.userId !== creatorId) {
+    throw new Error('Chỉ người đã tạo/giao task này mới được xoá.');
+  }
   await deletePersonalTask(taskId, ownerUserId);
   await Promise.all(
     existing.imageUrls

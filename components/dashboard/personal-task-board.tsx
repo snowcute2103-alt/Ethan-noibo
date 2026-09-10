@@ -44,6 +44,10 @@ export interface DateRange {
 interface PersonalTaskBoardProps {
   today: string;
   ownerUserId: number;
+  /** Id người đang đăng nhập xem board này — truyền xuống
+   *  PersonalTaskDetailDrawer để quyết định có hiện nút "Xoá task" không
+   *  (chỉ người tạo/giao mới xoá được, khác owner của task). */
+  viewerUserId: number;
   viewerIsBgd: boolean;
   /** Không còn được set true cho đồng đội (giờ cả nhóm ngang quyền) — giữ lại
    *  cho các chế độ chỉ-xem khác trong tương lai nếu cần. */
@@ -160,6 +164,7 @@ export const SPRING_TRANSITION = { type: 'spring', stiffness: 500, damping: 34, 
 export default function PersonalTaskBoard({
   today,
   ownerUserId,
+  viewerUserId,
   viewerIsBgd,
   readOnly = false,
   ownerName,
@@ -260,7 +265,18 @@ export default function PersonalTaskBoard({
   }, [ownerUserId, range.fromDate, range.toDate, calendarYearMonth]);
 
   function reconcileTasks(changes: Array<{ previous: Task | null; next: Task | null }>) {
-    const inRange = (task: Task) => task.taskDate >= range.fromDate && task.taskDate <= range.toDate;
+    // Khớp WHERE ở listTasksForOwner: task đã xong xếp đúng 1 ngày theo
+    // completedAt (ngày bấm xong thật); task chưa xong hiện suốt từ taskDate
+    // tới dueDate, và nếu quá hạn chưa xong thì khoảng đó coi như kéo dài
+    // tới tận hôm nay để vẫn tiếp tục nổi lên board mỗi ngày.
+    const inRange = (task: Task) => {
+      if (task.status === 'done') {
+        const d = task.completedAt ?? task.taskDate;
+        return d >= range.fromDate && d <= range.toDate;
+      }
+      const end = [task.dueDate ?? task.taskDate, today].sort().pop()!;
+      return task.taskDate <= range.toDate && end >= range.fromDate;
+    };
     // Khớp PENDING_BOSS_TASK_CLAUSE ở listTasksForOwner — task sếp giao
     // chưa làm luôn giữ lại trong state dù task_date ngoài range đang xem,
     // để đứng ở hôm nay vẫn thấy ngay task tương lai vừa được giao/sửa.
@@ -499,6 +515,7 @@ export default function PersonalTaskBoard({
         <PersonalTaskDetailDrawer
           task={tasks.find((task) => task.id === selectedTaskId)!}
           ownerUserId={ownerUserId}
+          viewerUserId={viewerUserId}
           today={today}
           onClose={() => setSelectedTaskId(null)}
           onTaskUpdated={(updated) => {
@@ -801,10 +818,7 @@ export function PersonalKanbanCard({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const { fire: fireConfetti, node: confettiNode } = useCheckboxConfetti();
   const isFromBoss = task.createdBy !== null && task.createdBy !== ownerUserId;
-  // rolledOverAt là cờ dính từ lần trễ hạn gần nhất — nếu người dùng đã gia
-  // hạn dueDate sang hôm nay/tương lai thì không còn trễ nữa, kể cả khi cờ
-  // này chưa được xoá ở lần lưu trước đó.
-  const isOverdue = task.rolledOverAt !== null && task.status !== 'done' && (!task.dueDate || task.dueDate < today);
+  const isOverdue = task.status !== 'done' && (task.dueDate ?? task.taskDate) < today;
 
   function commitTitle() {
     setEditing(false);
@@ -813,14 +827,17 @@ export function PersonalKanbanCard({
     else setTitle(task.title);
   }
 
+  // isOverdue đã tự lo màu đỏ riêng (dựa vào dueDate) — ở đây chỉ còn phân
+  // biệt "đang trong khoảng ngày làm việc" (taskDate đã tới, chưa quá hạn)
+  // với "chưa tới ngày bắt đầu", không xét taskDate qua hạn hay chưa vì
+  // task nhiều ngày (vd 7/9 → 10/9) taskDate luôn nhanh chóng nằm trong quá
+  // khứ dù task còn nguyên trong hạn.
   const dateTone =
     task.status === 'done'
       ? 'bg-emerald-50 text-emerald-600'
-      : task.taskDate < today
-        ? 'bg-red-50 text-red-600'
-        : task.taskDate === today
-          ? 'bg-blue/10 text-blue'
-          : 'bg-surface-2 text-muted';
+      : task.taskDate <= today
+        ? 'bg-blue/10 text-blue'
+        : 'bg-surface-2 text-muted';
 
   return (
     <motion.div
@@ -945,7 +962,7 @@ export function PersonalKanbanCard({
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${isOverdue ? 'bg-red-50 text-red-600' : dateTone}`}>
             {isOverdue
-              ? `Trễ · ${formatVi(task.originalTaskDate ?? task.taskDate).slice(0, 5)}`
+              ? `Trễ · ${formatVi(task.taskDate).slice(0, 5)}`
               : task.dueDate && task.dueDate !== task.taskDate
                 ? `${formatVi(task.taskDate).slice(0, 5)} → ${formatVi(task.dueDate).slice(0, 5)}`
                 : formatVi(task.taskDate).slice(0, 5)}
