@@ -8,9 +8,12 @@ import { cn } from '@/lib/utils';
 
 interface ImageLightboxProps {
   src: string | null;
+  previewSrc?: string;
   alt: string;
   onClose: () => void;
   aspectRatio?: number;
+  viewportScale?: number;
+  unoptimized?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -29,17 +32,27 @@ function distanceOf(points: Point[]) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-export default function ImageLightbox({ src, alt, onClose, aspectRatio }: ImageLightboxProps) {
+export default function ImageLightbox({
+  src,
+  previewSrc,
+  alt,
+  onClose,
+  aspectRatio,
+  viewportScale = 1,
+  unoptimized,
+}: ImageLightboxProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const pointersRef = useRef(new Map<number, Point>());
   const gestureRef = useRef<Gesture | null>(null);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState<Point>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [fullImageLoaded, setFullImageLoaded] = useState(false);
 
   useEffect(() => {
     setScale(1);
     setTranslate({ x: 0, y: 0 });
+    setFullImageLoaded(false);
   }, [src]);
 
   function clampTranslate(nextScale: number, current: Point) {
@@ -98,6 +111,13 @@ export default function ImageLightbox({ src, alt, onClose, aspectRatio }: ImageL
 
   const zoomPercent = Math.round(scale * 100);
   const fitToImage = aspectRatio !== undefined && aspectRatio > 0;
+  const fittedViewportScale = clamp(viewportScale, 0.25, 1);
+  const viewportPercentage = fittedViewportScale * 100;
+  const viewportMargin = fittedViewportScale * 2;
+  const fittedWidth = fitToImage
+    ? `min(calc(${viewportPercentage}vw - ${viewportMargin}rem), calc((${viewportPercentage}dvh - ${viewportMargin}rem) * ${aspectRatio}))`
+    : undefined;
+  const showPreview = previewSrc !== undefined && previewSrc !== src;
 
   return (
     <Dialog open={src !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -105,15 +125,18 @@ export default function ImageLightbox({ src, alt, onClose, aspectRatio }: ImageL
         showCloseButton={false}
         className={cn(
           'border-none bg-transparent p-0 shadow-none',
-          fitToImage ? 'w-auto max-h-none max-w-none overflow-visible sm:w-auto sm:max-h-none' : 'max-w-[min(96vw,1100px)]',
+          fitToImage
+            ? 'max-h-none max-w-none overflow-visible sm:max-h-none sm:w-auto sm:gap-0 sm:p-0'
+            : 'max-w-[min(96vw,1100px)]',
         )}
+        style={fitToImage ? { width: fittedWidth } : undefined}
       >
         <DialogTitle className="sr-only">{alt}</DialogTitle>
         {src && (
           <div
             className={cn(
               'relative overflow-hidden rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.65)]',
-              !fitToImage && 'border border-white/10 bg-navy-deep p-2 sm:p-3',
+              fitToImage ? 'w-full' : 'border border-white/10 bg-navy-deep p-2 sm:p-3',
             )}
           >
             <button
@@ -141,7 +164,7 @@ export default function ImageLightbox({ src, alt, onClose, aspectRatio }: ImageL
                 ...(fitToImage
                   ? {
                       aspectRatio,
-                      width: `min(calc(100vw - 2rem), calc((100dvh - 2rem) * ${aspectRatio}))`,
+                      width: '100%',
                     }
                   : {}),
               }}
@@ -153,7 +176,32 @@ export default function ImageLightbox({ src, alt, onClose, aspectRatio }: ImageL
                   transition: isPanning || gestureRef.current?.mode === 'pinch' ? 'none' : 'transform 150ms ease-out',
                 }}
               >
-                <Image src={src} alt={alt} fill sizes="96vw" className="object-contain" draggable={false} />
+                {showPreview && (
+                  <Image
+                    src={previewSrc}
+                    alt=""
+                    fill
+                    sizes={`${viewportPercentage}vw`}
+                    unoptimized={unoptimized}
+                    className="object-contain"
+                    draggable={false}
+                  />
+                )}
+                <Image
+                  key={src}
+                  src={src}
+                  alt={alt}
+                  fill
+                  sizes={`${viewportPercentage}vw`}
+                  unoptimized={unoptimized}
+                  loading="eager"
+                  onLoad={() => setFullImageLoaded(true)}
+                  className={cn(
+                    'object-contain',
+                    showPreview && !fullImageLoaded ? 'opacity-0' : 'opacity-100',
+                  )}
+                  draggable={false}
+                />
               </div>
             </div>
             <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full bg-black/50 px-2 py-1.5 backdrop-blur">

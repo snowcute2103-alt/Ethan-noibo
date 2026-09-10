@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Image, { type StaticImageData } from 'next/image';
+import Image from 'next/image';
 import ImageLightbox from '@/components/dashboard/image-lightbox';
 import {
   ContainerAnimated,
@@ -12,69 +12,64 @@ import {
   GalleryContainer,
 } from '@/components/ui/animated-gallery';
 
-import internal01Img from '@/Nội bộ/1786086025559_900965337956762677_g247357382052095451_1eb790578c485155f2cc31dcf62b0961.jpg';
-import internal02Img from '@/Nội bộ/1787294983889_1957465395561920927_g7902987228796225560_531d37ff2a1091afaea5a32d055ea5c8.jpg';
-import internal03Img from '@/Nội bộ/1787388171449_3257055127887173254_g247357382052095451_cc02cf5895da31fdb7e74472b783b8a3.jpg';
-import internal04Img from '@/Nội bộ/1787390150166_1870493162060784704_g247357382052095451_405a0e4df13fa91ee1b53d5e25ad7e13.jpg';
-import internal05Img from '@/Nội bộ/1787634497861_7660392195884805626_g7902987228796225560_95cb50b9352530bdd690f7ad81376ce0.jpg';
-import internal06Img from '@/Nội bộ/1787714188737_900965337956762677_g247357382052095451_060cb339526ddb4bb90e915846fde2e8.jpg';
-import internal07Img from '@/Nội bộ/DSC07044.jpg';
-import internal08Img from '@/Nội bộ/DSC07062.jpg';
-import internal09Img from '@/Nội bộ/DSC07072.jpg';
-import internal10Img from '@/Nội bộ/DSC07076.jpg';
-import internal11Img from '@/Nội bộ/DSC07156.jpg';
-import internal12Img from '@/Nội bộ/DSC07201.jpg';
-import internal13Img from '@/Nội bộ/DSC07315.jpg';
-import internal14Img from '@/Nội bộ/DSC07323.jpg';
-import internal15Img from '@/Nội bộ/DSC07575.jpg';
-import internal16Img from '@/Nội bộ/DSC07917.jpg';
-import internal17Img from '@/Nội bộ/DSC08045.jpg';
-import internal18Img from '@/Nội bộ/DSC08134.jpg';
-import internal19Img from '@/Nội bộ/DSC08331.jpg';
-import internal20Img from '@/Nội bộ/DSC08492.jpg';
-import internal21Img from '@/Nội bộ/DSC08512.jpg';
-import internal22Img from '@/Nội bộ/DSC08574.jpg';
-import internal23Img from '@/Nội bộ/DSC08901.jpg';
-import internal24Img from '@/Nội bộ/DSC09167.jpg';
-import internal25Img from '@/Nội bộ/DSC09418.jpg';
+interface GalleryImage {
+  id: string;
+  thumbnailSrc: string;
+  fullSrc: string;
+  width: number;
+  height: number;
+}
 
-const GALLERY_IMAGES: StaticImageData[] = [
-  internal01Img,
-  internal02Img,
-  internal03Img,
-  internal04Img,
-  internal05Img,
-  internal06Img,
-  internal07Img,
-  internal08Img,
-  internal09Img,
-  internal10Img,
-  internal11Img,
-  internal12Img,
-  internal13Img,
-  internal14Img,
-  internal15Img,
-  internal16Img,
-  internal17Img,
-  internal18Img,
-  internal19Img,
-  internal20Img,
-  internal21Img,
-  internal22Img,
-  internal23Img,
-  internal24Img,
-  internal25Img,
-];
+const GALLERY_IMAGE_DIMENSIONS = [
+  { width: 1500, height: 2000 },
+  { width: 1500, height: 2000 },
+  { width: 555, height: 555 },
+  { width: 1448, height: 1086 },
+  { width: 1500, height: 2000 },
+  { width: 1086, height: 1448 },
+  { width: 1126, height: 2000 },
+  { width: 2000, height: 1126 },
+  { width: 1126, height: 2000 },
+  { width: 1126, height: 2000 },
+  { width: 2000, height: 1126 },
+  { width: 2000, height: 1126 },
+  { width: 2000, height: 1126 },
+  { width: 1126, height: 2000 },
+  { width: 1126, height: 2000 },
+  { width: 2000, height: 1126 },
+  { width: 1126, height: 2000 },
+  { width: 1126, height: 2000 },
+  { width: 1126, height: 2000 },
+  { width: 2000, height: 1126 },
+  { width: 2000, height: 1126 },
+  { width: 1126, height: 2000 },
+  { width: 2000, height: 1126 },
+  { width: 1126, height: 2000 },
+  { width: 1126, height: 2000 },
+] as const;
 
-const GALLERY_COLUMNS = Array.from({ length: 4 }, (_, columnIndex) =>
-  GALLERY_IMAGES.filter((_, imageIndex) => imageIndex % 4 === columnIndex),
+const GALLERY_IMAGES: GalleryImage[] = GALLERY_IMAGE_DIMENSIONS.map((dimensions, index) => {
+  const id = `noi-bo-${String(index + 1).padStart(2, '0')}`;
+  return {
+    id,
+    thumbnailSrc: `/images/van-hoa/noi-bo/thumbnails/${id}.webp`,
+    fullSrc: `/images/van-hoa/noi-bo/full/${id}.webp`,
+    ...dimensions,
+  };
+});
+
+const GALLERY_SCROLL_IMAGES = [...GALLERY_IMAGES, ...GALLERY_IMAGES.slice(0, 5)];
+
+const GALLERY_COLUMNS = Array.from({ length: 5 }, (_, columnIndex) =>
+  GALLERY_SCROLL_IMAGES.filter((_, imageIndex) => imageIndex % 5 === columnIndex),
 );
 
 const COLUMN_MOTION = [
-  { className: '-mt-2', yRange: ['-10%', '2%'] },
-  { className: 'mt-[-50%]', yRange: ['15%', '5%'] },
-  { className: 'mt-[-50%]', yRange: ['15%', '5%'] },
-  { className: '-mt-2', yRange: ['-10%', '2%'] },
+  { className: '-mt-2', yRange: ['-18%', '2%'] },
+  { className: 'mt-[-50%]', yRange: ['12%', '4%'] },
+  { className: '-mt-2', yRange: ['-18%', '2%'] },
+  { className: 'mt-[-50%]', yRange: ['12%', '4%'] },
+  { className: '-mt-2', yRange: ['-18%', '2%'] },
 ] as const;
 
 const STARS = [
@@ -101,7 +96,12 @@ const STARS = [
  * thông số của DemoVariant1 gốc, chỉ đổi nội dung chữ/ảnh sang theme Văn hoá Ethan.
  */
 export default function CultureGalleryHero() {
-  const [selectedImage, setSelectedImage] = useState<StaticImageData | null>(null);
+  const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
+
+  function preloadFullImage(src: string) {
+    const image = new window.Image();
+    image.src = src;
+  }
 
   return (
     <div className="relative bg-navy-deep">
@@ -151,7 +151,7 @@ export default function CultureGalleryHero() {
       <div className="culture-gallery-motion">
         <ContainerScroll className="relative h-[350vh]">
           <ContainerSticky className="h-svh">
-            <GalleryContainer className="grid-cols-4">
+            <GalleryContainer className="-top-[8vh] grid-cols-5">
               {GALLERY_COLUMNS.map((images, columnIndex) => (
                 <GalleryCol
                   key={columnIndex}
@@ -160,13 +160,15 @@ export default function CultureGalleryHero() {
                 >
                   {images.map((img, imageIndex) => (
                     <button
-                      key={imageIndex}
+                      key={`${img.id}-${imageIndex}`}
                       type="button"
-                      aria-label={`Mở ảnh văn hoá ${imageIndex * 4 + columnIndex + 1}`}
+                      aria-label={`Mở ảnh văn hoá ${imageIndex * 5 + columnIndex + 1}`}
+                      onPointerEnter={() => preloadFullImage(img.fullSrc)}
+                      onFocus={() => preloadFullImage(img.fullSrc)}
                       onClick={() => setSelectedImage(img)}
                       className="relative block aspect-video h-auto max-h-full w-full cursor-zoom-in overflow-hidden rounded-md shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
                     >
-                      <Image src={img} alt="" fill sizes="25vw" className="object-cover" />
+                      <Image src={img.thumbnailSrc} alt="" fill sizes="20vw" unoptimized className="object-cover" />
                     </button>
                   ))}
                 </GalleryCol>
@@ -179,20 +181,32 @@ export default function CultureGalleryHero() {
       <div className="culture-gallery-static" aria-label="Hình ảnh văn hoá Ethan">
         {GALLERY_IMAGES.map((img, index) => (
           <button
-            key={index}
+            key={img.id}
             type="button"
             aria-label={`Mở ảnh văn hoá ${index + 1}`}
+            onPointerEnter={() => preloadFullImage(img.fullSrc)}
+            onFocus={() => preloadFullImage(img.fullSrc)}
             onClick={() => setSelectedImage(img)}
             className="relative aspect-[4/3] cursor-zoom-in overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
           >
-            <Image src={img} alt="" fill sizes="(max-width: 1024px) 33vw, 100vw" className="object-cover" />
+            <Image
+              src={img.thumbnailSrc}
+              alt=""
+              fill
+              sizes="(max-width: 1024px) 33vw, 100vw"
+              unoptimized
+              className="object-cover"
+            />
           </button>
         ))}
       </div>
       <ImageLightbox
-        src={selectedImage?.src ?? null}
+        src={selectedImage?.fullSrc ?? null}
+        previewSrc={selectedImage?.thumbnailSrc}
         alt="Ảnh văn hoá Ethan"
         aspectRatio={selectedImage ? selectedImage.width / selectedImage.height : undefined}
+        viewportScale={0.5}
+        unoptimized
         onClose={() => setSelectedImage(null)}
       />
     </div>
