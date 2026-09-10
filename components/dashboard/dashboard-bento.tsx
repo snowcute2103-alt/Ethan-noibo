@@ -20,6 +20,7 @@ import BirthdayModal from '@/components/dashboard/birthday-modal';
 import FireworkBurst from '@/components/dashboard/firework-burst';
 import InspireQuoteWidget from '@/components/dashboard/inspire-quote-widget';
 import OrgChartPersonPopup from '@/components/dashboard/org-chart-person-popup';
+import OrgChartAvatarOverlay from '@/components/dashboard/org-chart-avatar-overlay';
 import type { OrgChartPerson } from '@/lib/content/org-chart-people';
 import type { Quote } from '@/lib/quotes';
 import birthdayCelebration from '@/sinhnhat.jpeg';
@@ -146,7 +147,6 @@ export default function DashboardBento({
   const [birthdayFirework, setBirthdayFirework] = useState(0);
   const birthdayHoveredRef = useRef(false);
   const [orgChartPerson, setOrgChartPerson] = useState<OrgChartPerson | null>(null);
-  const orgChartRevealRef = useRef<HTMLDivElement>(null);
   const headcountCardRef = useRef<HTMLDivElement>(null);
   const reduceEffects = useReducedEffects();
   const orgArticle = findArticle(culture, 'co-cau-to-chuc');
@@ -158,32 +158,6 @@ export default function DashboardBento({
   const hasCoreValues = Boolean(visionArticle && coreValues && coreValues.length > 0);
   // Thẻ sinh nhật là nội dung tĩnh nên hàng trên luôn hiện.
   const hasTopRow = true;
-
-  // Sơ đồ tổ chức "vẽ" dần từ trên xuống khi cuộn tới — clip-path quét từ ẩn hoàn toàn
-  // (đáy che hết) tới lộ hoàn toàn. toggleActions "play none none reverse" (như
-  // TextBlockAnimation) thay vì scrub theo khoảng start/end: scrub đo toạ độ cuộn một lần
-  // lúc gắn hiệu ứng nên dễ lệch nếu trang đổi chiều cao sau đó, khiến cuộn lên không thu lại
-  // được nữa; toggleActions chỉ cần 1 mốc "start" nên không bị lệch kiểu đó và tự đảo chiều
-  // đúng khi cuộn qua lại mốc này.
-  useGSAP(
-    () => {
-      if (reduceEffects || !orgChartRevealRef.current) return;
-      const el = orgChartRevealRef.current;
-
-      gsap.set(el, { clipPath: 'inset(0% 0% 100% 0%)' });
-      gsap.to(el, {
-        clipPath: 'inset(0% 0% 0% 0%)',
-        ease: 'power2.out',
-        duration: 1.4,
-        scrollTrigger: {
-          trigger: el,
-          start: 'top 90%',
-          toggleActions: 'play none none reverse',
-        },
-      });
-    },
-    { scope: orgChartRevealRef, dependencies: [reduceEffects] }
-  );
 
   // Số 98 đếm dần từ 0 khi card lọt vào khung nhìn.
   useGSAP(
@@ -455,7 +429,7 @@ export default function DashboardBento({
                     Sơ đồ tổ chức Ethan
                   </h3>
                 </TextBlockAnimation>
-                <div ref={orgChartRevealRef} className="mt-6 w-full overflow-x-auto rounded-2xl border border-white/10 bg-white">
+                <div className="mt-6 w-full overflow-x-auto rounded-2xl border border-white/10 bg-white">
                   <div className="relative w-full min-w-[820px]">
                     <Image
                       src={ORG_CHART_IMAGE}
@@ -463,6 +437,9 @@ export default function DashboardBento({
                       unoptimized
                       className="block h-auto w-full"
                     />
+                    {orgChartPeople.map((person, i) => (
+                      <OrgChartAvatarOverlay key={`avatar-${i}`} person={person} />
+                    ))}
                     {orgChartPeople.map((person, i) => (
                       <button
                         key={i}

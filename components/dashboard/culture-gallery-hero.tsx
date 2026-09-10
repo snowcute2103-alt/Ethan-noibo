@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Image, { type StaticImageData } from 'next/image';
+import ImageLightbox from '@/components/dashboard/image-lightbox';
 import {
   ContainerAnimated,
   ContainerScroll,
@@ -10,29 +12,70 @@ import {
   GalleryContainer,
 } from '@/components/ui/animated-gallery';
 
-import officeImg from '@/public/images/van-hoa/office.jpg';
-import teamBuildingImg from '@/public/images/van-hoa/team-building.jpg';
-import passionImg from '@/public/images/van-hoa/passion.jpg';
-import dongLongImg from '@/public/images/van-hoa/dong-long.jpg';
-import connguoiImg from '@/public/images/van-hoa/connguoi.jpg';
-import hanhtrinhImg from '@/public/images/van-hoa/hanhtrinh.jpg';
-import storyHopeImg from '@/public/images/van-hoa/story-hope.jpg';
-import caitienImg from '@/public/images/van-hoa/caitien.jpg';
-import benbiImg from '@/public/images/van-hoa/benbi.jpg';
-import trachnhiemImg from '@/public/images/van-hoa/trachnhiem.jpg';
-import tuTeImg from '@/public/images/van-hoa/tu-te.jpg';
-import christmas2025AImg from '@/public/images/van-hoa/christmas-2025-a.webp';
-import christmas2025BImg from '@/public/images/van-hoa/christmas-2025-b.webp';
-import tet2026AImg from '@/public/images/van-hoa/tet-2026-a.webp';
-import tet2026BImg from '@/public/images/van-hoa/tet-2026-b.webp';
-import trungThu2025AImg from '@/public/images/van-hoa/trung-thu-2025-a.jpg';
-import trungThu2025BImg from '@/public/images/van-hoa/trung-thu-2025-b.webp';
-import overLimitation2025AImg from '@/public/images/van-hoa/over-limitation-2025-a.webp';
-import overLimitation2025BImg from '@/public/images/van-hoa/over-limitation-2025-b.webp';
+import internal01Img from '@/Nội bộ/1786086025559_900965337956762677_g247357382052095451_1eb790578c485155f2cc31dcf62b0961.jpg';
+import internal02Img from '@/Nội bộ/1787294983889_1957465395561920927_g7902987228796225560_531d37ff2a1091afaea5a32d055ea5c8.jpg';
+import internal03Img from '@/Nội bộ/1787388171449_3257055127887173254_g247357382052095451_cc02cf5895da31fdb7e74472b783b8a3.jpg';
+import internal04Img from '@/Nội bộ/1787390150166_1870493162060784704_g247357382052095451_405a0e4df13fa91ee1b53d5e25ad7e13.jpg';
+import internal05Img from '@/Nội bộ/1787634497861_7660392195884805626_g7902987228796225560_95cb50b9352530bdd690f7ad81376ce0.jpg';
+import internal06Img from '@/Nội bộ/1787714188737_900965337956762677_g247357382052095451_060cb339526ddb4bb90e915846fde2e8.jpg';
+import internal07Img from '@/Nội bộ/DSC07044.jpg';
+import internal08Img from '@/Nội bộ/DSC07062.jpg';
+import internal09Img from '@/Nội bộ/DSC07072.jpg';
+import internal10Img from '@/Nội bộ/DSC07076.jpg';
+import internal11Img from '@/Nội bộ/DSC07156.jpg';
+import internal12Img from '@/Nội bộ/DSC07201.jpg';
+import internal13Img from '@/Nội bộ/DSC07315.jpg';
+import internal14Img from '@/Nội bộ/DSC07323.jpg';
+import internal15Img from '@/Nội bộ/DSC07575.jpg';
+import internal16Img from '@/Nội bộ/DSC07917.jpg';
+import internal17Img from '@/Nội bộ/DSC08045.jpg';
+import internal18Img from '@/Nội bộ/DSC08134.jpg';
+import internal19Img from '@/Nội bộ/DSC08331.jpg';
+import internal20Img from '@/Nội bộ/DSC08492.jpg';
+import internal21Img from '@/Nội bộ/DSC08512.jpg';
+import internal22Img from '@/Nội bộ/DSC08574.jpg';
+import internal23Img from '@/Nội bộ/DSC08901.jpg';
+import internal24Img from '@/Nội bộ/DSC09167.jpg';
+import internal25Img from '@/Nội bộ/DSC09418.jpg';
 
-const IMAGES_1: StaticImageData[] = [officeImg, teamBuildingImg, passionImg, christmas2025AImg, tet2026AImg, trungThu2025AImg];
-const IMAGES_2: StaticImageData[] = [dongLongImg, connguoiImg, hanhtrinhImg, storyHopeImg, christmas2025BImg, tet2026BImg, overLimitation2025AImg];
-const IMAGES_3: StaticImageData[] = [caitienImg, benbiImg, trachnhiemImg, tuTeImg, trungThu2025BImg, overLimitation2025BImg];
+const GALLERY_IMAGES: StaticImageData[] = [
+  internal01Img,
+  internal02Img,
+  internal03Img,
+  internal04Img,
+  internal05Img,
+  internal06Img,
+  internal07Img,
+  internal08Img,
+  internal09Img,
+  internal10Img,
+  internal11Img,
+  internal12Img,
+  internal13Img,
+  internal14Img,
+  internal15Img,
+  internal16Img,
+  internal17Img,
+  internal18Img,
+  internal19Img,
+  internal20Img,
+  internal21Img,
+  internal22Img,
+  internal23Img,
+  internal24Img,
+  internal25Img,
+];
+
+const GALLERY_COLUMNS = Array.from({ length: 4 }, (_, columnIndex) =>
+  GALLERY_IMAGES.filter((_, imageIndex) => imageIndex % 4 === columnIndex),
+);
+
+const COLUMN_MOTION = [
+  { className: '-mt-2', yRange: ['-10%', '2%'] },
+  { className: 'mt-[-50%]', yRange: ['15%', '5%'] },
+  { className: 'mt-[-50%]', yRange: ['15%', '5%'] },
+  { className: '-mt-2', yRange: ['-10%', '2%'] },
+] as const;
 
 const STARS = [
   { top: '6%', left: '4%', size: 2, duration: 3.2, delay: 0 },
@@ -58,6 +101,8 @@ const STARS = [
  * thông số của DemoVariant1 gốc, chỉ đổi nội dung chữ/ảnh sang theme Văn hoá Ethan.
  */
 export default function CultureGalleryHero() {
+  const [selectedImage, setSelectedImage] = useState<StaticImageData | null>(null);
+
   return (
     <div className="relative bg-navy-deep">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] overflow-hidden" aria-hidden="true">
@@ -106,40 +151,50 @@ export default function CultureGalleryHero() {
       <div className="culture-gallery-motion">
         <ContainerScroll className="relative h-[350vh]">
           <ContainerSticky className="h-svh">
-            <GalleryContainer>
-            <GalleryCol yRange={['-10%', '2%']} className="-mt-2">
-              {IMAGES_1.map((img, index) => (
-                <div key={index} className="relative aspect-video block h-auto max-h-full w-full overflow-hidden rounded-md shadow">
-                  <Image src={img} alt="" fill sizes="(min-width: 1024px) 33vw, 100vw" className="object-cover" />
-                </div>
+            <GalleryContainer className="grid-cols-4">
+              {GALLERY_COLUMNS.map((images, columnIndex) => (
+                <GalleryCol
+                  key={columnIndex}
+                  className={COLUMN_MOTION[columnIndex].className}
+                  yRange={[...COLUMN_MOTION[columnIndex].yRange]}
+                >
+                  {images.map((img, imageIndex) => (
+                    <button
+                      key={imageIndex}
+                      type="button"
+                      aria-label={`Mở ảnh văn hoá ${imageIndex * 4 + columnIndex + 1}`}
+                      onClick={() => setSelectedImage(img)}
+                      className="relative block aspect-video h-auto max-h-full w-full cursor-zoom-in overflow-hidden rounded-md shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+                    >
+                      <Image src={img} alt="" fill sizes="25vw" className="object-cover" />
+                    </button>
+                  ))}
+                </GalleryCol>
               ))}
-            </GalleryCol>
-            <GalleryCol className="mt-[-50%]" yRange={['15%', '5%']}>
-              {IMAGES_2.map((img, index) => (
-                <div key={index} className="relative aspect-video block h-auto max-h-full w-full overflow-hidden rounded-md shadow">
-                  <Image src={img} alt="" fill sizes="(min-width: 1024px) 33vw, 100vw" className="object-cover" />
-                </div>
-              ))}
-            </GalleryCol>
-            <GalleryCol yRange={['-10%', '2%']} className="-mt-2">
-              {IMAGES_3.map((img, index) => (
-                <div key={index} className="relative aspect-video block h-auto max-h-full w-full overflow-hidden rounded-md shadow">
-                  <Image src={img} alt="" fill sizes="(min-width: 1024px) 33vw, 100vw" className="object-cover" />
-                </div>
-              ))}
-            </GalleryCol>
             </GalleryContainer>
           </ContainerSticky>
         </ContainerScroll>
       </div>
 
       <div className="culture-gallery-static" aria-label="Hình ảnh văn hoá Ethan">
-        {[officeImg, teamBuildingImg, passionImg, dongLongImg, connguoiImg, hanhtrinhImg].map((img, index) => (
-          <div key={index} className="relative aspect-[4/3] overflow-hidden">
+        {GALLERY_IMAGES.map((img, index) => (
+          <button
+            key={index}
+            type="button"
+            aria-label={`Mở ảnh văn hoá ${index + 1}`}
+            onClick={() => setSelectedImage(img)}
+            className="relative aspect-[4/3] cursor-zoom-in overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+          >
             <Image src={img} alt="" fill sizes="(max-width: 1024px) 33vw, 100vw" className="object-cover" />
-          </div>
+          </button>
         ))}
       </div>
+      <ImageLightbox
+        src={selectedImage?.src ?? null}
+        alt="Ảnh văn hoá Ethan"
+        aspectRatio={selectedImage ? selectedImage.width / selectedImage.height : undefined}
+        onClose={() => setSelectedImage(null)}
+      />
     </div>
   );
 }

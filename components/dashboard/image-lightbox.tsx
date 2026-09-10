@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, ty
 import Image from 'next/image';
 import { Minus, Plus, RotateCcw, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 interface ImageLightboxProps {
   src: string | null;
   alt: string;
   onClose: () => void;
+  aspectRatio?: number;
 }
 
 const MIN_SCALE = 1;
@@ -27,7 +29,7 @@ function distanceOf(points: Point[]) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-export default function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
+export default function ImageLightbox({ src, alt, onClose, aspectRatio }: ImageLightboxProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const pointersRef = useRef(new Map<number, Point>());
   const gestureRef = useRef<Gesture | null>(null);
@@ -95,13 +97,25 @@ export default function ImageLightbox({ src, alt, onClose }: ImageLightboxProps)
   }
 
   const zoomPercent = Math.round(scale * 100);
+  const fitToImage = aspectRatio !== undefined && aspectRatio > 0;
 
   return (
     <Dialog open={src !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-w-[min(96vw,1100px)] border-none bg-transparent p-0 shadow-none">
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          'border-none bg-transparent p-0 shadow-none',
+          fitToImage ? 'w-auto max-h-none max-w-none overflow-visible sm:w-auto sm:max-h-none' : 'max-w-[min(96vw,1100px)]',
+        )}
+      >
         <DialogTitle className="sr-only">{alt}</DialogTitle>
         {src && (
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-navy-deep p-2 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.65)] sm:p-3">
+          <div
+            className={cn(
+              'relative overflow-hidden rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.65)]',
+              !fitToImage && 'border border-white/10 bg-navy-deep p-2 sm:p-3',
+            )}
+          >
             <button
               type="button"
               onClick={onClose}
@@ -118,8 +132,19 @@ export default function ImageLightbox({ src, alt, onClose }: ImageLightboxProps)
               onPointerMove={handlePointerMove}
               onPointerUp={endPointer}
               onPointerCancel={endPointer}
-              className="relative h-[68vh] w-full touch-none select-none overflow-hidden rounded-[10px] sm:h-[76vh]"
-              style={{ cursor: scale > MIN_SCALE ? (isPanning ? 'grabbing' : 'grab') : 'zoom-in' }}
+              className={cn(
+                'relative touch-none select-none overflow-hidden',
+                fitToImage ? 'rounded-2xl' : 'h-[68vh] w-full rounded-[10px] sm:h-[76vh]',
+              )}
+              style={{
+                cursor: scale > MIN_SCALE ? (isPanning ? 'grabbing' : 'grab') : 'zoom-in',
+                ...(fitToImage
+                  ? {
+                      aspectRatio,
+                      width: `min(calc(100vw - 2rem), calc((100dvh - 2rem) * ${aspectRatio}))`,
+                    }
+                  : {}),
+              }}
             >
               <div
                 className="absolute inset-0"
