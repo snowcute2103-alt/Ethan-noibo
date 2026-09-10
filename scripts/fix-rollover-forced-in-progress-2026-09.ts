@@ -19,7 +19,7 @@ interface Row {
 async function main() {
   const isApply = process.argv.includes('--apply');
 
-  const rows: Row[] = await sql.query(`
+  const rows = (await sql.query(`
     SELECT t.id, t.title, h.changes->'status'->>'from' AS old_status
     FROM tasks t
     JOIN LATERAL (
@@ -33,7 +33,7 @@ async function main() {
       AND h.changes->'status'->>'from' IS NOT NULL
       AND h.changes->'status'->>'from' != 'in_progress'
     ORDER BY t.id
-  `);
+  `)) as unknown as Row[];
 
   if (rows.length === 0) {
     console.log('Không có task nào cần sửa.');
