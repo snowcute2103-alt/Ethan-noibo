@@ -150,7 +150,17 @@ export default function TeamMergedTaskBoard({
   }, [range.fromDate, range.toDate, calendarYearMonth]);
 
   function reconcileTasks(changes: Array<{ previous: Task | null; next: Task | null }>) {
-    const inRange = (task: Task) => task.taskDate >= range.fromDate && task.taskDate <= range.toDate;
+    // Khớp WHERE ở listTasksForOwners (xem personal-task-board.tsx bản đã sửa
+    // cùng công thức): task đã xong xếp theo completed_at, task chưa xong
+    // hiện suốt từ task_date tới due_date (kéo dài tới hôm nay nếu quá hạn).
+    const inRange = (task: Task) => {
+      if (task.status === 'done') {
+        const d = task.completedAt ?? task.taskDate;
+        return d >= range.fromDate && d <= range.toDate;
+      }
+      const end = [task.dueDate ?? task.taskDate, today].sort().pop()!;
+      return task.taskDate <= range.toDate && end >= range.fromDate;
+    };
     // Khớp PENDING_BOSS_TASK_CLAUSE ở listTasksForOwners — task sếp giao
     // chưa làm luôn giữ lại trong state dù task_date ngoài range đang xem,
     // để đứng ở hôm nay vẫn thấy ngay task tương lai vừa được giao/sửa.
