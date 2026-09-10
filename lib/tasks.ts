@@ -672,6 +672,16 @@ const NOT_DONE_RANGE_END_EXPR = `GREATEST(COALESCE(t.due_date, t.task_date), $4:
 // hiện, không phải ngày 7/9.
 const DONE_BUCKET_DATE_EXPR = `COALESCE(t.completed_at, t.task_date)`;
 
+// Thứ tự thẻ trong từng cột board: nhóm theo cờ ưu tiên trước (Cao → Bình
+// thường → Thấp, khớp mặc định PRIORITIES ở personal-task-board.tsx) — trong
+// cùng 1 nhóm cờ mới xét tiếp quá hạn rồi tới ngày, giữ nguyên các tiêu chí cũ.
+const TASK_ORDER_BY = `
+  CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END ASC,
+  CASE WHEN ${OVERDUE_CLAUSE} THEN 0 ELSE 1 END ASC,
+  CASE WHEN t.status = 'done' THEN (${DONE_BUCKET_DATE_EXPR}) ELSE t.task_date END ASC,
+  t.id ASC
+`;
+
 /** Task cá nhân của người không thuộc đội KD nào — luôn lọc theo
  *  owner_user_id, không có category/roster như task đội KD. */
 export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOwnerFilter, today: string): Promise<Task[]> {
@@ -683,11 +693,7 @@ export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOw
        OR (t.status != 'done' AND t.task_date <= $3 AND (${NOT_DONE_RANGE_END_EXPR}) >= $2)
        OR (${PENDING_BOSS_TASK_CLAUSE})
      )
-     ORDER BY
-       CASE WHEN ${OVERDUE_CLAUSE} THEN 0 ELSE 1 END ASC,
-       CASE WHEN t.status = 'done' THEN (${DONE_BUCKET_DATE_EXPR}) ELSE t.task_date END ASC,
-       CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END ASC,
-       t.id ASC`,
+     ORDER BY ${TASK_ORDER_BY}`,
     [ownerUserId, filter.fromDate, filter.toDate, today]
   );
   return rows.map(mapTaskRow);
@@ -706,11 +712,7 @@ export async function listTasksForOwners(ownerUserIds: number[], filter: ListTas
        OR (t.status != 'done' AND t.task_date <= $3 AND (${NOT_DONE_RANGE_END_EXPR}) >= $2)
        OR (${PENDING_BOSS_TASK_CLAUSE})
      )
-     ORDER BY
-       CASE WHEN ${OVERDUE_CLAUSE} THEN 0 ELSE 1 END ASC,
-       CASE WHEN t.status = 'done' THEN (${DONE_BUCKET_DATE_EXPR}) ELSE t.task_date END ASC,
-       CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END ASC,
-       t.id ASC`,
+     ORDER BY ${TASK_ORDER_BY}`,
     [ownerUserIds, filter.fromDate, filter.toDate, today]
   );
   return rows.map(mapTaskRow);

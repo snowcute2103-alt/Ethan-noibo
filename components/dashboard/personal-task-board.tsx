@@ -124,6 +124,15 @@ export function initialsOf(fullName: string): string {
   return (parts[parts.length - 1]?.[0] ?? '?').toUpperCase();
 }
 
+// Thứ tự thẻ trong cột: cờ Cao trước, Bình thường giữa, Thấp cuối — khớp
+// TASK_ORDER_BY ở lib/tasks.ts. Sort lại ở client (Array.sort ổn định từ
+// ES2019, không đổi thứ tự tương đối giữa các thẻ cùng cờ) để giữ đúng quy
+// tắc ngay cả khi đổi ưu tiên/thêm task tại chỗ, không cần đợi tải lại.
+const PRIORITY_RANK: Record<TaskPriority, number> = { high: 0, normal: 1, low: 2 };
+function sortByPriority(list: Task[]): Task[] {
+  return [...list].sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
+}
+
 function PersonalTaskDescriptionPreview({ value, limit = 3 }: { value: string | null | undefined; limit?: number }) {
   const items = parsePersonalTaskDescription(value);
   if (items.length === 0) return null;
@@ -615,7 +624,7 @@ export function PersonalKanban({
   // Không lọc theo ngày — server (listTasksForOwner/listTasksForOwners) đã
   // luôn kèm sẵn task sếp giao chưa làm dù task_date ở tương lai, để đứng ở
   // hôm nay vẫn thấy trước, không cần bấm sang đúng ngày đó mới biết.
-  const bossTasks = tasks.filter((t) => t.status === 'not_started' && t.createdBy !== null && t.createdBy !== (t.ownerUserId ?? ownerUserId));
+  const bossTasks = sortByPriority(tasks.filter((t) => t.status === 'not_started' && t.createdBy !== null && t.createdBy !== (t.ownerUserId ?? ownerUserId)));
   const bossTaskIds = new Set(bossTasks.map((t) => t.id));
 
   return (
@@ -706,7 +715,7 @@ export function PersonalKanban({
         </div>
       </div>
       {KANBAN_BOARD_COLUMNS.map((col) => {
-        const colTasks = tasks.filter((t) => t.status === col.status && !(col.status === 'not_started' && bossTaskIds.has(t.id)));
+        const colTasks = sortByPriority(tasks.filter((t) => t.status === col.status && !(col.status === 'not_started' && bossTaskIds.has(t.id))));
         return (
           <div
             key={col.status}
