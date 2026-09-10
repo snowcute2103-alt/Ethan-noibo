@@ -45,11 +45,7 @@ export default function TeamGroupDashboard({ groupLabel, members, selectedUserId
               aria-pressed={isSelected}
               title={isSelected ? 'Bấm để xem lại task của cả nhóm' : `Bấm để chỉ xem task của ${member.fullName}`}
               className={`flex items-center justify-between gap-3 rounded-[16px] border p-4 text-left shadow-[0_10px_24px_-18px_rgba(16,26,48,0.35)] transition-colors ${
-                isSelected
-                  ? 'border-blue bg-blue'
-                  : member.isSelf
-                    ? 'border-blue bg-blue/5 ring-2 ring-blue/40'
-                    : 'border-[#e8edf5] bg-white hover:bg-surface-2'
+                isSelected ? 'border-blue bg-blue' : 'border-[#e8edf5] bg-white hover:bg-surface-2'
               }`}
             >
               <div className="flex min-w-0 items-center gap-3">

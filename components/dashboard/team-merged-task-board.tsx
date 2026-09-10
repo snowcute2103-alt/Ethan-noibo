@@ -146,18 +146,24 @@ export default function TeamMergedTaskBoard({
 
   function reconcileTasks(changes: Array<{ previous: Task | null; next: Task | null }>) {
     const inRange = (task: Task) => task.taskDate >= range.fromDate && task.taskDate <= range.toDate;
+    // Khớp PENDING_BOSS_TASK_CLAUSE ở listTasksForOwners — task sếp giao
+    // chưa làm luôn giữ lại trong state dù task_date ngoài range đang xem,
+    // để đứng ở hôm nay vẫn thấy ngay task tương lai vừa được giao/sửa.
+    const isPendingBossTask = (task: Task) =>
+      task.ownerUserId !== null && task.status === 'not_started' && task.createdBy !== null && task.createdBy !== task.ownerUserId;
+    const shouldKeep = (task: Task) => inRange(task) || isPendingBossTask(task);
     const inTrackedMonths = (task: Task) => task.taskDate.startsWith(calendarYearMonth) || task.taskDate.startsWith(previousMonthYearMonth);
 
     setTasks((current) => {
       const nextById = new Map(current.map((task) => [task.id, task]));
       for (const change of changes) {
         if (change.previous && change.next && change.previous.id === change.next.id) {
-          if (inRange(change.next)) nextById.set(change.next.id, change.next);
+          if (shouldKeep(change.next)) nextById.set(change.next.id, change.next);
           else nextById.delete(change.next.id);
           continue;
         }
         if (change.previous) nextById.delete(change.previous.id);
-        if (change.next && inRange(change.next)) nextById.set(change.next.id, change.next);
+        if (change.next && shouldKeep(change.next)) nextById.set(change.next.id, change.next);
       }
       return [...nextById.values()];
     });

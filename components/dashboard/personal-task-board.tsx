@@ -261,6 +261,12 @@ export default function PersonalTaskBoard({
 
   function reconcileTasks(changes: Array<{ previous: Task | null; next: Task | null }>) {
     const inRange = (task: Task) => task.taskDate >= range.fromDate && task.taskDate <= range.toDate;
+    // Khớp PENDING_BOSS_TASK_CLAUSE ở listTasksForOwner — task sếp giao
+    // chưa làm luôn giữ lại trong state dù task_date ngoài range đang xem,
+    // để đứng ở hôm nay vẫn thấy ngay task tương lai vừa được giao/sửa.
+    const isPendingBossTask = (task: Task) =>
+      task.status === 'not_started' && task.createdBy !== null && task.createdBy !== (task.ownerUserId ?? ownerUserId);
+    const shouldKeep = (task: Task) => inRange(task) || isPendingBossTask(task);
     const inMonth = (task: Task) => task.taskDate.startsWith(calendarYearMonth);
     // monthDayCounts (lịch mini) phủ cả calendarYearMonth lẫn tháng liền
     // trước (xem getPersonalMonthDayCounts) — khác monthProgress (thẻ "Tiến
@@ -276,12 +282,12 @@ export default function PersonalTaskBoard({
         // lần bấm checkbox/sửa tiêu đề dù server luôn trả về đúng 1 thứ tự
         // ổn định (xem listTasksForOwner).
         if (change.previous && change.next && change.previous.id === change.next.id) {
-          if (inRange(change.next)) nextById.set(change.next.id, change.next);
+          if (shouldKeep(change.next)) nextById.set(change.next.id, change.next);
           else nextById.delete(change.next.id);
           continue;
         }
         if (change.previous) nextById.delete(change.previous.id);
-        if (change.next && inRange(change.next)) nextById.set(change.next.id, change.next);
+        if (change.next && shouldKeep(change.next)) nextById.set(change.next.id, change.next);
       }
       return [...nextById.values()];
     });
@@ -589,6 +595,9 @@ export function PersonalKanban({
   // Task do người khác (BGĐ xem hộ) tạo hộ — hiện riêng ở cột "Task Sếp đưa"
   // thay vì lẫn vào "Chưa làm", cho tới khi được kéo sang Đang làm/Hoàn
   // thành (từ đó dùng chung 2 cột đó với task tự tạo, vẫn giữ nhãn người giao).
+  // Không lọc theo ngày — server (listTasksForOwner/listTasksForOwners) đã
+  // luôn kèm sẵn task sếp giao chưa làm dù task_date ở tương lai, để đứng ở
+  // hôm nay vẫn thấy trước, không cần bấm sang đúng ngày đó mới biết.
   const bossTasks = tasks.filter((t) => t.status === 'not_started' && t.createdBy !== null && t.createdBy !== (t.ownerUserId ?? ownerUserId));
   const bossTaskIds = new Set(bossTasks.map((t) => t.id));
 

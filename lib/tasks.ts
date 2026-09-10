@@ -643,13 +643,19 @@ export interface ListTasksOwnerFilter {
   toDate: string;
 }
 
+// Task sếp giao (created_by khác owner) mà chưa bắt đầu làm — luôn kèm theo
+// dù task_date nằm ngoài khoảng ngày đang xem ($2/$3), để cột "Task Sếp Đưa"
+// mặc định hiện sẵn task tương lai thay vì phải bấm sang đúng ngày đó mới
+// thấy. Task tự thêm (created_by = owner) vẫn chỉ hiện đúng ngày như cũ.
+const PENDING_BOSS_TASK_CLAUSE = `t.status = 'not_started' AND t.created_by IS NOT NULL AND t.created_by != t.owner_user_id`;
+
 /** Task cá nhân của người không thuộc đội KD nào — luôn lọc theo
  *  owner_user_id, không có category/roster như task đội KD. */
 export async function listTasksForOwner(ownerUserId: number, filter: ListTasksOwnerFilter): Promise<Task[]> {
   const rows = await sql.query(
     `SELECT ${PERSONAL_TASK_SELECT}
      FROM tasks t ${TASK_JOINS}
-     WHERE t.owner_user_id = $1 AND t.task_date BETWEEN $2 AND $3
+     WHERE t.owner_user_id = $1 AND (t.task_date BETWEEN $2 AND $3 OR (${PENDING_BOSS_TASK_CLAUSE}))
      ORDER BY
        CASE WHEN t.rolled_over_at IS NOT NULL AND t.status != 'done' THEN 0 ELSE 1 END ASC,
        COALESCE(t.original_task_date, t.task_date) ASC,
@@ -668,7 +674,7 @@ export async function listTasksForOwners(ownerUserIds: number[], filter: ListTas
   const rows = await sql.query(
     `SELECT ${PERSONAL_TASK_SELECT}
      FROM tasks t ${TASK_JOINS}
-     WHERE t.owner_user_id = ANY($1::int[]) AND t.task_date BETWEEN $2 AND $3
+     WHERE t.owner_user_id = ANY($1::int[]) AND (t.task_date BETWEEN $2 AND $3 OR (${PENDING_BOSS_TASK_CLAUSE}))
      ORDER BY
        CASE WHEN t.rolled_over_at IS NOT NULL AND t.status != 'done' THEN 0 ELSE 1 END ASC,
        COALESCE(t.original_task_date, t.task_date) ASC,
