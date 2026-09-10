@@ -17,19 +17,31 @@ const PELICAN_BGM_RATE = 1.5;
 /** Độ trễ trước khi tự bật — để người xem kịp thấy TV đang tắt trước khi nó bật lên. */
 const AUTO_POWER_ON_DELAY_MS = 600;
 
-type TvChannel = 'vid1' | 'pelican' | 'vid2' | 'vid3' | 'vid4' | 'ethan';
+type TvChannel = 'vid1' | 'pelican' | 'vid2' | 'vid3' | 'vid4' | 'vid5' | 'ethan';
 type PelicanCommand = 'slow' | 'cruise' | 'fast' | 'toggle-pause' | 'toggle-theme' | 'honk';
 
-/** Thứ tự chuyển kênh khi bấm nút "Chuyển kênh". Kênh mặc định khi load trang là phần tử đầu tiên. */
-const CHANNEL_ORDER: readonly TvChannel[] = ['vid1', 'vid2', 'vid4', 'vid3', 'ethan', 'pelican'];
+/** Tập kênh có sẵn — thứ tự chuyển kênh (nút "Chuyển kênh") và kênh mặc định khi load trang được
+ *  xáo ngẫu nhiên mỗi lần TV mount, xem `shuffle(CHANNEL_POOL)`. */
+const CHANNEL_POOL: readonly TvChannel[] = ['vid1', 'vid2', 'vid4', 'vid3', 'vid5', 'ethan', 'pelican'];
 
 const VIDEO_CHANNEL_SRC: Partial<Record<TvChannel, string>> = {
   vid1: '/images/retro-tv/vid1.mp4',
   vid2: '/images/retro-tv/vid2.mp4',
   vid3: '/images/retro-tv/vid3.mp4',
   vid4: '/images/retro-tv/vid4.mp4',
+  vid5: '/images/retro-tv/vid5.mp4',
   ethan: LOGO_VIDEO_SRC,
 };
+
+/** Fisher-Yates — không sửa mảng gốc. */
+function shuffle<T>(items: readonly T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 
 /** Kênh nào chưa hiển thị thì âm thầm tải trước ở nền, để bấm "Chuyển kênh" phát
  *  ngay từ cache thay vì đợi tải lại từ mạng mỗi lần. Bỏ qua khi reduceEffects
@@ -46,6 +58,8 @@ function getChannelLabel(channel: TvChannel) {
       return 'Video 3';
     case 'vid4':
       return 'Video 4';
+    case 'vid5':
+      return 'Video 5';
     case 'pelican':
       return 'hoạt họa Pélican';
     case 'ethan':
@@ -94,8 +108,13 @@ export default function RetroTv() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pelicanFrameRef = useRef<HTMLIFrameElement>(null);
   const pelicanBgmRef = useRef<HTMLAudioElement>(null);
+  // Xáo 1 lần lúc mount — mỗi lần load trang ra thứ tự chuyển kênh khác nhau, kênh mặc định
+  // cũng đổi theo (phần tử đầu của mảng đã xáo) thay vì luôn là kênh cố định.
+  const channelOrderRef = useRef<TvChannel[] | null>(null);
+  if (!channelOrderRef.current) channelOrderRef.current = shuffle(CHANNEL_POOL);
+  const channelOrder = channelOrderRef.current;
   const reduceEffects = useReducedEffects();
-  const [channel, setChannel] = useState<TvChannel>(CHANNEL_ORDER[0]);
+  const [channel, setChannel] = useState<TvChannel>(() => channelOrder[0]);
   const [channelChangeId, setChannelChangeId] = useState(0);
   const [functionStep, setFunctionStep] = useState(0);
   const [isPelicanPaused, setIsPelicanPaused] = useState(false);
@@ -103,33 +122,38 @@ export default function RetroTv() {
   const [isPelicanReady, setIsPelicanReady] = useState(false);
   const [functionStatus, setFunctionStatus] = useState('');
   const [isMuted, setIsMuted] = useState(true);
+  // CSS (:has(#on-off:checked)) điều khiển phần hiển thị tắt/mở; state này cho JS biết để dừng
+  // hẳn video/audio khi tắt máy — trước đây chỉ ẩn hình, âm thanh vẫn phát ngầm khi chưa mute.
+  const [isPoweredOn, setIsPoweredOn] = useState(false);
 
   useEffect(() => {
     if (reduceEffects) return;
     const timer = setTimeout(() => {
       if (powerRef.current) powerRef.current.checked = true;
+      setIsPoweredOn(true);
     }, AUTO_POWER_ON_DELAY_MS);
     return () => clearTimeout(timer);
   }, [reduceEffects]);
+
+  // Nạp nguồn mới khi đổi kênh — tách khỏi effect play/pause bên dưới để bật/tắt máy không
+  // reload lại video đang phát (mất vị trí phát hiện tại).
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || channel === 'pelican') return;
+    video.load();
+  }, [channel]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (channel === 'pelican') {
-      video.pause();
-      return;
-    }
-
-    // A new channel means a new `src` — reload so the browser picks it up before playing.
-    video.load();
-    if (reduceEffects) {
+    if (channel === 'pelican' || !isPoweredOn || reduceEffects) {
       video.pause();
       return;
     }
 
     void video.play().catch(() => undefined);
-  }, [channel, reduceEffects]);
+  }, [channel, isPoweredOn, reduceEffects]);
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = isMuted;
@@ -145,13 +169,13 @@ export default function RetroTv() {
     if (!audio) return;
     audio.playbackRate = PELICAN_BGM_RATE;
 
-    if (channel !== 'pelican' || reduceEffects) {
+    if (channel !== 'pelican' || reduceEffects || !isPoweredOn) {
       audio.pause();
       return;
     }
 
     void audio.play().catch(() => undefined);
-  }, [channel, reduceEffects]);
+  }, [channel, reduceEffects, isPoweredOn]);
 
   useEffect(() => {
     if (pelicanBgmRef.current) pelicanBgmRef.current.muted = isMuted;
@@ -162,7 +186,7 @@ export default function RetroTv() {
   }
 
   function changeChannel() {
-    const nextChannel = CHANNEL_ORDER[(CHANNEL_ORDER.indexOf(channel) + 1) % CHANNEL_ORDER.length];
+    const nextChannel = channelOrder[(channelOrder.indexOf(channel) + 1) % channelOrder.length];
     setChannel(nextChannel);
     setFunctionStatus('');
     if (!reduceEffects) setChannelChangeId((changeId) => changeId + 1);
@@ -366,7 +390,13 @@ export default function RetroTv() {
         </tv-set>
       </tv-content>
 
-      <input ref={powerRef} type="checkbox" name="tv" id="on-off" />
+      <input
+        ref={powerRef}
+        type="checkbox"
+        name="tv"
+        id="on-off"
+        onChange={(e) => setIsPoweredOn(e.target.checked)}
+      />
       <span className="sr-only" aria-live="polite">
         {`Đang phát kênh ${getChannelLabel(channel)}`}
       </span>
