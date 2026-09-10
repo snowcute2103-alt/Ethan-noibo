@@ -22,7 +22,6 @@ import GreetingHero from '@/components/dashboard/greeting-hero';
 import StickyBoard from '@/components/dashboard/sticky-board';
 import RuleLaptopScene from '@/components/dashboard/rule-laptop-scene';
 import TarotSection from '@/components/dashboard/tarot-section';
-import BoxWaveDivider from '@/components/dashboard/box-wave-divider';
 import Reveal from '@/components/reveal';
 import { RULE_DOC_IMAGE, CATEGORY_IMAGE, FALLBACK_IMAGE } from '@/lib/content/images';
 
@@ -194,7 +193,11 @@ export default async function DashboardHome() {
 
       <TarotSection />
 
-      <BoxWaveDivider />
+      <div
+        aria-hidden="true"
+        className="h-24 w-full"
+        style={{ background: 'linear-gradient(180deg, #000 0%, var(--navy-deep) 100%)' }}
+      />
 
       <RuleLaptopScene />
     </div>

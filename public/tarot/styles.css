@@ -25,6 +25,10 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    html {
+      overflow-y: hidden;
+    }
+
     body {
       min-height: 100vh;
       background: #000000;
@@ -34,6 +38,7 @@
       line-height: 1.5;
       color: var(--star-white);
       overflow-x: hidden;
+      overflow-y: hidden;
     }
 
     /* Stars */

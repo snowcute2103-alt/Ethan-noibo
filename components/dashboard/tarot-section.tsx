@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const MIN_TAROT_HEIGHT = 1040;
+const MIN_TAROT_HEIGHT = 1550;
 
 export default function TarotSection() {
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -27,7 +27,8 @@ export default function TarotSection() {
         src="/tarot/index.html"
         title="Bói bài Tarot — Lắng nghe thông điệp từ vũ trụ"
         className="block w-full border-0 bg-black"
-        style={{ height }}
+        style={{ height, overflow: 'hidden' }}
+        scrolling="no"
         loading="lazy"
       />
     </section>
