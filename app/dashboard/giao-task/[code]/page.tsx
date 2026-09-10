@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth';
 import { todayIso } from '@/lib/date';
 import { findOutsideTeamUserBySlug, findOutsideTeamUsersByDepartment, findTeamIdByUserId, getTeamByCode } from '@/lib/teams';
 import { findUserById, listTeammatesByLabel } from '@/lib/users';
-import { getGroupDailyMemberCounts, getPersonalMonthProgress, listTasksForOwners } from '@/lib/tasks';
+import { getGroupDailyMemberCounts, getPersonalMonthProgress, listTasksForOwners, rolloverOverduePersonalTasks } from '@/lib/tasks';
 import { DEPARTMENTS, departmentLabel, type Department } from '@/lib/roles';
 import TaskBoard from '@/components/dashboard/task-board';
 import PersonalTaskBoard from '@/components/dashboard/personal-task-board';
@@ -46,6 +46,7 @@ async function renderGroupWorkspace(
   const sortedMembers = [...members].sort((a, b) => (a.fullName < b.fullName ? -1 : a.fullName > b.fullName ? 1 : 0));
   const yearMonth = today.slice(0, 7);
   const memberUserIds = sortedMembers.map((member) => member.userId);
+  await Promise.all(memberUserIds.map((id) => rolloverOverduePersonalTasks(id, today)));
   const [stats, timeline, tasks, dayCounts] = await Promise.all([
     Promise.all(
       sortedMembers.map(async (member): Promise<GroupMemberStat> => {

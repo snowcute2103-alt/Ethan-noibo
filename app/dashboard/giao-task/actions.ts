@@ -45,6 +45,7 @@ import {
   getAllTeamsMonthProgress,
   listTasksForOwner,
   listTasksForOwners,
+  rolloverOverduePersonalTasks,
   createPersonalTask,
   createPersonalTasks,
   getPersonalTaskById,
@@ -296,6 +297,7 @@ export async function getMyPersonalBoardAction(range: DateRange, calendarYearMon
   const session = await requireSession();
   assertValidRange(range);
   assertValidYearMonth(calendarYearMonth);
+  await rolloverOverduePersonalTasks(session.userId, todayIso());
   const [tasks, monthProgress, monthDayCounts] = await Promise.all([
     listTasksForOwner(session.userId, range),
     getPersonalMonthProgress(session.userId, calendarYearMonth),
@@ -339,6 +341,8 @@ export async function getMergedTeamBoardAction(
     throw new Error('Bạn không thuộc diện quản lý task cá nhân theo nhóm.');
   }
   const ownerUserIds = [session.userId, ...mates.map((mate) => mate.userId)];
+  const today = todayIso();
+  await Promise.all(ownerUserIds.map((id) => rolloverOverduePersonalTasks(id, today)));
   const [tasks, dayCounts] = await Promise.all([
     listTasksForOwners(ownerUserIds, range),
     getGroupDailyMemberCounts(ownerUserIds, calendarYearMonth),
@@ -366,6 +370,8 @@ export async function getMergedDepartmentBoardAsBgdAction(
   assertValidYearMonth(calendarYearMonth);
   const members = await findOutsideTeamUsersByDepartment(department);
   const ownerUserIds = members.map((member) => member.userId);
+  const today = todayIso();
+  await Promise.all(ownerUserIds.map((id) => rolloverOverduePersonalTasks(id, today)));
   const [tasks, dayCounts] = await Promise.all([
     listTasksForOwners(ownerUserIds, range),
     getGroupDailyMemberCounts(ownerUserIds, calendarYearMonth),
@@ -383,6 +389,7 @@ export async function getPersonalBoardAsBgdAction(
   await requirePersonalTaskContext(ownerUserId);
   assertValidRange(range);
   assertValidYearMonth(calendarYearMonth);
+  await rolloverOverduePersonalTasks(ownerUserId, todayIso());
   const [tasks, monthProgress, monthDayCounts] = await Promise.all([
     listTasksForOwner(ownerUserId, range),
     getPersonalMonthProgress(ownerUserId, calendarYearMonth),
