@@ -5,8 +5,14 @@ import { CULTURE_ARTICLES, RECOGNITION_LISTS, RULE_DOCUMENTS, POLICIES } from '@
 import { buildFeed } from '@/lib/content/feed';
 import { listRules } from '@/lib/rules';
 import { listQuotes } from '@/lib/quotes';
-import { countActiveUsersByGender, countActiveUsersByDepartment, listActiveBirthdaysThisMonth } from '@/lib/users';
+import {
+  countActiveUsersByGender,
+  countActiveUsersByDepartment,
+  listActiveBirthdaysThisMonth,
+  findAvatarUrlsByIds,
+} from '@/lib/users';
 import { listStickyNotes } from '@/lib/sticky-notes';
+import { ORG_CHART_PEOPLE } from '@/lib/content/org-chart-people';
 import { docIdsVisibleTo } from '@/lib/rule-permissions';
 import ThongBaoSection from '@/components/dashboard/thongbao-section';
 import DashboardBento from '@/components/dashboard/dashboard-bento';
@@ -104,6 +110,14 @@ export default async function DashboardHome() {
   const quotes = await listQuotes();
   const stickyNotes = await listStickyNotes();
 
+  // Sơ đồ tổ chức: photoUrl trong ORG_CHART_PEOPLE là ảnh chụp lúc dựng sơ đồ — ghi đè bằng
+  // avatar hiện tại của user (nếu có userId) để tự cập nhật khi ai đó đổi avatar sau này.
+  const orgChartUserIds = [...new Set(ORG_CHART_PEOPLE.map((p) => p.userId).filter((id): id is number => id !== null))];
+  const liveAvatars = await findAvatarUrlsByIds(orgChartUserIds);
+  const orgChartPeople = ORG_CHART_PEOPLE.map((p) =>
+    p.userId !== null && liveAvatars.get(p.userId) ? { ...p, photoUrl: liveAvatars.get(p.userId)! } : p
+  );
+
   return (
     <div className="flex flex-col">
       <div className="dashboard-home-intro mx-auto w-full max-w-[1500px] px-4 pt-8 sm:px-6 sm:pt-10 min-[1025px]:px-8 min-[1025px]:pt-16">
@@ -139,6 +153,7 @@ export default async function DashboardHome() {
             departmentCounts={departmentCounts}
             birthdays={birthdays}
             quotes={quotes}
+            orgChartPeople={orgChartPeople}
           />
         </Reveal>
 

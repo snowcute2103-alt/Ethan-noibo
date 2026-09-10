@@ -216,6 +216,18 @@ export async function findActiveUserAvatarUrlByUsername(username: string): Promi
   return (rows[0]?.avatar_url as string | undefined) ?? null;
 }
 
+/** Avatar hiện tại của nhiều user cùng lúc, theo id — dùng để sơ đồ tổ chức (org-chart-people.ts)
+ *  hiển thị avatar mới nhất thay vì ảnh chụp lúc dựng sơ đồ. */
+export async function findAvatarUrlsByIds(ids: number[]): Promise<Map<number, string | null>> {
+  const map = new Map<number, string | null>();
+  if (ids.length === 0) return map;
+  const rows = await sql.query('SELECT id, avatar_url FROM users WHERE id = ANY($1)', [ids]);
+  for (const row of rows) {
+    map.set(row.id as number, (row.avatar_url as string | null) ?? null);
+  }
+  return map;
+}
+
 export async function findUserById(id: number): Promise<UserRow | null> {
   const rows = await sql.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id]);
   return rows[0] ? mapRow(rows[0]) : null;

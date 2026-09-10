@@ -20,7 +20,7 @@ import BirthdayModal from '@/components/dashboard/birthday-modal';
 import FireworkBurst from '@/components/dashboard/firework-burst';
 import InspireQuoteWidget from '@/components/dashboard/inspire-quote-widget';
 import OrgChartPersonPopup from '@/components/dashboard/org-chart-person-popup';
-import { ORG_CHART_PEOPLE, type OrgChartPerson } from '@/lib/content/org-chart-people';
+import type { OrgChartPerson } from '@/lib/content/org-chart-people';
 import type { Quote } from '@/lib/quotes';
 import birthdayCelebration from '@/sinhnhat.jpeg';
 import headcountIllustration from '@/nhansu.png';
@@ -37,6 +37,7 @@ interface DashboardBentoProps {
   departmentCounts: HeadcountByDepartment[];
   birthdays: BirthdayPerson[];
   quotes: Quote[];
+  orgChartPeople: OrgChartPerson[];
 }
 
 const BIRTHDAY_BALLOONS = [
@@ -138,6 +139,7 @@ export default function DashboardBento({
   departmentCounts,
   birthdays,
   quotes,
+  orgChartPeople,
 }: DashboardBentoProps) {
   const [birthdayOpen, setBirthdayOpen] = useState(false);
   const [birthdayMonthOffset, setBirthdayMonthOffset] = useState(0);
@@ -461,7 +463,7 @@ export default function DashboardBento({
                       unoptimized
                       className="block h-auto w-full"
                     />
-                    {ORG_CHART_PEOPLE.map((person, i) => (
+                    {orgChartPeople.map((person, i) => (
                       <button
                         key={i}
                         type="button"
