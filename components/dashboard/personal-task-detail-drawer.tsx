@@ -233,6 +233,21 @@ export default function PersonalTaskDetailDrawer({
 
   function uploadImages(files: File[]) {
     if (files.length === 0) return;
+    // Chặn sớm ở client trước khi gọi server action — ảnh dán từ clipboard
+    // (vd screenshot màn hình Retina) có thể vượt hẳn giới hạn body của Next
+    // (next.config bodySizeLimit), khi đó request bị hạ tầng từ chối thẳng và
+    // hiện lỗi khó hiểu "An unexpected response was received from the
+    // server." thay vì thông báo rõ ràng dưới đây. Ngưỡng khớp
+    // PERSONAL_TASK_IMAGE_MAX_BYTES/PERSONAL_TASK_IMAGES_MAX_TOTAL_BYTES ở
+    // app/dashboard/giao-task/actions.ts (server vẫn là nguồn kiểm tra thật).
+    if (files.some((file) => file.size > 5 * 1024 * 1024)) {
+      setError('Mỗi ảnh không được vượt quá 5MB.');
+      return;
+    }
+    if (files.reduce((total, file) => total + file.size, 0) > 20 * 1024 * 1024) {
+      setError('Tổng dung lượng ảnh mỗi lần tải không được vượt quá 20MB.');
+      return;
+    }
     const formData = new FormData();
     files.forEach((file) => formData.append('files', file));
     startTransition(() => {
