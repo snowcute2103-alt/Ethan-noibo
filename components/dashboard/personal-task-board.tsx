@@ -685,7 +685,7 @@ export function PersonalKanban({
         }`}
       >
         <div className="flex items-center gap-2 bg-gold px-3 py-2.5">
-          <strong className="font-heading text-sm font-normal uppercase tracking-[0.1em] text-navy">Task Sếp đưa</strong>
+          <strong className="font-heading text-sm font-normal uppercase tracking-[0.1em] text-navy">Task được giao</strong>
           <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-white/40 px-1 text-xs font-bold text-navy">{bossTasks.length}</span>
         </div>
         <div className="flex flex-1 flex-col gap-2 bg-[#FDF6E7] p-2.5">

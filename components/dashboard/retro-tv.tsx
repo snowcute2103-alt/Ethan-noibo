@@ -108,10 +108,12 @@ export default function RetroTv() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pelicanFrameRef = useRef<HTMLIFrameElement>(null);
   const pelicanBgmRef = useRef<HTMLAudioElement>(null);
-  // Xáo 1 lần lúc mount — mỗi lần load trang ra thứ tự chuyển kênh khác nhau, kênh mặc định
-  // cũng đổi theo (phần tử đầu của mảng đã xáo) thay vì luôn là kênh cố định.
+  // Xáo 1 lần lúc mount — vid5 luôn đứng đầu (kênh mặc định khi mở trang), các kênh còn lại
+  // xáo ngẫu nhiên phía sau để thứ tự "Chuyển kênh" vẫn đổi mỗi lần load trang.
   const channelOrderRef = useRef<TvChannel[] | null>(null);
-  if (!channelOrderRef.current) channelOrderRef.current = shuffle(CHANNEL_POOL);
+  if (!channelOrderRef.current) {
+    channelOrderRef.current = ['vid5', ...shuffle(CHANNEL_POOL.filter((c) => c !== 'vid5'))];
+  }
   const channelOrder = channelOrderRef.current;
   const reduceEffects = useReducedEffects();
   const [channel, setChannel] = useState<TvChannel>(() => channelOrder[0]);
