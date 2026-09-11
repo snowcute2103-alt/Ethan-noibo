@@ -1,21 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
-import { WEBSITE_REPORTS } from '@/lib/content/reports';
-import { canViewWebsiteReports } from '@/lib/report-access';
-import ReportDashboard from '@/components/dashboard/report-dashboard';
 
-export default async function BaoCaoPage() {
-  const session = await getSession();
-  if (!session) redirect('/login');
-  if (!canViewWebsiteReports(session.userId)) redirect('/dashboard');
-
-  return (
-    <div className="relative overflow-hidden bg-surface-2">
-      <div className="pointer-events-none absolute -right-40 top-20 h-96 w-96 rounded-full bg-blue/5 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -left-48 top-[700px] h-96 w-96 rounded-full bg-gold/10 blur-3xl" aria-hidden="true" />
-      <div className="relative mx-auto w-full max-w-[1500px] px-4 py-8 sm:px-6 sm:py-10 min-[1025px]:px-8 min-[1025px]:py-28">
-        <ReportDashboard reports={WEBSITE_REPORTS} />
-      </div>
-    </div>
-  );
+/** Báo cáo website đã dời vào trong "Quản trị" — giữ route cũ chỉ để redirect,
+ *  tránh gãy bookmark/link cũ trỏ tới /dashboard/bao-cao. */
+export default function BaoCaoRedirectPage() {
+  redirect('/dashboard/admin/bao-cao');
 }

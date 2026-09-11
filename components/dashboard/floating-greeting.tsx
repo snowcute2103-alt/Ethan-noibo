@@ -20,7 +20,7 @@ const MESSAGES = [
 
 // Giao Task, Quản trị (admin) và Báo cáo là các trang thao tác nghiệp vụ —
 // không hiện nút lời nhắn nổi ở đây để tránh che nút bấm/nội dung bảng.
-const HIDDEN_ROUTE_PREFIXES = ['/dashboard/giao-task', '/dashboard/admin', '/dashboard/bao-cao'] as const;
+const HIDDEN_ROUTE_PREFIXES = ['/dashboard/giao-task', '/dashboard/admin'] as const;
 
 const PAGE_POSITIONS = [
   { route: '/dashboard/khenthuong', top: 620, side: 'right', offset: '4%' },

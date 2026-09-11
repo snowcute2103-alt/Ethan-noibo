@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
+import { canViewWebsiteReports } from '@/lib/report-access';
 import AdminNavTabs from '@/components/dashboard/admin/admin-nav-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -23,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
       <Separator className="mt-6" />
-      <AdminNavTabs />
+      <AdminNavTabs showReportsTab={canViewWebsiteReports(session.userId)} />
       <div className="mt-5 min-w-0 min-[1025px]:mt-8">{children}</div>
     </div>
   );

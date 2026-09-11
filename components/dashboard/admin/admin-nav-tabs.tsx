@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellRing, BookOpenCheck, FileKey2, Users } from 'lucide-react';
+import { BarChart3, BellRing, BookOpenCheck, FileKey2, Users } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -18,13 +18,28 @@ const TABS = [
   },
 ];
 
-export default function AdminNavTabs() {
+const REPORTS_TAB = {
+  href: '/dashboard/admin/bao-cao',
+  label: 'Báo cáo',
+  icon: BarChart3,
+  isActive: (p: string) => p.startsWith('/dashboard/admin/bao-cao'),
+};
+
+interface AdminNavTabsProps {
+  /** Báo cáo website chỉ dành riêng cho vài người (canViewWebsiteReports), hẹp
+   *  hơn phạm vi "mọi BGĐ" của cả khu Quản trị — nên tab này ẩn/hiện theo
+   *  quyền riêng thay vì luôn hiện như 4 tab còn lại. */
+  showReportsTab?: boolean;
+}
+
+export default function AdminNavTabs({ showReportsTab }: AdminNavTabsProps) {
   const pathname = usePathname();
+  const tabs = showReportsTab ? [...TABS, REPORTS_TAB] : TABS;
 
   return (
     <nav aria-label="Điều hướng quản trị" className="-mx-4 mt-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
       <div className="flex min-w-max gap-2">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = tab.isActive(pathname);
         const Icon = tab.icon;
         return (

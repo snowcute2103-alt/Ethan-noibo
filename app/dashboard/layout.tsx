@@ -9,7 +9,6 @@ import { listRules } from '@/lib/rules';
 import { listAnnouncements } from '@/lib/announcements';
 import { announcementIdsVisibleTo } from '@/lib/announcement-permissions';
 import { NAV_ITEMS } from '@/lib/nav';
-import { canViewWebsiteReports } from '@/lib/report-access';
 import DashboardHeader from '@/components/dashboard/dashboard-header';
 import WhatsNewModal from '@/components/dashboard/whats-new-modal';
 import FloatingGreeting from '@/components/dashboard/floating-greeting';
@@ -44,14 +43,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Cùng avatar "Từ BGĐ" dùng ở ThongBaoSection — nguồn thống nhất cho mọi thông báo/rule mới.
   const bgdAvatarUrl = await findFullTierAvatarUrl();
 
-  // "Báo cáo" chỉ hiện với Minh Nguyệt và Nguyễn Đình Duy. "Giao Task" hiện
-  // với mọi người đã đăng nhập; "Quản trị" chỉ hiện với BGĐ. Các mục này
-  // không nằm trong NAV_ITEMS tĩnh vì cần session để quyết định. Route/action
-  // vẫn tự chặn ở tầng server nếu ai đó gõ thẳng URL — ẩn nav chỉ là UX,
-  // không phải kiểm soát truy cập.
+  // "Giao Task" hiện với mọi người đã đăng nhập; "Quản trị" chỉ hiện với BGĐ
+  // (Báo cáo website đã dời vào trong Quản trị — xem AdminNavTabs). Các mục
+  // này không nằm trong NAV_ITEMS tĩnh vì cần session để quyết định. Route/
+  // action vẫn tự chặn ở tầng server nếu ai đó gõ thẳng URL — ẩn nav chỉ là
+  // UX, không phải kiểm soát truy cập.
   const navItems = [
     ...NAV_ITEMS,
-    ...(canViewWebsiteReports(session.userId) ? [{ href: '/dashboard/bao-cao', label: 'Báo cáo' }] : []),
     { href: '/dashboard/giao-task', label: 'Giao Task' },
     ...(session.tier === 'full' ? [{ href: '/dashboard/admin', label: 'Quản trị' }] : []),
   ];
