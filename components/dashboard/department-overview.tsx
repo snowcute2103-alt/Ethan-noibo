@@ -104,9 +104,11 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
   );
 }
 
-/** 3 slot đầu của bảng màu categorical (xem dataviz skill) — thứ tự cố định,
- *  không xoay vòng, đã qua kiểm tra phân biệt được với người mù màu. */
-const MEMBER_COLORS = ['#2a78d6', '#eb6834', '#1baf7a'];
+/** Bảng màu categorical (xem dataviz skill) — thứ tự cố định, không xoay
+ *  vòng, đã qua kiểm tra phân biệt được với người mù màu. Không dùng aqua mặc
+ *  định vì trông giống hệt màu xanh lá (emerald-500) của thanh tiến độ tổng
+ *  ngay phía trên, dễ gây nhầm "ai cũng như nhau". */
+const MEMBER_COLORS = ['#2a78d6', '#e87ba4', '#eb6834'];
 
 /** Gộp tiến độ cả phòng IT thành 1 dòng duy nhất thay vì liệt kê từng người —
  *  cả phòng dùng chung 1 board nên xem theo người dễ gây hiểu nhầm là mỗi
