@@ -1,7 +1,13 @@
 'use client';
 
-import RetroTv from '@/components/dashboard/retro-tv';
+import dynamic from 'next/dynamic';
 import { Spotlight } from '@/components/ui/spotlight';
+
+// RetroTv xáo thứ tự kênh bằng Math.random() lúc render — SSR thì random ở server,
+// hydrate lại random khác ở client, nên 2 bên luôn lệch nhau (gây lỗi "hydration
+// mismatch" ở kênh preload). Tắt hẳn SSR cho component này thay vì cố đồng bộ 2 lần
+// random riêng biệt — component chỉ dựng ở client nên không còn gì để lệch.
+const RetroTv = dynamic(() => import('@/components/dashboard/retro-tv'), { ssr: false });
 
 const STARS = [
   { left: '2%', size: 2, duration: 11, delay: 0 },
