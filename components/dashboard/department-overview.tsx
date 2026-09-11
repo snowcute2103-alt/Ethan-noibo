@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { Code2 } from 'lucide-react';
 import type { DepartmentGroup } from '@/lib/teams';
 
 interface DepartmentOverviewProps {
@@ -39,7 +40,19 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 min-[1025px]:mt-4 min-[1025px]:gap-5 xl:grid-cols-3">
-        {orderedGroups.map((group) => (
+        {orderedGroups.map((group) =>
+          group.department === 'it' ? (
+            // Cả phòng dùng chung 1 board — bấm bất kỳ đâu trong thẻ (tiêu đề, dòng
+            // tổng, từng thanh mini) đều vào thẳng board đó, thay vì chỉ dòng tiêu đề.
+            <Link
+              key={group.department}
+              href={`/dashboard/giao-task/${group.department}`}
+              className="stat-panel block rounded-[16px] bg-white p-3 transition-colors duration-150 hover:bg-surface-2 min-[1025px]:p-4"
+            >
+              <span className="font-heading text-base font-bold text-navy">{group.departmentLabel}</span>
+              <ItDepartmentCluster group={group} />
+            </Link>
+          ) : (
           <div key={group.department} className="stat-panel rounded-[16px] bg-white p-3 min-[1025px]:p-4">
             <Link
               href={`/dashboard/giao-task/${group.department}`}
@@ -47,9 +60,6 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
             >
               {group.departmentLabel}
             </Link>
-            {group.department === 'it' ? (
-              <ItDepartmentCluster group={group} />
-            ) : (
             <ul className="mt-3 flex flex-col gap-2">
               {group.members.map((member) => {
                 const pct = member.monthProgress.total > 0 ? Math.round((member.monthProgress.done / member.monthProgress.total) * 100) : 0;
@@ -86,9 +96,9 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
                 );
               })}
             </ul>
-            )}
           </div>
-        ))}
+          )
+        )}
       </div>
     </div>
   );
@@ -108,24 +118,21 @@ function ItDepartmentCluster({ group }: { group: DepartmentGroup }) {
 
   return (
     <ul className="mt-3 flex flex-col gap-2">
-      <li>
-        <Link
-          href={`/dashboard/giao-task/${group.department}`}
-          className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left transition-colors duration-150 hover:bg-surface-2"
-        >
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-[10px] font-bold text-white">IT</span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold uppercase text-navy">
-              {group.departmentLabel} ({group.members.length} người)
-            </span>
-            <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-              <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
-            </span>
+      <li className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-white">
+          <Code2 className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold uppercase text-navy">
+            {group.departmentLabel} ({group.members.length} người)
           </span>
-          <span className="shrink-0 text-xs font-semibold tabular-nums text-muted">
-            {done}/{total}
+          <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+            <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
           </span>
-        </Link>
+        </span>
+        <span className="shrink-0 text-xs font-semibold tabular-nums text-muted">
+          {done}/{total}
+        </span>
       </li>
       <li className="mt-1 flex flex-col gap-2 border-t border-surface-2 px-2 pt-3">
         {group.members.map((member, index) => {
@@ -139,7 +146,23 @@ function ItDepartmentCluster({ group }: { group: DepartmentGroup }) {
               className="flex items-center gap-2"
               title={`${member.fullName}: ${member.monthProgress.done}/${member.monthProgress.total}`}
             >
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+              {member.avatarUrl ? (
+                <Image
+                  src={member.avatarUrl}
+                  alt={member.fullName}
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <span
+                  className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px] font-bold text-white"
+                  style={{ backgroundColor: color }}
+                  aria-hidden="true"
+                >
+                  {label[0]?.toUpperCase() ?? '?'}
+                </span>
+              )}
               <span className="w-14 shrink-0 truncate text-[11px] font-medium text-muted">{label}</span>
               <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                 <span className="block h-full rounded-full" style={{ width: `${memberPct}%`, backgroundColor: color }} />

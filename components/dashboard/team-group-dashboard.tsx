@@ -43,7 +43,7 @@ export default function TeamGroupDashboard({ groupLabel, members, selectedUserId
             className="mb-3 flex items-center gap-1 font-heading text-xs font-bold uppercase tracking-[0.2em] text-blue hover:text-blue-cta"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            Tổng quan 6 đội
+            Quay lại trang Giao Task tổng
           </Link>
         )}
         <h1 className="font-heading text-2xl font-semibold text-navy sm:text-3xl">Nhóm {groupLabel}</h1>
