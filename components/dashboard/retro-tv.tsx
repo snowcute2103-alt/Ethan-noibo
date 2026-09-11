@@ -43,10 +43,14 @@ function shuffle<T>(items: readonly T[]): T[] {
   return result;
 }
 
-/** Kênh nào chưa hiển thị thì âm thầm tải trước ở nền, để bấm "Chuyển kênh" phát
- *  ngay từ cache thay vì đợi tải lại từ mạng mỗi lần. Bỏ qua khi reduceEffects
- *  (mobile/tablet) để không tốn băng thông data của người dùng. */
-const VIDEO_CHANNELS = Object.keys(VIDEO_CHANNEL_SRC) as TvChannel[];
+/** Chỉ tải ngầm trước ĐÚNG 1 kênh kế tiếp trong thứ tự "Chuyển kênh" (không phải
+ *  toàn bộ 6 kênh như trước — tốn ~30MB ngay khi mở trang chủ dù chưa chắc xem hết).
+ *  Bấm "Chuyển kênh" liên tiếp (thao tác phổ biến nhất) vẫn mượt vì kênh kế tiếp
+ *  luôn sẵn trong cache; nhảy xa hơn 1 kênh thì phải đợi tải như bình thường. Bỏ
+ *  qua khi reduceEffects (mobile/tablet) để không tốn băng thông data người dùng. */
+function nextPreloadChannel(channelOrder: readonly TvChannel[], currentChannel: TvChannel): TvChannel {
+  return channelOrder[(channelOrder.indexOf(currentChannel) + 1) % channelOrder.length];
+}
 
 function getChannelLabel(channel: TvChannel) {
   switch (channel) {
@@ -230,6 +234,9 @@ export default function RetroTv() {
     isPelicanNight,
   );
 
+  const preloadChannel = nextPreloadChannel(channelOrder, channel);
+  const preloadSrc = VIDEO_CHANNEL_SRC[preloadChannel];
+
   return (
     <div className="retro-tv-widget d-flex" data-channel={channel} data-muted={isMuted}>
       <tv-content>
@@ -253,20 +260,18 @@ export default function RetroTv() {
                 src={isPelicanChannel ? undefined : VIDEO_CHANNEL_SRC[channel]}
               />
               {channel === 'vid2' ? <div className="tv-vid2-tint" aria-hidden="true" /> : null}
-              {!reduceEffects
-                ? VIDEO_CHANNELS.filter((preloadChannel) => preloadChannel !== channel).map((preloadChannel) => (
-                    <video
-                      key={preloadChannel}
-                      className="tv-preload-video"
-                      src={VIDEO_CHANNEL_SRC[preloadChannel]}
-                      preload="auto"
-                      muted
-                      playsInline
-                      aria-hidden="true"
-                      tabIndex={-1}
-                    />
-                  ))
-                : null}
+              {!reduceEffects && preloadSrc ? (
+                <video
+                  key={preloadChannel}
+                  className="tv-preload-video"
+                  src={preloadSrc}
+                  preload="auto"
+                  muted
+                  playsInline
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
+              ) : null}
               <iframe
                 ref={pelicanFrameRef}
                 className={`tv-channel-frame${isPelicanChannel ? ' is-active' : ''}`}
