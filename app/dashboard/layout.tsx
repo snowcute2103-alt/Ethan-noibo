@@ -4,6 +4,7 @@ import { findUserById, findFullTierAvatarUrl } from '@/lib/users';
 import { canView } from '@/lib/roles';
 import { ANNOUNCEMENTS, NOTICES, POLICIES, RULE_DOCUMENTS } from '@/lib/content';
 import { buildWhatsNew } from '@/lib/content/whats-new';
+import { findAuthorAvatarUrls } from '@/lib/content/authors';
 import { docIdsVisibleTo } from '@/lib/rule-permissions';
 import { listRules } from '@/lib/rules';
 import { listAnnouncements } from '@/lib/announcements';
@@ -34,14 +35,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     (a) => canView(session, a.visibility) || visibleAnnouncementIds === 'all' || visibleAnnouncementIds.has(Number(a.id))
   );
 
+  // Cùng nguồn avatar với ThongBaoSection: authorAvatars khớp đúng tác giả
+  // từng Notice/Announcement; bgdAvatarUrl là fallback chung cho Policy/Rule
+  // (không có tác giả riêng).
+  const [authorAvatars, bgdAvatarUrl] = await Promise.all([findAuthorAvatarUrls(), findFullTierAvatarUrl()]);
   const whatsNew = buildWhatsNew({
     notices: NOTICES.filter((n) => canView(session, n.visibility)),
     policies: POLICIES.filter((p) => canView(session, p.visibility)),
     announcements: visibleAnnouncements,
     rules: visibleRules,
+    authorAvatars,
   });
-  // Cùng avatar "Từ BGĐ" dùng ở ThongBaoSection — nguồn thống nhất cho mọi thông báo/rule mới.
-  const bgdAvatarUrl = await findFullTierAvatarUrl();
 
   // "Giao Task" hiện với mọi người đã đăng nhập; "Quản trị" chỉ hiện với BGĐ
   // (Báo cáo website đã dời vào trong Quản trị — xem AdminNavTabs). Các mục

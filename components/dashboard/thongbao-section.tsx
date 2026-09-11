@@ -4,7 +4,8 @@ import { daysSince } from '@/lib/date';
 import { ANNOUNCEMENTS, NOTICES, POLICIES } from '@/lib/content';
 import { listAnnouncements } from '@/lib/announcements';
 import { announcementIdsVisibleTo } from '@/lib/announcement-permissions';
-import { findActiveUserAvatarUrlByUsername, findFullTierAvatarUrl } from '@/lib/users';
+import { findFullTierAvatarUrl } from '@/lib/users';
+import { findAuthorAvatarUrls } from '@/lib/content/authors';
 import NoticeBanner from '@/components/dashboard/notice-banner';
 import PolicyCard from '@/components/dashboard/policy-card';
 import AnnouncementList from '@/components/dashboard/announcement-list';
@@ -17,11 +18,7 @@ export default async function ThongBaoSection({ session }: { session: SessionPay
 
   const allAnnouncements = [...ANNOUNCEMENTS, ...(await listAnnouncements())];
   const visibleAnnouncementIds = await announcementIdsVisibleTo(session.userId, session.tier);
-  const [avatarUrl, duyAvatarUrl, nguyetAvatarUrl] = await Promise.all([
-    findFullTierAvatarUrl(),
-    findActiveUserAvatarUrlByUsername('duynguyen'),
-    findActiveUserAvatarUrlByUsername('minhnguyet'),
-  ]);
+  const [avatarUrl, authorAvatars] = await Promise.all([findFullTierAvatarUrl(), findAuthorAvatarUrls()]);
   const announcements = allAnnouncements.filter(
     (a) => canView(session, a.visibility) || visibleAnnouncementIds === 'all' || visibleAnnouncementIds.has(Number(a.id))
   );
@@ -35,7 +32,7 @@ export default async function ThongBaoSection({ session }: { session: SessionPay
       date: n.date,
       details: n.details,
       author: n.author,
-      authorAvatarUrl: n.author === 'Chị Nguyệt' ? nguyetAvatarUrl : undefined,
+      authorAvatarUrl: n.author ? (authorAvatars[n.author] ?? undefined) : undefined,
       rank: daysSince(n.date) ?? Number.POSITIVE_INFINITY,
       node: <NoticeBanner notices={[n]} />,
     })),
@@ -56,7 +53,7 @@ export default async function ThongBaoSection({ session }: { session: SessionPay
       excerpt: a.body,
       date: a.date,
       author: a.author,
-      authorAvatarUrl: a.author === 'Anh Duy' ? duyAvatarUrl : undefined,
+      authorAvatarUrl: a.author ? (authorAvatars[a.author] ?? undefined) : undefined,
       image: a.image,
       rank: daysSince(a.date) ?? Number.POSITIVE_INFINITY,
       node: <AnnouncementList announcements={[a]} />,

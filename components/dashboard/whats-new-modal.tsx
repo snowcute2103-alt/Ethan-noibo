@@ -88,13 +88,13 @@ export default function WhatsNewModal({ items, avatarUrl }: { items: WhatsNewIte
                   style={{ background: 'linear-gradient(135deg, #1A2745 0%, #0052CC 55%, #00D2FF 100%)' }}
                 >
                   <Image
-                    src={avatarUrl || avatarPlaceholder}
-                    alt="Từ BGĐ"
+                    src={(item.author ? item.authorAvatarUrl : avatarUrl) || avatarPlaceholder}
+                    alt={item.author ?? 'Từ BGĐ'}
                     width={20}
                     height={20}
                     className="h-5 w-5 shrink-0 rounded-full object-cover"
                   />
-                  <span className="font-semibold">BGĐ</span>
+                  <span className="font-semibold">{item.author ?? 'BGĐ'}</span>
                   <span className="text-white/80">{item.date}</span>
                 </span>
               </Link>

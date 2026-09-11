@@ -10,6 +10,10 @@ export interface WhatsNewItem {
   title: string;
   date: string;
   href: string;
+  /** Chỉ Notice/Announcement có tác giả cụ thể — Policy/Rule không có, hiện
+   *  fallback "BGĐ" chung ở WhatsNewModal. */
+  author?: string;
+  authorAvatarUrl?: string | null;
 }
 
 const MAX_ITEMS = 3;
@@ -24,6 +28,8 @@ export function buildWhatsNew(input: {
   policies: Policy[];
   announcements: Announcement[];
   rules: RuleDocument[];
+  /** Tên tác giả -> avatar hiện tại, xem lib/content/authors.ts. */
+  authorAvatars?: Record<string, string | null>;
 }): WhatsNewItem[] {
   const dated: { item: WhatsNewItem; rank: number }[] = [
     ...input.notices.map((n) => ({
@@ -33,6 +39,8 @@ export function buildWhatsNew(input: {
         title: n.title,
         date: n.date,
         href: '/dashboard#thong-bao',
+        author: n.author,
+        authorAvatarUrl: n.author ? (input.authorAvatars?.[n.author] ?? null) : null,
       },
       rank: daysSince(n.date) ?? Number.POSITIVE_INFINITY,
     })),
@@ -53,6 +61,8 @@ export function buildWhatsNew(input: {
         title: a.title,
         date: a.date,
         href: '/dashboard#thong-bao',
+        author: a.author,
+        authorAvatarUrl: a.author ? (input.authorAvatars?.[a.author] ?? null) : null,
       },
       rank: daysSince(a.date) ?? Number.POSITIVE_INFINITY,
     })),
