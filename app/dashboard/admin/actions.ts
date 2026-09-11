@@ -203,13 +203,16 @@ export async function bulkUpdateUsersAction(
   return { ok: true, failed };
 }
 
-/** Mở khoá đăng nhập cho nhiều user cùng lúc. */
+/** Mở khoá đăng nhập cho nhiều user cùng lúc — mỗi username độc lập nhau (khác hàng
+ *  DB, khác dòng audit log) nên chạy song song thay vì lần lượt từng người. */
 export async function bulkUnlockUsersAction(usernames: string[]): Promise<{ ok: true }> {
   const admin = await requireAdmin();
-  for (const username of usernames) {
-    await unlockUser(username);
-    await logAdminAction(admin.userId, 'user.unlock', null, { note: username });
-  }
+  await Promise.all(
+    usernames.map(async (username) => {
+      await unlockUser(username);
+      await logAdminAction(admin.userId, 'user.unlock', null, { note: username });
+    })
+  );
   return { ok: true };
 }
 
@@ -232,22 +235,28 @@ export async function revokePermissionAction(userId: number, docId: string): Pro
   return { ok: true };
 }
 
-/** Cấp quyền đọc 1 tài liệu cho nhiều user cùng lúc — dùng bởi thanh chọn hàng loạt. */
+/** Cấp quyền đọc 1 tài liệu cho nhiều user cùng lúc — dùng bởi thanh chọn hàng loạt.
+ *  Mỗi userId độc lập nhau nên chạy song song thay vì lần lượt. */
 export async function bulkGrantPermissionAction(userIds: number[], docId: string): Promise<{ ok: true }> {
   const admin = await requireAdmin();
-  for (const userId of userIds) {
-    await grantPermission(userId, docId, admin.userId);
-    await logAdminAction(admin.userId, 'permission.grant', userId, { docId });
-  }
+  await Promise.all(
+    userIds.map(async (userId) => {
+      await grantPermission(userId, docId, admin.userId);
+      await logAdminAction(admin.userId, 'permission.grant', userId, { docId });
+    })
+  );
   return { ok: true };
 }
 
-/** Thu hồi quyền đọc 1 tài liệu của nhiều user cùng lúc — dùng bởi thanh chọn hàng loạt. */
+/** Thu hồi quyền đọc 1 tài liệu của nhiều user cùng lúc — dùng bởi thanh chọn hàng loạt.
+ *  Mỗi userId độc lập nhau nên chạy song song thay vì lần lượt. */
 export async function bulkRevokePermissionAction(userIds: number[], docId: string): Promise<{ ok: true }> {
   const admin = await requireAdmin();
-  for (const userId of userIds) {
-    await revokePermission(userId, docId);
-    await logAdminAction(admin.userId, 'permission.revoke', userId, { docId });
-  }
+  await Promise.all(
+    userIds.map(async (userId) => {
+      await revokePermission(userId, docId);
+      await logAdminAction(admin.userId, 'permission.revoke', userId, { docId });
+    })
+  );
   return { ok: true };
 }

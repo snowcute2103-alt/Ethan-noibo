@@ -19,26 +19,31 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await getSession();
   if (!session) redirect('/login');
 
+  // 7 truy vấn độc lập nhau (không cái nào cần kết quả của cái khác) chạy chung
+  // trên MỌI trang trong /dashboard vì đây là layout chung — trước đây await
+  // tuần tự nên mỗi lần chuyển trang tốn 7 vòng round-trip nối tiếp tới Neon.
+  const [user, rulesFromDb, visibleRuleIds, announcementsFromDb, visibleAnnouncementIds, authorAvatars, bgdAvatarUrl] =
+    await Promise.all([
+      findUserById(session.userId),
+      listRules(),
+      docIdsVisibleTo(session.userId, session.tier),
+      listAnnouncements(),
+      announcementIdsVisibleTo(session.userId, session.tier),
+      findAuthorAvatarUrls(),
+      findFullTierAvatarUrl(),
+    ]);
   // getSession() đã đối chiếu user active trong DB — user luôn tồn tại ở đây.
-  const user = await findUserById(session.userId);
   if (!user) redirect('/login');
 
   // Tính "Có gì mới" ở layout chung (không phải riêng trang chủ) để nút chuông gim
   // xuất hiện xuyên suốt mọi trang trong /dashboard, không mất khi chuyển trang.
-  const allRules = [...RULE_DOCUMENTS, ...(await listRules())];
-  const visibleRuleIds = await docIdsVisibleTo(session.userId, session.tier);
+  const allRules = [...RULE_DOCUMENTS, ...rulesFromDb];
   const visibleRules = visibleRuleIds === 'all' ? allRules : allRules.filter((d) => visibleRuleIds.has(d.id));
 
-  const allAnnouncements = [...ANNOUNCEMENTS, ...(await listAnnouncements())];
-  const visibleAnnouncementIds = await announcementIdsVisibleTo(session.userId, session.tier);
+  const allAnnouncements = [...ANNOUNCEMENTS, ...announcementsFromDb];
   const visibleAnnouncements = allAnnouncements.filter(
     (a) => canView(session, a.visibility) || visibleAnnouncementIds === 'all' || visibleAnnouncementIds.has(Number(a.id))
   );
-
-  // Cùng nguồn avatar với ThongBaoSection: authorAvatars khớp đúng tác giả
-  // từng Notice/Announcement; bgdAvatarUrl là fallback chung cho Policy/Rule
-  // (không có tác giả riêng).
-  const [authorAvatars, bgdAvatarUrl] = await Promise.all([findAuthorAvatarUrls(), findFullTierAvatarUrl()]);
   const whatsNew = buildWhatsNew({
     notices: NOTICES.filter((n) => canView(session, n.visibility)),
     policies: POLICIES.filter((p) => canView(session, p.visibility)),

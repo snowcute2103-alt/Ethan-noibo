@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { AlertCircle, ListChecks, Search, SearchX, ShieldCheck } from 'lucide-react';
-import type { UserRow } from '@/lib/users';
+import type { SafeUserRow as UserRow } from '@/lib/users';
 import { DEPARTMENTS, departmentLabel, tierLabel, type Tier } from '@/lib/roles';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';

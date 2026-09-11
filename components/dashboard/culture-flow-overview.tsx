@@ -1,17 +1,21 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { motion } from 'motion/react';
 import type { CultureArticle } from '@/lib/content';
 import FlowArt, { FlowSection } from '@/components/ui/story-scroll';
 import { CultureArticleDetail } from '@/components/dashboard/culture-article-detail';
 import { FounderStoryContent } from '@/components/dashboard/founder-story-content';
 import FounderStoryFlipbook from '@/components/dashboard/founder-story-flipbook';
-import AirHockeyGame from '@/components/dashboard/air-hockey-game';
 import { ParallaxHero } from '@/components/ui/parallax-scrolling';
 import parallaxLayerBgImg from '@/public/images/van-hoa/parallax-layer-bg.webp';
 import parallaxLayerMidImg from '@/public/images/van-hoa/parallax-layer-mid.webp';
 import parallaxLayerFgImg from '@/public/images/van-hoa/parallax-layer-fg.webp';
 import { useReducedEffects } from '@/lib/use-reduced-effects';
+
+// Game canvas nặng, nằm ở chương cuối cùng (phải cuộn hết trang mới tới) — tách
+// chunk riêng + bỏ SSR thay vì gộp vào bundle chính tải ngay từ đầu trang Văn hoá.
+const AirHockeyGame = dynamic(() => import('@/components/dashboard/air-hockey-game'), { ssr: false });
 
 const CHAPTER_STARS = [
   { top: '8%', left: '6%', size: 2, duration: 3.4, delay: 0 },

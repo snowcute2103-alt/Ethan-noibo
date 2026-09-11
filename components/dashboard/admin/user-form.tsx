@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { AlertCircle, Camera, CheckCircle2, KeyRound } from 'lucide-react';
-import type { UserRow } from '@/lib/users';
+import type { SafeUserRow as UserRow } from '@/lib/users';
 import { DEPARTMENTS, tierLabel, type Department, type Tier } from '@/lib/roles';
 import { createUserAction, updateUserAction, resetPasswordAction, uploadAvatarAction } from '@/app/dashboard/admin/actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';

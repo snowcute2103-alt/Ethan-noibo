@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Plus, Trash2, Upload, X } from 'lucide-react';
 import type { RuleDocument, SopSection } from '@/lib/content/sop';
-import type { UserRow } from '@/lib/users';
+import type { SafeUserRow as UserRow } from '@/lib/users';
 import {
   createRuleAction,
   updateRuleAction,

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { AlertCircle, Info, Plus, SearchX } from 'lucide-react';
 import type { Announcement } from '@/lib/content/announcements';
-import type { UserRow } from '@/lib/users';
+import type { SafeUserRow as UserRow } from '@/lib/users';
 import { DEPARTMENTS, type Department, type Tier } from '@/lib/roles';
 import {
   createAnnouncementAction,

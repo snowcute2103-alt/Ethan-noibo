@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { sql } from './db';
 import type { Tier } from './roles';
 
@@ -9,11 +10,16 @@ import type { Tier } from './roles';
  * khớp với quy tắc canView() hiện tại (bypass theo department==='bgd'). Nếu sau
  * này nới lỏng constraint đó, phải rà lại chỗ này.
  */
-export async function docIdsVisibleTo(userId: number, tier: Tier): Promise<Set<string> | 'all'> {
+// cache() dedupe trong phạm vi 1 request — cùng lý do với listRules() ở lib/rules.ts
+// (layout.tsx và page.tsx cùng gọi cho cùng userId/tier trong 1 lượt tải trang chủ).
+export const docIdsVisibleTo = cache(async function docIdsVisibleTo(
+  userId: number,
+  tier: Tier
+): Promise<Set<string> | 'all'> {
   if (tier === 'full') return 'all';
   const rows = await sql.query('SELECT doc_id FROM rule_permissions WHERE user_id = $1', [userId]);
   return new Set(rows.map((r) => r.doc_id as string));
-}
+});
 
 export async function grantPermission(userId: number, docId: string, grantedBy: number | null): Promise<void> {
   await sql.query(

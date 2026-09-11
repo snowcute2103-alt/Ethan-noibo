@@ -286,9 +286,17 @@ export async function bumpSessionVersion(userId: number): Promise<void> {
   ]);
 }
 
-export async function listUsers(): Promise<UserRow[]> {
+/** UserRow không có password_hash — dùng cho mọi nơi liệt kê user để hiển thị UI
+ *  (bảng quản trị, danh sách chọn người...), tránh lộ mật khẩu đã băm vào payload
+ *  gửi xuống client component (Next.js serialize nguyên props xuống trình duyệt). */
+export type SafeUserRow = Omit<UserRow, 'passwordHash'>;
+
+export async function listUsers(): Promise<SafeUserRow[]> {
   const rows = await sql.query(`SELECT ${USER_COLUMNS} FROM users ORDER BY full_name ASC`);
-  return rows.map(mapRow);
+  return rows.map((row) => {
+    const { passwordHash: _passwordHash, ...safe } = mapRow(row);
+    return safe;
+  });
 }
 
 /** Đếm số tài khoản tier=full đang active — dùng để chặn tự khoá/hạ quyền admin cuối cùng. */

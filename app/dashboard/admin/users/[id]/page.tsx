@@ -10,5 +10,9 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   const user = await findUserById(userId);
   if (!user) notFound();
 
-  return <UserForm mode="edit" user={user} />;
+  // Bỏ password_hash trước khi truyền cho UserForm ('use client') — Next.js serialize
+  // nguyên props xuống trình duyệt, không được để mật khẩu đã băm lọt vào đó.
+  const { passwordHash: _passwordHash, ...safeUser } = user;
+
+  return <UserForm mode="edit" user={safeUser} />;
 }

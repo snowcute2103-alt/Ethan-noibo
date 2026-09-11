@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { sql } from './db';
 import type { RuleDocument, SopSection } from './content/sop';
 
@@ -52,10 +53,14 @@ async function generateUniqueId(title: string): Promise<string> {
   }
 }
 
-export async function listRules(): Promise<RuleDocument[]> {
+// cache() dedupe trong phạm vi 1 request — layout.tsx (WhatsNew) và page.tsx
+// (khối SOP) cùng gọi listRules() cho cùng 1 lượt tải trang chủ, tránh 2 round-trip
+// Neon cho cùng dữ liệu. Không ảnh hưởng createRule/updateRule/deleteRule vì đó là
+// server action, chạy ở request riêng, không dùng chung cache của lượt render trang.
+export const listRules = cache(async function listRules(): Promise<RuleDocument[]> {
   const rows = await sql.query('SELECT * FROM rules ORDER BY created_at ASC');
   return rows.map(mapRow);
-}
+});
 
 export async function findRule(id: string): Promise<RuleDocument | null> {
   const rows = await sql.query('SELECT * FROM rules WHERE id = $1', [id]);

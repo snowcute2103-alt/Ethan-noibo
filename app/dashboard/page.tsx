@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { getSession } from '@/lib/auth';
 import { canView, departmentLabel } from '@/lib/roles';
 import { CULTURE_ARTICLES, RECOGNITION_LISTS, RULE_DOCUMENTS, POLICIES } from '@/lib/content';
@@ -20,10 +21,13 @@ import ContentTeaserCard from '@/components/dashboard/content-teaser-card';
 import HoverToneSection from '@/components/dashboard/hover-tone-section';
 import GreetingHero from '@/components/dashboard/greeting-hero';
 import StickyBoard from '@/components/dashboard/sticky-board';
-import RuleLaptopScene from '@/components/dashboard/rule-laptop-scene';
-import TarotSection from '@/components/dashboard/tarot-section';
 import Reveal from '@/components/reveal';
 import { RULE_DOC_IMAGE, CATEGORY_IMAGE, FALLBACK_IMAGE } from '@/lib/content/images';
+
+// Cả 2 đều nằm cuối trang chủ (dưới màn hình đầu) — tách chunk JS riêng thay vì
+// gộp vào bundle chính, trì hoãn tải cho tới khi trình duyệt thực sự cần tới.
+const RuleLaptopScene = dynamic(() => import('@/components/dashboard/rule-laptop-scene'));
+const TarotSection = dynamic(() => import('@/components/dashboard/tarot-section'));
 
 function greetingForHour(hour: number) {
   if (hour < 11) return 'Chào buổi sáng';
@@ -60,8 +64,26 @@ export default async function DashboardHome() {
   const latestRecognitionNames = latestRecognitionList?.names.slice(0, 3) ?? [];
   const latestRecognitionCount = latestRecognitionList?.names.length ?? 0;
 
-  const allRules = [...RULE_DOCUMENTS, ...(await listRules())];
-  const visibleRuleIds = await docIdsVisibleTo(session.userId, session.tier);
+  // Sơ đồ tổ chức: photoUrl trong ORG_CHART_PEOPLE là ảnh chụp lúc dựng sơ đồ — ghi đè bằng
+  // avatar hiện tại của user (nếu có userId) để tự cập nhật khi ai đó đổi avatar sau này.
+  const orgChartUserIds = [...new Set(ORG_CHART_PEOPLE.map((p) => p.userId).filter((id): id is number => id !== null))];
+
+  // 8 truy vấn độc lập nhau chạy song song thay vì await tuần tự — listRules/
+  // docIdsVisibleTo còn được cache() dedupe với layout.tsx (cùng gọi cho cùng
+  // lượt tải trang chủ) nên 2 lệnh này thực chất không tốn thêm round-trip nào.
+  const [rulesFromDb, visibleRuleIds, headcount, departmentCounts, birthdays, quotes, stickyNotes, liveAvatars] =
+    await Promise.all([
+      listRules(),
+      docIdsVisibleTo(session.userId, session.tier),
+      countActiveUsersByGender(),
+      countActiveUsersByDepartment(),
+      listActiveBirthdaysThisMonth(),
+      listQuotes(),
+      listStickyNotes(),
+      findAvatarUrlsByIds(orgChartUserIds),
+    ]);
+
+  const allRules = [...RULE_DOCUMENTS, ...rulesFromDb];
   const sopDocs = visibleRuleIds === 'all' ? allRules : allRules.filter((d) => visibleRuleIds.has(d.id));
 
   // "Nội dung khác" chỉ hiển thị SOP & Quy trình và Chính sách công ty — Khen thưởng/Văn hoá đã có khối riêng ở DashboardBento.
@@ -103,16 +125,7 @@ export default async function DashboardHome() {
   const contentCards = [...sopCards, ...policyCards];
 
   const greeting = greetingForHour(currentHanoiHour());
-  const headcount = await countActiveUsersByGender();
-  const departmentCounts = await countActiveUsersByDepartment();
-  const birthdays = await listActiveBirthdaysThisMonth();
-  const quotes = await listQuotes();
-  const stickyNotes = await listStickyNotes();
 
-  // Sơ đồ tổ chức: photoUrl trong ORG_CHART_PEOPLE là ảnh chụp lúc dựng sơ đồ — ghi đè bằng
-  // avatar hiện tại của user (nếu có userId) để tự cập nhật khi ai đó đổi avatar sau này.
-  const orgChartUserIds = [...new Set(ORG_CHART_PEOPLE.map((p) => p.userId).filter((id): id is number => id !== null))];
-  const liveAvatars = await findAvatarUrlsByIds(orgChartUserIds);
   const orgChartPeople = ORG_CHART_PEOPLE.map((p) =>
     p.userId !== null && liveAvatars.get(p.userId) ? { ...p, photoUrl: liveAvatars.get(p.userId)! } : p
   );

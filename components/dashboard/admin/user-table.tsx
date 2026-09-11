@@ -22,7 +22,7 @@ import {
   UserRoundX,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import type { UserRow } from '@/lib/users';
+import type { SafeUserRow as UserRow } from '@/lib/users';
 import { DEPARTMENTS, departmentLabel, tierLabel, type Department, type Tier } from '@/lib/roles';
 import type { AuditAction, AuditLogEntry } from '@/lib/audit';
 import {
