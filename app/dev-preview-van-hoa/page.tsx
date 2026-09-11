@@ -6,7 +6,7 @@ export default function DevPreviewVanHoaPage() {
   return (
     <div className="bg-white">
       <CultureGalleryHero />
-      <CultureFlowOverview articles={CULTURE_ARTICLES} />
+      <CultureFlowOverview articles={CULTURE_ARTICLES} viewerUserId={0} initialLeaderboard={[]} />
     </div>
   );
 }

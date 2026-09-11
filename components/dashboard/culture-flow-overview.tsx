@@ -1,12 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'motion/react';
 import type { CultureArticle } from '@/lib/content';
+import type { AirHockeyLeaderboardEntry } from '@/lib/air-hockey';
 import FlowArt, { FlowSection } from '@/components/ui/story-scroll';
 import { CultureArticleDetail } from '@/components/dashboard/culture-article-detail';
 import { FounderStoryContent } from '@/components/dashboard/founder-story-content';
 import FounderStoryFlipbook from '@/components/dashboard/founder-story-flipbook';
+import AirHockeyLeaderboard from '@/components/dashboard/air-hockey-leaderboard';
+import { recordAirHockeyWinAction } from '@/app/dashboard/van-hoa/actions';
 import { ParallaxHero } from '@/components/ui/parallax-scrolling';
 import parallaxLayerBgImg from '@/public/images/van-hoa/parallax-layer-bg.webp';
 import parallaxLayerMidImg from '@/public/images/van-hoa/parallax-layer-mid.webp';
@@ -49,8 +53,21 @@ const CHAPTER_LABELS = ['Về Ethan', 'Câu chuyện Founder', 'Cơ cấu tổ c
 
 /** Bốn "chương" đầu trang Văn hoá dùng đúng nội dung thật của 4 bài viết bên dưới (Về Ethan / Câu chuyện Founder /
  *  Cơ cấu tổ chức / Văn hoá); chương 05 là phần giải trí cố định (mini game Air Hockey), không gắn với bài viết nào. */
-export default function CultureFlowOverview({ articles }: { articles: CultureArticle[] }) {
+interface CultureFlowOverviewProps {
+  articles: CultureArticle[];
+  viewerUserId: number;
+  initialLeaderboard: AirHockeyLeaderboardEntry[];
+}
+
+export default function CultureFlowOverview({ articles, viewerUserId, initialLeaderboard }: CultureFlowOverviewProps) {
   const reduceEffects = useReducedEffects();
+  const [leaderboard, setLeaderboard] = useState(initialLeaderboard);
+
+  function handlePlayerWin() {
+    recordAirHockeyWinAction()
+      .then(setLeaderboard)
+      .catch(() => undefined);
+  }
 
   if (articles.length === 0) return null;
 
@@ -206,8 +223,9 @@ export default function CultureFlowOverview({ articles }: { articles: CultureArt
       <FlowSection aria-label={CHAPTER_LABELS[4]} style={{ backgroundColor: '#04060a', color: '#ffffff' }} rotateDeg={8}>
         <p className="relative text-xs font-medium uppercase tracking-[0.2em]">05. {CHAPTER_LABELS[4]}</p>
         <hr className="relative my-[2vw] border-t border-white/20" />
-        <div className="relative mx-auto flex w-full max-w-[1500px] flex-1 items-center justify-center py-8">
-          <AirHockeyGame />
+        <div className="relative mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-center justify-center gap-6 py-8 min-[1200px]:flex-row min-[1200px]:items-start">
+          <AirHockeyGame onPlayerWin={handlePlayerWin} />
+          <AirHockeyLeaderboard entries={leaderboard} viewerUserId={viewerUserId} />
         </div>
       </FlowSection>
     </FlowArt>

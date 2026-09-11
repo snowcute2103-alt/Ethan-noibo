@@ -28,6 +28,7 @@ const AH_CSS = `
   --ah-gold: #ffc940;
   --ah-panel: #080d14;
   width: 100%;
+  container-type: inline-size;
   font-family: ${AH_ORBITRON}, monospace;
   user-select: none;
 }
@@ -45,9 +46,11 @@ const AH_CSS = `
   max-width: 100%;
   transform-origin: top center;
 }
-@media (max-width: 1360px) {
+/* Co theo bề rộng khối cha thật sự (container query) thay vì bề rộng cả viewport (100vw) —
+   100vw từng khiến game tràn viền khi đứng cạnh bảng xếp hạng (khối cha hẹp hơn viewport). */
+@container (max-width: 1360px) {
   .ah-air-hockey #ah-outer {
-    transform: scale(calc(100vw / 1360));
+    transform: scale(calc(100cqw / 1360));
   }
 }
 .ah-air-hockey #ah-arena {
@@ -247,7 +250,19 @@ interface SideStats { goals: number; streak: number; bestStreak: number; topSpee
  *  ref thay vì `getElementById` toàn cục, dọn sạch requestAnimationFrame/listener/AudioContext lúc unmount
  *  (tránh vòng lặp game chạy ngầm vô hạn khi rời trang), và tạm dừng vòng lặp vẽ khi chương cuộn ra ngoài
  *  khung nhìn (game nằm cuối trang, không nên tốn CPU/pin khi người dùng chưa cuộn tới). */
-export default function AirHockeyGame() {
+interface AirHockeyGameProps {
+  /** Gọi đúng 1 lần mỗi khi người chơi thắng CPU — dùng để ghi nhận bảng xếp
+   *  hạng (xem AirHockeyLeaderboard). Giữ trong ref vì effect dựng game logic
+   *  chỉ chạy 1 lần lúc mount ([] deps), không muốn re-run cả game khi prop đổi. */
+  onPlayerWin?: () => void;
+}
+
+export default function AirHockeyGame({ onPlayerWin }: AirHockeyGameProps) {
+  const onPlayerWinRef = useRef(onPlayerWin);
+  useEffect(() => {
+    onPlayerWinRef.current = onPlayerWin;
+  }, [onPlayerWin]);
+
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameoverRef = useRef<HTMLDivElement>(null);
@@ -719,6 +734,7 @@ export default function AirHockeyGame() {
           if (!playerWon) gameoverEl.classList.add('ah-lose-state');
           burst(CX, CY, '#ffc940', '#ffffff', 80);
           if (playerWon) {
+            onPlayerWinRef.current?.();
             playSound('victory');
             spawnConfetti();
             setTimeout(spawnConfetti, 400);

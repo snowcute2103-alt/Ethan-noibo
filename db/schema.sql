@@ -334,3 +334,12 @@ CREATE INDEX IF NOT EXISTS idx_personal_task_history_task_created
  *  lịch sử dễ nhầm). Field tuỳ chọn theo từng nhóm task như account_name/
  *  option_tag, bật/tắt qua team_task_categories.visible_columns. */
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_name TEXT;
+
+/** Bảng xếp hạng trò chơi Air Hockey ở cuối trang Văn hoá — chỉ đếm dồn số trận
+ *  thắng CPU của mỗi người (không lưu lịch sử từng trận), ai cũng xem được
+ *  bảng xếp hạng của mọi người. */
+CREATE TABLE IF NOT EXISTS air_hockey_wins (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  wins INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
