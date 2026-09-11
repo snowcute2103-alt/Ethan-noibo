@@ -1,6 +1,8 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 
 export interface GroupMemberStat {
   userId: number;
@@ -17,6 +19,10 @@ interface TeamGroupDashboardProps {
   selectedUserId: number | null;
   /** Bấm 1 thẻ: chọn lọc đúng người đó; bấm lại thẻ đang chọn: bỏ lọc, xem lại tất cả. */
   onToggleMember: (userId: number) => void;
+  /** BGĐ xem hộ phòng ban (không phải chính nhân sự phòng ban tự xem nhóm mình)
+   *  mới cần nút quay lại — chính nhân sự vào thẳng nhóm mình, /dashboard/giao-task
+   *  của họ chỉ redirect ngược lại đúng trang này. */
+  isBgd?: boolean;
 }
 
 function initialsOf(fullName: string): string {
@@ -27,10 +33,19 @@ function initialsOf(fullName: string): string {
 /** Tổng quan tiến độ của cả nhóm đồng đội (cùng team_label, vd 3 người IT
  *  "Development Team") — bấm 1 thẻ để lọc board gộp bên dưới (TeamMergedTaskBoard)
  *  chỉ còn task của đúng người đó, bấm lại lần nữa để xem lại tất cả. */
-export default function TeamGroupDashboard({ groupLabel, members, selectedUserId, onToggleMember }: TeamGroupDashboardProps) {
+export default function TeamGroupDashboard({ groupLabel, members, selectedUserId, onToggleMember, isBgd }: TeamGroupDashboardProps) {
   return (
     <div className="team-group-dashboard-page px-4 py-6 sm:px-6 sm:py-8 min-[1025px]:px-10 min-[1025px]:py-10">
       <div className="mb-6">
+        {isBgd && (
+          <Link
+            href="/dashboard/giao-task"
+            className="mb-3 flex items-center gap-1 font-heading text-xs font-bold uppercase tracking-[0.2em] text-blue hover:text-blue-cta"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            Tổng quan 6 đội
+          </Link>
+        )}
         <h1 className="font-heading text-2xl font-semibold text-navy sm:text-3xl">Nhóm {groupLabel}</h1>
       </div>
 

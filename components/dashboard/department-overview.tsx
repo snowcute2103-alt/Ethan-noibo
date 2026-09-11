@@ -14,8 +14,22 @@ interface DepartmentOverviewProps {
  *  riêng — giữ được bookmark/back-forward thay vì đổi state ở component cha.
  *  Dùng chung thanh chọn tháng với bảng 6 đội phía trên (yearMonth do cha
  *  truyền xuống qua `groups`). */
+/** IT/Development gộp chung 1 board nên hiện như 1 cụm duy nhất thay vì liệt kê
+ *  từng người — tránh để BGĐ tưởng nhầm là board riêng theo người. Đặt lên
+ *  trước R&D trong lưới hiển thị. */
+function reorderWithItFirst(groups: DepartmentGroup[]): DepartmentGroup[] {
+  const itIndex = groups.findIndex((g) => g.department === 'it');
+  const rndIndex = groups.findIndex((g) => g.department === 'rnd');
+  if (itIndex === -1 || rndIndex === -1 || itIndex < rndIndex) return groups;
+  const reordered = [...groups];
+  const [itGroup] = reordered.splice(itIndex, 1);
+  reordered.splice(reordered.indexOf(groups[rndIndex]), 0, itGroup);
+  return reordered;
+}
+
 export default function DepartmentOverview({ groups }: DepartmentOverviewProps) {
   if (groups.length === 0) return null;
+  const orderedGroups = reorderWithItFirst(groups);
 
   return (
     <div className="mt-6 border-t-2 border-[#dbe4f2] pt-6 min-[1025px]:mt-10 min-[1025px]:pt-10">
@@ -25,7 +39,7 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 min-[1025px]:mt-4 min-[1025px]:gap-5 xl:grid-cols-3">
-        {groups.map((group) => (
+        {orderedGroups.map((group) => (
           <div key={group.department} className="stat-panel rounded-[16px] bg-white p-3 min-[1025px]:p-4">
             <Link
               href={`/dashboard/giao-task/${group.department}`}
@@ -33,6 +47,9 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
             >
               {group.departmentLabel}
             </Link>
+            {group.department === 'it' ? (
+              <ItDepartmentCluster group={group} />
+            ) : (
             <ul className="mt-3 flex flex-col gap-2">
               {group.members.map((member) => {
                 const pct = member.monthProgress.total > 0 ? Math.round((member.monthProgress.done / member.monthProgress.total) * 100) : 0;
@@ -69,9 +86,69 @@ export default function DepartmentOverview({ groups }: DepartmentOverviewProps) 
                 );
               })}
             </ul>
+            )}
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+/** 3 slot đầu của bảng màu categorical (xem dataviz skill) — thứ tự cố định,
+ *  không xoay vòng, đã qua kiểm tra phân biệt được với người mù màu. */
+const MEMBER_COLORS = ['#2a78d6', '#eb6834', '#1baf7a'];
+
+/** Gộp tiến độ cả phòng IT thành 1 dòng duy nhất thay vì liệt kê từng người —
+ *  cả phòng dùng chung 1 board nên xem theo người dễ gây hiểu nhầm là mỗi
+ *  người có board riêng. */
+function ItDepartmentCluster({ group }: { group: DepartmentGroup }) {
+  const done = group.members.reduce((sum, m) => sum + m.monthProgress.done, 0);
+  const total = group.members.reduce((sum, m) => sum + m.monthProgress.total, 0);
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  return (
+    <ul className="mt-3 flex flex-col gap-2">
+      <li>
+        <Link
+          href={`/dashboard/giao-task/${group.department}`}
+          className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left transition-colors duration-150 hover:bg-surface-2"
+        >
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#4FA3F7] text-[10px] font-bold text-white">IT</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold uppercase text-navy">
+              {group.departmentLabel} ({group.members.length} người)
+            </span>
+            <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+              <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+            </span>
+          </span>
+          <span className="shrink-0 text-xs font-semibold tabular-nums text-muted">
+            {done}/{total}
+          </span>
+        </Link>
+      </li>
+      <li className="mt-1 flex flex-col gap-2 border-t border-surface-2 px-2 pt-3">
+        {group.members.map((member, index) => {
+          const memberPct =
+            member.monthProgress.total > 0 ? Math.round((member.monthProgress.done / member.monthProgress.total) * 100) : 0;
+          const label = member.fullName.trim().split(/\s+/).slice(-1)[0] ?? '';
+          const color = MEMBER_COLORS[index % MEMBER_COLORS.length];
+          return (
+            <div
+              key={member.userId}
+              className="flex items-center gap-2"
+              title={`${member.fullName}: ${member.monthProgress.done}/${member.monthProgress.total}`}
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+              <span className="w-14 shrink-0 truncate text-[11px] font-medium text-muted">{label}</span>
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                <span className="block h-full rounded-full" style={{ width: `${memberPct}%`, backgroundColor: color }} />
+              </span>
+              <span className="w-9 shrink-0 text-right text-[10px] font-semibold tabular-nums text-muted">{memberPct}%</span>
+            </div>
+          );
+        })}
+      </li>
+    </ul>
   );
 }

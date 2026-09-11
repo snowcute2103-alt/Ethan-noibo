@@ -19,6 +19,7 @@ interface TeamWorkspaceProps {
   initialTasks: Task[];
   initialDayCounts: DailyAssigneeCount[];
   department?: Department;
+  isBgd?: boolean;
 }
 
 /** Nối TeamGroupDashboard (thẻ tổng quan từng người) với TeamMergedTaskBoard
@@ -35,6 +36,7 @@ export default function TeamWorkspace({
   initialTasks,
   initialDayCounts,
   department,
+  isBgd,
 }: TeamWorkspaceProps) {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
@@ -45,6 +47,7 @@ export default function TeamWorkspace({
         members={stats}
         selectedUserId={selectedUserId}
         onToggleMember={(userId) => setSelectedUserId((current) => (current === userId ? null : userId))}
+        isBgd={isBgd}
       />
       <TeamMergedTaskBoard
         today={today}

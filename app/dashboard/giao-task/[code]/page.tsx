@@ -37,6 +37,7 @@ async function renderGroupWorkspace(
   defaultAssigneeUserId: number,
   selfUserId: number | null,
   viewerUserId: number,
+  isBgd: boolean,
   department?: Department
 ) {
   // Sắp theo full_name giống hệt truy vấn SQL của findOutsideTeamUsersByDepartment
@@ -83,6 +84,7 @@ async function renderGroupWorkspace(
         initialTasks={tasks}
         initialDayCounts={dayCounts}
         department={department}
+        isBgd={isBgd}
       />
       <div className="px-4 pb-6 sm:px-6 sm:pb-8 min-[1025px]:px-10 min-[1025px]:pb-10">
         <TeamTimelineChart data={timeline} avatarByUserId={avatarByUserId} />
@@ -146,6 +148,7 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
         members[0].userId,
         null,
         session.userId,
+        true,
         department.id
       );
     }
@@ -153,7 +156,15 @@ export default async function GiaoTaskCodePage({ params }: PageProps) {
     const [self, mates] = await Promise.all([findUserById(session.userId), listTeammatesByLabel(session.userId)]);
     if (self && self.department === department.id && mates.length > 0) {
       const members = [{ userId: self.id, fullName: self.fullName, avatarUrl: self.avatarUrl }, ...mates];
-      return renderGroupWorkspace(today, members, self.teamLabel ?? departmentLabel(department.id), self.id, self.id, session.userId);
+      return renderGroupWorkspace(
+        today,
+        members,
+        self.teamLabel ?? departmentLabel(department.id),
+        self.id,
+        self.id,
+        session.userId,
+        false
+      );
     }
   }
 
