@@ -1,18 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'motion/react';
 import type { CultureArticle } from '@/lib/content';
 import type { AirHockeyLeaderboardEntry } from '@/lib/air-hockey';
 import type { RotatePuzzleLeaderboardEntry } from '@/lib/rotate-puzzle';
+import type { GnatSwatLeaderboardEntry } from '@/lib/gnat-swat';
 import FlowArt, { FlowSection } from '@/components/ui/story-scroll';
 import { CultureArticleDetail } from '@/components/dashboard/culture-article-detail';
 import { FounderStoryContent } from '@/components/dashboard/founder-story-content';
 import FounderStoryFlipbook from '@/components/dashboard/founder-story-flipbook';
 import AirHockeyLeaderboard from '@/components/dashboard/air-hockey-leaderboard';
 import RotatePuzzleLeaderboard from '@/components/dashboard/rotate-puzzle-leaderboard';
-import { recordAirHockeyWinAction, recordRotatePuzzleCompletionAction } from '@/app/dashboard/van-hoa/actions';
+import GnatSwatLeaderboard from '@/components/dashboard/gnat-swat-leaderboard';
+import {
+  recordAirHockeyWinAction,
+  recordRotatePuzzleCompletionAction,
+  recordGnatSwatScoreAction,
+} from '@/app/dashboard/van-hoa/actions';
 import { ParallaxHero } from '@/components/ui/parallax-scrolling';
 import parallaxLayerBgImg from '@/public/images/van-hoa/parallax-layer-bg.webp';
 import parallaxLayerMidImg from '@/public/images/van-hoa/parallax-layer-mid.webp';
@@ -23,6 +29,7 @@ import { useReducedEffects } from '@/lib/use-reduced-effects';
 // chunk riêng + bỏ SSR thay vì gộp vào bundle chính tải ngay từ đầu trang Văn hoá.
 const AirHockeyGame = dynamic(() => import('@/components/dashboard/air-hockey-game'), { ssr: false });
 const RotatePuzzleGame = dynamic(() => import('@/components/dashboard/rotate-puzzle-game'), { ssr: false });
+const GnatSwatGame = dynamic(() => import('@/components/dashboard/gnat-swat-game'), { ssr: false });
 
 const CHAPTER_STARS = [
   { top: '8%', left: '6%', size: 2, duration: 3.4, delay: 0 },
@@ -52,17 +59,26 @@ const CULTURE_PARTICLES = [
 ];
 
 /** Tên riêng cho từng chương, không lấy từ field kicker gốc vì 2 bài đầu cùng chung kicker "Về Ethan", dễ gây nhầm hai chương là một. */
-const CHAPTER_LABELS = ['Về Ethan', 'Câu chuyện Founder', 'Cơ cấu tổ chức Ethan', 'Văn hoá', 'Giải trí', 'Giải đố · Tăng nếp nhăn não'];
+const CHAPTER_LABELS = [
+  'Về Ethan',
+  'Câu chuyện Founder',
+  'Cơ cấu tổ chức Ethan',
+  'Văn hoá',
+  'Giải trí',
+  'Giải đố · Tăng nếp nhăn não',
+  'Đập muỗi · Nhanh tay lẹ mắt',
+];
 
 /** Bốn "chương" đầu trang Văn hoá dùng đúng nội dung thật của 4 bài viết bên dưới (Về Ethan / Câu chuyện Founder /
- *  Cơ cấu tổ chức / Văn hoá); chương 05 và 06 là hai phần giải trí cố định (mini game Air Hockey và game xoay lưới
- *  Rotate), không gắn với bài viết nào. */
+ *  Cơ cấu tổ chức / Văn hoá); chương 05, 06, 07 là ba phần giải trí cố định (mini game Air Hockey, game xoay
+ *  lưới Rotate, và game đập muỗi Gnat Swat), không gắn với bài viết nào. */
 interface CultureFlowOverviewProps {
   articles: CultureArticle[];
   viewerUserId: number;
   viewerAvatarUrl: string | null;
   initialLeaderboard: AirHockeyLeaderboardEntry[];
   initialRotatePuzzleLeaderboard: RotatePuzzleLeaderboardEntry[];
+  initialGnatSwatLeaderboard: GnatSwatLeaderboardEntry[];
 }
 
 export default function CultureFlowOverview({
@@ -71,10 +87,12 @@ export default function CultureFlowOverview({
   viewerAvatarUrl,
   initialLeaderboard,
   initialRotatePuzzleLeaderboard,
+  initialGnatSwatLeaderboard,
 }: CultureFlowOverviewProps) {
   const reduceEffects = useReducedEffects();
   const [leaderboard, setLeaderboard] = useState(initialLeaderboard);
   const [rotatePuzzleLeaderboard, setRotatePuzzleLeaderboard] = useState(initialRotatePuzzleLeaderboard);
+  const [gnatSwatLeaderboard, setGnatSwatLeaderboard] = useState(initialGnatSwatLeaderboard);
 
   function handlePlayerWin() {
     recordAirHockeyWinAction()
@@ -87,6 +105,33 @@ export default function CultureFlowOverview({
       .then(setRotatePuzzleLeaderboard)
       .catch(() => undefined);
   }
+
+  // Đập nhanh nhiều con muỗi liên tiếp gọi action này liên tục — request cũ có thể phản hồi sau request
+  // mới (thứ tự resolve không đảm bảo theo thứ tự gửi), dùng ref lưu điểm của request mới nhất để bỏ qua
+  // phản hồi trễ, tránh bảng xếp hạng bị "lùi" lại kết quả cũ.
+  const latestGnatSwatScoreRef = useRef(0);
+  function handleGnatSwatScoreChange(score: number) {
+    latestGnatSwatScoreRef.current = score;
+    recordGnatSwatScoreAction(score)
+      .then((entries) => {
+        if (latestGnatSwatScoreRef.current === score) setGnatSwatLeaderboard(entries);
+      })
+      .catch(() => undefined);
+  }
+
+  // Cuộn tới đúng chương khi vào trang bằng link dạng /dashboard/van-hoa#game-xxx (nút "Luyện mắt/não/phản
+  // xạ" ở banner trang chủ) — chờ 1 nhịp rồi mới cuộn vì FlowArt dựng ScrollTrigger bất đồng bộ (xem
+  // story-scroll.tsx), cuộn ngay lúc mount có thể lệch vị trí so với lúc layout đã ổn định.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    const timer = setTimeout(() => {
+      const target = document.getElementById(hash);
+      if (!target) return;
+      window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY, behavior: 'smooth' });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (articles.length === 0) return null;
 
@@ -239,7 +284,12 @@ export default function CultureFlowOverview({
         );
       })}
 
-      <FlowSection aria-label={CHAPTER_LABELS[4]} style={{ backgroundColor: '#04060a', color: '#ffffff' }} rotateDeg={8}>
+      <FlowSection
+        id="game-air-hockey"
+        aria-label={CHAPTER_LABELS[4]}
+        style={{ backgroundColor: '#04060a', color: '#ffffff' }}
+        rotateDeg={8}
+      >
         <p className="relative text-xs font-medium uppercase tracking-[0.2em]">05. {CHAPTER_LABELS[4]}</p>
         <hr className="relative my-[2vw] border-t border-white/20" />
         <div className="relative mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-center justify-center gap-6 py-8 min-[1200px]:flex-row min-[1200px]:items-start">
@@ -248,12 +298,31 @@ export default function CultureFlowOverview({
         </div>
       </FlowSection>
 
-      <FlowSection aria-label={CHAPTER_LABELS[5]} style={{ backgroundColor: '#0b0f1a', color: '#ffffff' }} rotateDeg={8}>
+      <FlowSection
+        id="game-rotate-puzzle"
+        aria-label={CHAPTER_LABELS[5]}
+        style={{ backgroundColor: '#0b0f1a', color: '#ffffff' }}
+        rotateDeg={8}
+      >
         <p className="relative text-xs font-medium uppercase tracking-[0.2em]">06. {CHAPTER_LABELS[5]}</p>
         <hr className="relative my-[2vw] border-t border-white/20" />
         <div className="relative mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-start justify-center gap-6 py-8 min-[1200px]:flex-row">
           <RotatePuzzleGame onLevelComplete={handleRotatePuzzleLevelComplete} avatarUrl={viewerAvatarUrl} />
           <RotatePuzzleLeaderboard entries={rotatePuzzleLeaderboard} viewerUserId={viewerUserId} />
+        </div>
+      </FlowSection>
+
+      <FlowSection
+        id="game-gnat-swat"
+        aria-label={CHAPTER_LABELS[6]}
+        style={{ backgroundColor: '#05080f', color: '#ffffff' }}
+        rotateDeg={8}
+      >
+        <p className="relative text-xs font-medium uppercase tracking-[0.2em]">07. {CHAPTER_LABELS[6]}</p>
+        <hr className="relative my-[2vw] border-t border-white/20" />
+        <div className="relative mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-center justify-center gap-6 py-8 min-[1200px]:flex-row">
+          <GnatSwatGame onScoreChange={handleGnatSwatScoreChange} />
+          <GnatSwatLeaderboard entries={gnatSwatLeaderboard} viewerUserId={viewerUserId} />
         </div>
       </FlowSection>
     </FlowArt>

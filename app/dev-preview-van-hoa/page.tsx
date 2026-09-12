@@ -12,6 +12,7 @@ export default function DevPreviewVanHoaPage() {
         viewerAvatarUrl={null}
         initialLeaderboard={[]}
         initialRotatePuzzleLeaderboard={[]}
+        initialGnatSwatLeaderboard={[]}
       />
     </div>
   );

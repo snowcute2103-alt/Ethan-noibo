@@ -353,3 +353,11 @@ CREATE TABLE IF NOT EXISTS rotate_puzzle_completions (
   completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, level_id)
 );
+
+/** Bảng xếp hạng game "Đập muỗi" ở chương 07 (cuối) trang Văn hoá — chỉ lưu điểm cao nhất từng đạt của
+ *  mỗi người trong 1 ván (không lưu lịch sử từng ván), ghi đè nếu ván sau đạt điểm cao hơn ván trước. */
+CREATE TABLE IF NOT EXISTS gnat_swat_scores (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  best_score INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
