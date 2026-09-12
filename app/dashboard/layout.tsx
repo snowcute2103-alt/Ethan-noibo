@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { findUserById, findFullTierAvatarUrl } from '@/lib/users';
@@ -14,6 +15,10 @@ import DashboardHeader from '@/components/dashboard/dashboard-header';
 import WhatsNewModal from '@/components/dashboard/whats-new-modal';
 import FloatingGreeting from '@/components/dashboard/floating-greeting';
 import RefreshDashboardOnReturn from '@/components/dashboard/refresh-dashboard-on-return';
+
+export const metadata: Metadata = {
+  title: 'Nội bộ Ethan',
+};
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
