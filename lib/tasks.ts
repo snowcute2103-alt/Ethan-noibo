@@ -588,6 +588,49 @@ export async function getDailyAssigneeBreakdown(teamId: number, yearMonth: strin
   }));
 }
 
+export interface AccountNicheMonthCount {
+  month: string;
+  accountName: string;
+  title: string;
+  product: string;
+  videoCount: number;
+  taskCount: number;
+}
+
+/** Biểu đồ tổng hợp theo Tên acc + Chủ đề (niche) + Sản phẩm — tổng SL vid đã
+ *  giao trong tháng, đặt cạnh getDailyAssigneeBreakdown ở cuối trang "Biểu đồ
+ *  tổng". Cùng cách gộp 2 tháng (đang chọn + liền trước) trong 1 câu truy
+ *  vấn, lọc theo `month` ở client (xem AccountNicheChart). Bỏ hẳn task chưa
+ *  có tên acc — bảng này chỉ để soi khối lượng theo TỪNG acc thật, không có
+ *  acc thì không có gì để phân theo. */
+export async function getAccountNicheBreakdown(teamId: number, yearMonth: string): Promise<AccountNicheMonthCount[]> {
+  const { from } = monthRange(previousYearMonth(yearMonth));
+  const { to } = monthRange(yearMonth);
+  const rows = await sql.query(
+    `SELECT to_char(t.task_date, 'YYYY-MM') AS month,
+            t.account_name,
+            t.title,
+            coalesce(nullif(t.product, ''), '(chưa có)') AS product,
+            coalesce(sum(t.video_count), 0)::int AS video_count,
+            count(*)::int AS task_count
+     FROM tasks t
+     WHERE t.team_id = $1 AND t.task_date >= $2 AND t.task_date < $3
+       AND t.account_name IS NOT NULL AND t.account_name <> ''
+     GROUP BY month, t.account_name, t.title, product
+     ORDER BY video_count DESC`,
+    [teamId, from, to]
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.map((row: any) => ({
+    month: row.month,
+    accountName: row.account_name,
+    title: row.title,
+    product: row.product,
+    videoCount: row.video_count,
+    taskCount: row.task_count,
+  }));
+}
+
 /** Danh sách sản phẩm của 1 đội — lấy từ các giá trị `product` đã từng lưu
  *  trên toàn bộ task của đội (không giới hạn theo khoảng ngày đang xem), nên
  *  gõ 1 sản phẩm mới khi tạo/sửa task là đủ để nó tự xuất hiện trong danh

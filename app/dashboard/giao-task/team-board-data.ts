@@ -11,6 +11,7 @@ import {
 } from '@/lib/teams';
 import {
   getDailyAssigneeBreakdown,
+  getAccountNicheBreakdown,
   listTasksForTeam,
   listTasksForOwner,
   getMonthProgress,
@@ -21,6 +22,7 @@ import {
   getPersonalMonthDayCounts,
   type Task,
   type DailyAssigneeCount,
+  type AccountNicheMonthCount,
   type MonthDayCategoryCount,
   type TeamMonthProgress,
 } from '@/lib/tasks';
@@ -36,6 +38,7 @@ export interface TeamBoardCore {
   tasks: Task[];
   monthProgress: { done: number; total: number };
   chart: DailyAssigneeCount[];
+  accountNicheChart: AccountNicheMonthCount[];
   products: string[];
   dayCategoryCounts: MonthDayCategoryCount[];
   range: DateRange;
@@ -62,12 +65,13 @@ export async function loadTeamBoardCore(teamId: number, today: string): Promise<
   const yearMonth = today.slice(0, 7);
   const range: DateRange = { fromDate: today, toDate: today };
 
-  const [team, categories, tasks, monthProgress, chart, products, dayCategoryCounts] = await Promise.all([
+  const [team, categories, tasks, monthProgress, chart, accountNicheChart, products, dayCategoryCounts] = await Promise.all([
     getTeamWithRoster(teamId),
     listTeamCategories(teamId),
     listTasksForTeam(teamId, range),
     getMonthProgress(teamId, yearMonth),
     getDailyAssigneeBreakdown(teamId, yearMonth),
+    getAccountNicheBreakdown(teamId, yearMonth),
     getDistinctProductsForTeam(teamId),
     getMonthTaskCategoryCounts(teamId, yearMonth),
   ]);
@@ -79,6 +83,7 @@ export async function loadTeamBoardCore(teamId: number, today: string): Promise<
     tasks,
     monthProgress,
     chart,
+    accountNicheChart,
     products,
     dayCategoryCounts,
     range,

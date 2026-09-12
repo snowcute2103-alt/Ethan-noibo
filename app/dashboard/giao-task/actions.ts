@@ -41,6 +41,7 @@ import {
   getMonthProgress,
   getMonthTaskCategoryCounts,
   getDailyAssigneeBreakdown,
+  getAccountNicheBreakdown,
   getDistinctProductsForTeam,
   getAllTeamsMonthProgress,
   listTasksForOwner,
@@ -69,6 +70,7 @@ import {
   type PersonalTaskComment,
   type BulkDuplicatePattern,
   type DailyAssigneeCount,
+  type AccountNicheMonthCount,
   type MonthDayCategoryCount,
   type TeamMonthProgress,
 } from '@/lib/tasks';
@@ -154,6 +156,7 @@ export interface TeamBoardTasks {
   tasks: Task[];
   monthProgress: { done: number; total: number };
   chart: DailyAssigneeCount[];
+  accountNicheChart: AccountNicheMonthCount[];
   products: string[];
   dayCategoryCounts: MonthDayCategoryCount[];
   needsBgdOverview?: false;
@@ -170,17 +173,18 @@ async function loadTeamBoardTasks(
   categoryId?: number | null
 ): Promise<TeamBoardTasks> {
   const yearMonth = calendarYearMonth;
-  const [tasks, monthProgress, chart, products, dayCategoryCounts] = await Promise.all([
+  const [tasks, monthProgress, chart, accountNicheChart, products, dayCategoryCounts] = await Promise.all([
     listTasksForTeam(teamId, { fromDate: range.fromDate, toDate: range.toDate, categoryId: categoryId ?? undefined }),
     getMonthProgress(teamId, yearMonth),
     // Biểu đồ luôn theo cả tháng chứa range đang xem — không theo đúng range
     // (ngày lẻ) — vì "1 ngày" trên bảng vẫn cần "1 tháng" trên biểu đồ cuối
     // bảng (xem AssigneeBarChart ở task-board.tsx).
     getDailyAssigneeBreakdown(teamId, yearMonth),
+    getAccountNicheBreakdown(teamId, yearMonth),
     getDistinctProductsForTeam(teamId),
     getMonthTaskCategoryCounts(teamId, yearMonth),
   ]);
-  return { tasks, monthProgress, chart, products, dayCategoryCounts };
+  return { tasks, monthProgress, chart, accountNicheChart, products, dayCategoryCounts };
 }
 
 /** Thành viên/quản lý đồng bộ lại đúng đội của mình; BGĐ chưa gắn đội nào thì

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import Image from 'next/image';
@@ -26,7 +26,16 @@ import { useCheckboxConfetti } from '@/components/dashboard/checkbox-confetti';
 import DepartmentOverview from '@/components/dashboard/department-overview';
 import TaskCalendar from '@/components/dashboard/task-calendar';
 import type { DepartmentGroup, TeamWithRoster, TeamSummary, TeamTaskCategory, TeamMemberRole, TeamMember } from '@/lib/teams';
-import type { Task, TaskInput, TaskStatus, DailyAssigneeCount, TeamMonthProgress, BulkDuplicatePattern, MonthDayCategoryCount } from '@/lib/tasks';
+import type {
+  Task,
+  TaskInput,
+  TaskStatus,
+  DailyAssigneeCount,
+  AccountNicheMonthCount,
+  TeamMonthProgress,
+  BulkDuplicatePattern,
+  MonthDayCategoryCount,
+} from '@/lib/tasks';
 import { TASK_COLUMN_KEYS, type TaskColumnKey } from '@/lib/task-columns';
 import { getAnchoredPopoverPosition, type AnchoredPopoverPosition } from '@/lib/anchored-popover';
 import {
@@ -80,6 +89,7 @@ interface BoardData {
   isManager: boolean;
   monthProgress: { done: number; total: number };
   chart: DailyAssigneeCount[];
+  accountNicheChart: AccountNicheMonthCount[];
   products: string[];
   dayCategoryCounts: MonthDayCategoryCount[];
   range: DateRange;
@@ -464,6 +474,14 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
     () => (board ? board.chart.filter((c) => c.date.startsWith(previousMonthYearMonth)) : []),
     [board, previousMonthYearMonth]
   );
+  // Biểu đồ "Theo acc · chủ đề" chỉ hiện đúng tháng đang xem trên lịch mini
+  // (calendarYearMonth) — không cần cặp tháng trước như 2 biểu đồ theo ngày
+  // ở trên vì đây là bảng tổng hợp phụ, xem thêm khi cần chứ không phải so
+  // sánh liên tháng.
+  const anchorMonthAccountNicheChart = useMemo(
+    () => (board ? board.accountNicheChart.filter((c) => c.month === calendarYearMonth) : []),
+    [board, calendarYearMonth]
+  );
 
   function reconcileBoardTasks(
     changes: Array<{
@@ -503,6 +521,24 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
         if (count > 0) chartCounts.set(key, { ...existing, count, done: Math.max(0, doneCount) });
         else chartCounts.delete(key);
       };
+      const accountNicheCounts = new Map(
+        current.accountNicheChart.map((item) => [`${item.month}:${item.accountName}:${item.title}:${item.product}`, { ...item }])
+      );
+      const adjustAccountNiche = (task: Task, delta: number) => {
+        const accountName = task.accountName?.trim();
+        // Bảng "Theo acc · chủ đề" bỏ hẳn task chưa gán tên acc (xem
+        // getAccountNicheBreakdown) — vá lạc quan cũng phải bỏ qua, không thì
+        // lại tự sinh ra dòng "chưa có acc" mà server không bao giờ trả về.
+        if (!inTrackedMonths(task) || !accountName) return;
+        const month = task.taskDate.slice(0, 7);
+        const product = task.product?.trim() || '(chưa có)';
+        const key = `${month}:${accountName}:${task.title}:${product}`;
+        const existing = accountNicheCounts.get(key) ?? { month, accountName, title: task.title, product, videoCount: 0, taskCount: 0 };
+        const taskCount = existing.taskCount + delta;
+        const videoCount = existing.videoCount + delta * (task.videoCount ?? 0);
+        if (taskCount > 0) accountNicheCounts.set(key, { ...existing, videoCount: Math.max(0, videoCount), taskCount });
+        else accountNicheCounts.delete(key);
+      };
       for (const change of changes) {
         const removeId = change.removeId ?? change.previous?.id;
         // Map giữ thứ tự theo lần chèn. Xoá rồi set lại cùng ID sẽ đẩy task
@@ -527,6 +563,8 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
         }
         if (change.previous && change.previousWasCounted !== false) adjustChart(change.previous, -1);
         if (change.next) adjustChart(change.next, 1);
+        if (change.previous && change.previousWasCounted !== false) adjustAccountNiche(change.previous, -1);
+        if (change.next) adjustAccountNiche(change.next, 1);
         if (change.next?.product) products.add(change.next.product);
       }
       const tasks = [...nextById.values()];
@@ -535,6 +573,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
         tasks,
         monthProgress: { done: Math.max(0, done), total: Math.max(0, total) },
         chart: [...chartCounts.values()],
+        accountNicheChart: [...accountNicheCounts.values()],
         products: [...products].sort((a, b) => a.localeCompare(b, 'vi')),
       };
     });
@@ -599,6 +638,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
               tasks: [...tasks, ...optimisticCreatedTasksRef.current.values()],
               monthProgress: result.monthProgress,
               chart: result.chart,
+              accountNicheChart: result.accountNicheChart,
               products: result.products,
               range,
             }
@@ -1194,6 +1234,7 @@ export default function TaskBoard({ isBgd, today, overview: initialOverview, boa
           <div className="mt-6 flex flex-col gap-4 border-t-2 border-[#dbe4f2] pt-6 min-[1025px]:mt-10 min-[1025px]:gap-5 min-[1025px]:pt-10">
             <h2 className="font-heading text-2xl font-light uppercase tracking-wide text-navy sm:text-3xl min-[1025px]:text-4xl">Biểu đồ tổng</h2>
             <MonthlyDailyChart chart={anchorMonthChart} members={board.team.members} monthAnchor={calendarMonthAnchor} />
+            <AccountNicheChart data={anchorMonthAccountNicheChart} monthAnchor={calendarMonthAnchor} />
             <MonthlyDailyChart chart={previousMonthChart} members={board.team.members} monthAnchor={previousMonthAnchor} />
           </div>
         </>
@@ -3602,6 +3643,143 @@ function MonthlyDailyChart({ chart, members, monthAnchor }: { chart: DailyAssign
   );
 }
 
+/** Biểu đồ tổng hợp theo Tên acc + Chủ đề + Sản phẩm cho đúng tháng đang xem
+ *  trên lịch mini (calendarMonthAnchor) — đặt ngay dưới 2 biểu đồ theo ngày ở
+ *  trên, gộp SL vid theo từng bộ acc+chủ đề+sản phẩm để biết acc/chủ đề/sản
+ *  phẩm nào đã giao nhiều vid nhất trong tháng. Task chưa gán tên acc không
+ *  xuất hiện ở đây (đã bỏ từ getAccountNicheBreakdown) — bảng này chỉ để soi
+ *  khối lượng của từng acc thật, không có acc thì không có gì để phân theo. */
+interface AccountNicheGroup {
+  accountName: string;
+  totalVideoCount: number;
+  totalTaskCount: number;
+  niches: AccountNicheNiche[];
+}
+
+interface AccountNicheNiche {
+  title: string;
+  totalVideoCount: number;
+  items: AccountNicheMonthCount[];
+}
+
+function groupAccountNiche(data: AccountNicheMonthCount[]): AccountNicheGroup[] {
+  const groups = new Map<string, { accountName: string; totalVideoCount: number; totalTaskCount: number; niches: Map<string, AccountNicheNiche> }>();
+  for (const row of data) {
+    const group = groups.get(row.accountName) ?? {
+      accountName: row.accountName,
+      totalVideoCount: 0,
+      totalTaskCount: 0,
+      niches: new Map<string, AccountNicheNiche>(),
+    };
+    group.totalVideoCount += row.videoCount;
+    group.totalTaskCount += row.taskCount;
+    const niche = group.niches.get(row.title) ?? { title: row.title, totalVideoCount: 0, items: [] };
+    niche.totalVideoCount += row.videoCount;
+    niche.items.push(row);
+    group.niches.set(row.title, niche);
+    groups.set(row.accountName, group);
+  }
+  const result = [...groups.values()].map((group) => {
+    const niches = [...group.niches.values()];
+    for (const niche of niches) {
+      niche.items.sort((a, b) => b.videoCount - a.videoCount || a.product.localeCompare(b.product, 'vi'));
+    }
+    niches.sort((a, b) => b.totalVideoCount - a.totalVideoCount || a.title.localeCompare(b.title, 'vi'));
+    return { accountName: group.accountName, totalVideoCount: group.totalVideoCount, totalTaskCount: group.totalTaskCount, niches };
+  });
+  result.sort((a, b) => b.totalVideoCount - a.totalVideoCount || a.accountName.localeCompare(b.accountName, 'vi'));
+  return result;
+}
+
+function AccountNicheChart({ data, monthAnchor }: { data: AccountNicheMonthCount[]; monthAnchor: string }) {
+  const monthLabel = `Tháng ${Number(monthAnchor.slice(5, 7))}/${monthAnchor.slice(0, 4)}`;
+  const groups = groupAccountNiche(data);
+  const totalVideoCount = groups.reduce((sum, group) => sum + group.totalVideoCount, 0);
+  // Mỗi acc 1 màu riêng theo tên (sắp chữ cái) — dùng lại đúng thuật toán
+  // distinctColorMap đã có (né dải xanh dương thương hiệu, cách hue theo tỉ
+  // lệ vàng) thay vì bịa bảng màu mới, khớp cách "Task theo người" tô màu
+  // theo người ở trên.
+  const colorOf = distinctColorMap(groups.map((group) => group.accountName));
+  const CELL_BORDER = 'border border-[#e0e6f0]';
+
+  return (
+    <div className="rounded-[16px] border border-[#e8edf5] bg-white p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="font-heading text-sm font-bold uppercase tracking-wide text-navy">
+          Theo acc · chủ đề <span className="font-semibold text-muted">· {monthLabel}</span>
+        </p>
+        <p className="text-xs font-semibold text-muted">
+          {groups.length} acc · Tổng {totalVideoCount} vid
+        </p>
+      </div>
+      {groups.length === 0 ? (
+        <p className="text-sm text-muted">Chưa có acc nào được gán trong tháng này.</p>
+      ) : (
+        // border-collapse (không phải divide-x/divide-y) để đường kẻ luôn khép
+        // kín quanh từng ô kể cả ô Tên acc/Chủ đề bị rowSpan gộp nhiều dòng —
+        // divide-x dựa vào vị trí :not(:first-child) trong CHÍNH hàng đó nên
+        // mất đường kẻ dọc ở mọi dòng không phải dòng đầu của 1 acc/chủ đề.
+        <div className="max-h-[420px] overflow-auto rounded-[10px] border border-[#e0e6f0]">
+          <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+            <thead className="text-xs font-bold uppercase tracking-wider text-muted">
+              <tr>
+                <th className={`sticky top-0 z-10 bg-surface-2 px-3 py-2 ${CELL_BORDER}`}>Tên acc</th>
+                <th className={`sticky top-0 z-10 bg-surface-2 px-3 py-2 ${CELL_BORDER}`}>Chủ đề</th>
+                <th className={`sticky top-0 z-10 bg-surface-2 px-3 py-2 ${CELL_BORDER}`}>Sản phẩm</th>
+                <th className={`sticky top-0 z-10 bg-surface-2 px-3 py-2 text-right ${CELL_BORDER}`}>SL vid</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((group) => {
+                const color = colorOf.get(group.accountName) ?? UNASSIGNED_COLOR;
+                const accountRowCount = group.niches.reduce((sum, niche) => sum + niche.items.length, 0);
+                let isFirstAccountRow = true;
+                return (
+                  <Fragment key={group.accountName}>
+                    {group.niches.map((niche) => (
+                      <Fragment key={`${group.accountName}:${niche.title}`}>
+                        {niche.items.map((item, productIdx) => {
+                          const renderAccountCell = isFirstAccountRow;
+                          if (renderAccountCell) isFirstAccountRow = false;
+                          return (
+                            <tr key={`${group.accountName}:${niche.title}:${item.product}`} className="hover:bg-surface-2">
+                              {renderAccountCell && (
+                                <td
+                                  rowSpan={accountRowCount}
+                                  className={`assignee-tint-card align-top px-3 py-2 ${CELL_BORDER}`}
+                                  style={{ borderLeftWidth: 3, borderLeftColor: color, '--tint-color': color } as React.CSSProperties}
+                                >
+                                  <p className="flex items-center gap-1.5 text-sm font-bold text-ink">
+                                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} aria-hidden="true" />
+                                    {group.accountName}
+                                  </p>
+                                  <p className="text-[11px] text-muted">
+                                    Tổng {group.totalVideoCount} vid · {group.totalTaskCount} task
+                                  </p>
+                                </td>
+                              )}
+                              {productIdx === 0 && (
+                                <td rowSpan={niche.items.length} className={`align-top px-3 py-2 text-ink ${CELL_BORDER}`}>
+                                  {niche.title}
+                                </td>
+                              )}
+                              <td className={`px-3 py-2 text-ink ${CELL_BORDER}`}>{item.product}</td>
+                              <td className={`px-3 py-2 text-right font-bold tabular-nums text-navy ${CELL_BORDER}`}>{item.videoCount}</td>
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Lưới lịch chọn nhiều ngày tự do cho tab "Chọn ngày" — thay cho <input
  *  type=date> đơn lẻ vì cần nhân bản rời rạc nhiều ngày, hoặc cả tháng, cùng
