@@ -343,3 +343,13 @@ CREATE TABLE IF NOT EXISTS air_hockey_wins (
   wins INTEGER NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+/** Bảng xếp hạng game "Rotate" (giải đố xoay lưới) ở chương 06 trang Văn hoá — 1 dòng/user/màn đã hoàn
+ *  thành, để tính điểm (tổng số sao độ khó các màn đã qua) mà không cộng dồn lại nếu chơi lại màn cũ. */
+CREATE TABLE IF NOT EXISTS rotate_puzzle_completions (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  level_id TEXT NOT NULL,
+  stars INTEGER NOT NULL DEFAULT 1,
+  completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, level_id)
+);

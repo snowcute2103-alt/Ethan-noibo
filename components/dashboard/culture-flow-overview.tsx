@@ -5,12 +5,14 @@ import dynamic from 'next/dynamic';
 import { motion } from 'motion/react';
 import type { CultureArticle } from '@/lib/content';
 import type { AirHockeyLeaderboardEntry } from '@/lib/air-hockey';
+import type { RotatePuzzleLeaderboardEntry } from '@/lib/rotate-puzzle';
 import FlowArt, { FlowSection } from '@/components/ui/story-scroll';
 import { CultureArticleDetail } from '@/components/dashboard/culture-article-detail';
 import { FounderStoryContent } from '@/components/dashboard/founder-story-content';
 import FounderStoryFlipbook from '@/components/dashboard/founder-story-flipbook';
 import AirHockeyLeaderboard from '@/components/dashboard/air-hockey-leaderboard';
-import { recordAirHockeyWinAction } from '@/app/dashboard/van-hoa/actions';
+import RotatePuzzleLeaderboard from '@/components/dashboard/rotate-puzzle-leaderboard';
+import { recordAirHockeyWinAction, recordRotatePuzzleCompletionAction } from '@/app/dashboard/van-hoa/actions';
 import { ParallaxHero } from '@/components/ui/parallax-scrolling';
 import parallaxLayerBgImg from '@/public/images/van-hoa/parallax-layer-bg.webp';
 import parallaxLayerMidImg from '@/public/images/van-hoa/parallax-layer-mid.webp';
@@ -20,6 +22,7 @@ import { useReducedEffects } from '@/lib/use-reduced-effects';
 // Game canvas nặng, nằm ở chương cuối cùng (phải cuộn hết trang mới tới) — tách
 // chunk riêng + bỏ SSR thay vì gộp vào bundle chính tải ngay từ đầu trang Văn hoá.
 const AirHockeyGame = dynamic(() => import('@/components/dashboard/air-hockey-game'), { ssr: false });
+const RotatePuzzleGame = dynamic(() => import('@/components/dashboard/rotate-puzzle-game'), { ssr: false });
 
 const CHAPTER_STARS = [
   { top: '8%', left: '6%', size: 2, duration: 3.4, delay: 0 },
@@ -49,23 +52,39 @@ const CULTURE_PARTICLES = [
 ];
 
 /** Tên riêng cho từng chương, không lấy từ field kicker gốc vì 2 bài đầu cùng chung kicker "Về Ethan", dễ gây nhầm hai chương là một. */
-const CHAPTER_LABELS = ['Về Ethan', 'Câu chuyện Founder', 'Cơ cấu tổ chức Ethan', 'Văn hoá', 'Giải trí'];
+const CHAPTER_LABELS = ['Về Ethan', 'Câu chuyện Founder', 'Cơ cấu tổ chức Ethan', 'Văn hoá', 'Giải trí', 'Giải đố · Tăng nếp nhăn não'];
 
 /** Bốn "chương" đầu trang Văn hoá dùng đúng nội dung thật của 4 bài viết bên dưới (Về Ethan / Câu chuyện Founder /
- *  Cơ cấu tổ chức / Văn hoá); chương 05 là phần giải trí cố định (mini game Air Hockey), không gắn với bài viết nào. */
+ *  Cơ cấu tổ chức / Văn hoá); chương 05 và 06 là hai phần giải trí cố định (mini game Air Hockey và game xoay lưới
+ *  Rotate), không gắn với bài viết nào. */
 interface CultureFlowOverviewProps {
   articles: CultureArticle[];
   viewerUserId: number;
+  viewerAvatarUrl: string | null;
   initialLeaderboard: AirHockeyLeaderboardEntry[];
+  initialRotatePuzzleLeaderboard: RotatePuzzleLeaderboardEntry[];
 }
 
-export default function CultureFlowOverview({ articles, viewerUserId, initialLeaderboard }: CultureFlowOverviewProps) {
+export default function CultureFlowOverview({
+  articles,
+  viewerUserId,
+  viewerAvatarUrl,
+  initialLeaderboard,
+  initialRotatePuzzleLeaderboard,
+}: CultureFlowOverviewProps) {
   const reduceEffects = useReducedEffects();
   const [leaderboard, setLeaderboard] = useState(initialLeaderboard);
+  const [rotatePuzzleLeaderboard, setRotatePuzzleLeaderboard] = useState(initialRotatePuzzleLeaderboard);
 
   function handlePlayerWin() {
     recordAirHockeyWinAction()
       .then(setLeaderboard)
+      .catch(() => undefined);
+  }
+
+  function handleRotatePuzzleLevelComplete(levelId: string) {
+    recordRotatePuzzleCompletionAction(levelId)
+      .then(setRotatePuzzleLeaderboard)
       .catch(() => undefined);
   }
 
@@ -226,6 +245,15 @@ export default function CultureFlowOverview({ articles, viewerUserId, initialLea
         <div className="relative mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-center justify-center gap-6 py-8 min-[1200px]:flex-row min-[1200px]:items-start">
           <AirHockeyGame onPlayerWin={handlePlayerWin} />
           <AirHockeyLeaderboard entries={leaderboard} viewerUserId={viewerUserId} />
+        </div>
+      </FlowSection>
+
+      <FlowSection aria-label={CHAPTER_LABELS[5]} style={{ backgroundColor: '#0b0f1a', color: '#ffffff' }} rotateDeg={8}>
+        <p className="relative text-xs font-medium uppercase tracking-[0.2em]">06. {CHAPTER_LABELS[5]}</p>
+        <hr className="relative my-[2vw] border-t border-white/20" />
+        <div className="relative mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-start justify-center gap-6 py-8 min-[1200px]:flex-row">
+          <RotatePuzzleGame onLevelComplete={handleRotatePuzzleLevelComplete} avatarUrl={viewerAvatarUrl} />
+          <RotatePuzzleLeaderboard entries={rotatePuzzleLeaderboard} viewerUserId={viewerUserId} />
         </div>
       </FlowSection>
     </FlowArt>

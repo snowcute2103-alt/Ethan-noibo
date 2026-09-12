@@ -3,6 +3,8 @@ import { getSession } from '@/lib/auth';
 import { canView } from '@/lib/roles';
 import { CULTURE_ARTICLES } from '@/lib/content';
 import { listAirHockeyLeaderboard } from '@/lib/air-hockey';
+import { listRotatePuzzleLeaderboard } from '@/lib/rotate-puzzle';
+import { findUserById } from '@/lib/users';
 import CultureGalleryHero from '@/components/dashboard/culture-gallery-hero';
 import CultureFlowOverview from '@/components/dashboard/culture-flow-overview';
 
@@ -11,7 +13,11 @@ export default async function VanHoaPage() {
   if (!session) redirect('/login');
 
   const articles = CULTURE_ARTICLES.filter((c) => canView(session, c.visibility));
-  const leaderboard = await listAirHockeyLeaderboard();
+  const [leaderboard, rotatePuzzleLeaderboard, viewer] = await Promise.all([
+    listAirHockeyLeaderboard(),
+    listRotatePuzzleLeaderboard(),
+    findUserById(session.userId),
+  ]);
 
   return (
     <div className="bg-white">
@@ -21,7 +27,13 @@ export default async function VanHoaPage() {
           Chưa có nội dung văn hoá nào cho khối của bạn.
         </p>
       ) : (
-        <CultureFlowOverview articles={articles} viewerUserId={session.userId} initialLeaderboard={leaderboard} />
+        <CultureFlowOverview
+          articles={articles}
+          viewerUserId={session.userId}
+          viewerAvatarUrl={viewer?.avatarUrl ?? null}
+          initialLeaderboard={leaderboard}
+          initialRotatePuzzleLeaderboard={rotatePuzzleLeaderboard}
+        />
       )}
     </div>
   );
